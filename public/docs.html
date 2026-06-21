@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nexus Docs — Enterprise Dev Toolkit</title>
-  <meta name="description" content="Nexus docs: Design-to-Code pipeline, 22 Software Development Lifecycle (SDLC) dev-workflow agents, and multi-step workflow commands — powered by Claude Code." />
+  <title>Nexus Docs — Developer Workflow Toolkit v3</title>
+  <meta name="description" content="Nexus v3 docs — Day 0 scaffold + Day 1 EPAV methodology. Install, init, scaffold, and ship features with a repeatable AI-assisted workflow." />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -29,7 +29,6 @@
       display: flex;
     }
 
-    /* Sidebar */
     nav {
       width: 220px;
       min-height: 100vh;
@@ -42,18 +41,8 @@
       flex-shrink: 0;
     }
 
-    .nav-logo {
-      color: var(--cyan);
-      font-size: 1rem;
-      font-weight: bold;
-      margin-bottom: 0.25rem;
-    }
-
-    .nav-version {
-      color: var(--muted);
-      font-size: 0.65rem;
-      margin-bottom: 2rem;
-    }
+    .nav-logo { color: var(--cyan); font-size: 1rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .nav-version { color: var(--muted); font-size: 0.65rem; margin-bottom: 2rem; }
 
     .nav-section {
       color: var(--muted);
@@ -74,19 +63,15 @@
     }
 
     nav a:hover, nav a.active { color: var(--cyan); }
+    nav a.sub { padding-left: 1rem; font-size: 0.7rem; }
 
-    /* Main */
     main {
       flex: 1;
       padding: 3rem 3rem 5rem;
       max-width: 820px;
     }
 
-    h1 {
-      color: var(--white);
-      font-size: 1.5rem;
-      margin-bottom: 0.5rem;
-    }
+    h1 { color: var(--white); font-size: 1.5rem; margin-bottom: 0.5rem; }
 
     h2 {
       color: var(--white);
@@ -97,27 +82,12 @@
       border-bottom: 1px solid var(--border);
     }
 
-    h3 {
-      color: var(--cyan);
-      font-size: 0.85rem;
-      margin-top: 1.75rem;
-      margin-bottom: 0.75rem;
-    }
+    h3 { color: var(--cyan); font-size: 0.85rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
 
-    p {
-      color: var(--muted);
-      font-size: 0.8rem;
-      line-height: 1.7;
-      margin-bottom: 1rem;
-    }
+    p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 1rem; }
 
-    .lead {
-      color: #94a3b8;
-      font-size: 0.85rem;
-      margin-bottom: 2rem;
-    }
+    .lead { color: #94a3b8; font-size: 0.85rem; margin-bottom: 2rem; }
 
-    /* Code blocks */
     pre {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -128,11 +98,7 @@
       position: relative;
     }
 
-    pre code {
-      color: var(--white);
-      font-size: 0.8rem;
-      line-height: 1.6;
-    }
+    pre code { color: var(--white); font-size: 0.8rem; line-height: 1.6; }
 
     .copy-btn {
       position: absolute;
@@ -154,11 +120,10 @@
 
     .prompt { color: var(--muted); }
     .cmd { color: var(--cyan); }
-    .arg { color: var(--white); }
     .comment { color: var(--muted); }
     .str { color: var(--green); }
+    .skill { color: var(--yellow); }
 
-    /* Callout */
     .callout {
       background: var(--surface);
       border-left: 3px solid var(--cyan);
@@ -172,13 +137,7 @@
 
     .callout.warn { border-color: var(--yellow); }
 
-    /* Table */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 1.25rem;
-      font-size: 0.78rem;
-    }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: 0.78rem; }
 
     th {
       color: var(--muted);
@@ -198,21 +157,12 @@
       vertical-align: top;
     }
 
-    td code, p code {
-      color: var(--cyan);
-      font-size: 0.78rem;
-    }
-
+    td code, p code { color: var(--cyan); font-size: 0.78rem; }
     tr:last-child td { border-bottom: none; }
 
-    /* Steps */
     .steps { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }
 
-    .step {
-      display: flex;
-      gap: 1rem;
-      align-items: flex-start;
-    }
+    .step { display: flex; gap: 1rem; align-items: flex-start; }
 
     .step-num {
       background: var(--cyan-dim);
@@ -232,7 +182,6 @@
     .step-title { color: var(--white); font-size: 0.82rem; margin-bottom: 0.25rem; }
     .step-desc { color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
 
-    /* Back link */
     .back {
       display: inline-flex;
       align-items: center;
@@ -256,607 +205,481 @@
 
   <nav>
     <div class="nav-logo">NEXUS</div>
-    <div class="nav-version">v2.3.9</div>
+    <div class="nav-version">v3.0.0</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
-    <a href="#prereqs">Prerequisites</a>
-    <a href="#install">Installation</a>
-    <a href="#integration-cli" style="padding-left:1.5rem;font-size:0.72rem">→ CLI</a>
-    <a href="#integration-claude-code" style="padding-left:1.5rem;font-size:0.72rem">→ Claude Code</a>
-    <a href="#integration-desktop" style="padding-left:1.5rem;font-size:0.72rem">→ Claude Desktop / Cursor</a>
-    <a href="#integration-n8n" style="padding-left:1.5rem;font-size:0.72rem">→ n8n</a>
-    <a href="#updating">Updating</a>
-    <a href="#quickstart">Quick Start</a>
+    <a href="#install">Install</a>
+    <a href="#init">nexus init</a>
 
-    <div class="nav-section">Design-to-Code</div>
-    <a href="#from-prompt">From a prompt</a>
-    <a href="#from-zip">From a Figma Make ZIP</a>
-    <a href="#from-codebase">From a codebase</a>
+    <div class="nav-section">Day 0</div>
+    <a href="#day0">Overview</a>
+    <a href="#day0-prereqs" class="sub">→ Prerequisites</a>
+    <a href="#day0-evaluate" class="sub">→ EVALUATE</a>
+    <a href="#day0-plan" class="sub">→ PLAN</a>
+    <a href="#day0-apply" class="sub">→ APPLY</a>
+    <a href="#day0-validate" class="sub">→ VALIDATE</a>
 
-    <div class="nav-section">Dev Agents</div>
-    <a href="#agents">Dev-workflow agents</a>
-    <a href="#agent-memory">Agent memory</a>
-    <a href="#workflow-cmds">Workflow commands</a>
+    <div class="nav-section">Day 1 — EPAV</div>
+    <a href="#day1">Overview</a>
+    <a href="#evaluate" class="sub">→ /evaluate</a>
+    <a href="#plan" class="sub">→ /plan</a>
+    <a href="#apply" class="sub">→ /apply</a>
+    <a href="#validate" class="sub">→ /validate</a>
+
+    <div class="nav-section">MCP Tools</div>
+    <a href="#mcp">Setup</a>
+    <a href="#mcp-tools">Tool reference</a>
+
+    <div class="nav-section">Skills &amp; Rules</div>
+    <a href="#skills">Built-in skills</a>
+    <a href="#custom-skills">Custom skills</a>
+    <a href="#rules">Rules</a>
 
     <div class="nav-section">Reference</div>
-    <a href="#golden-paths">Golden Paths</a>
-    <a href="#commands">All Commands</a>
-    <a href="#options">Options</a>
+    <a href="#commands">All commands</a>
+    <a href="#knowledge">knowledge/ layout</a>
 
     <div class="nav-section">Links</div>
     <a href="/">← Home</a>
-    <a href="https://github.com/rcdelacruz/nexus-toolkit" target="_blank">GitHub</a>
+    <a href="/workflow">Workflow diagram</a>
+    <a href="https://github.com/rcdelacruz/nexus-dev-toolkit" target="_blank">GitHub</a>
   </nav>
 
   <main>
     <a href="/" class="back">← back to home</a>
 
     <h1>Getting Started</h1>
-    <p class="lead">Nexus is an enterprise dev toolkit with three capabilities: a Design-to-Code pipeline, 22 Software Development Lifecycle (SDLC) dev-workflow agents, and multi-step workflow commands — all powered by Claude Code.</p>
+    <p class="lead">nexus-dev-toolkit gives your team a structured AI-assisted workflow: scaffold a production-grade project on Day 0, then ship every feature with the EPAV cycle on Day 1 — evaluate, plan, apply, validate.</p>
 
     <!-- Overview -->
     <h2 id="overview">Overview</h2>
 
-    <p>Nexus ships as both a CLI (<code>nexus</code>) and an MCP server. Both share the same underlying tools.</p>
-
     <table>
-      <thead>
-        <tr><th>Mode</th><th>How</th><th>Best for</th></tr>
-      </thead>
+      <thead><tr><th>Phase</th><th>When</th><th>Skill</th><th>Output</th></tr></thead>
       <tbody>
-        <tr><td><code>nexus</code> CLI</td><td>Terminal — install via one-liner</td><td>Local development, CI scripts, standalone use</td></tr>
-        <tr><td>MCP server</td><td>Add to Claude Code, n8n, or Claude Desktop</td><td>AI agent workflows, n8n DevSecOps automation</td></tr>
+        <tr><td>Day 0</td><td>Once per project</td><td><code>/scaffold</code></td><td>Production scaffold — mock auth, design system, AGENTS.md, zero credentials needed</td></tr>
+        <tr><td>Day 1</td><td>Every feature, every sprint</td><td><code>/evaluate → /plan → /apply → /validate</code></td><td>Shipped feature, acceptance criteria verified</td></tr>
       </tbody>
     </table>
 
-    <p>Three tooling areas:</p>
-
-    <table>
-      <thead>
-        <tr><th>Area</th><th>What it does</th><th>Commands</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Design-to-Code Pipeline</strong></td>
-          <td>Turns a <a href="https://www.figma.com/make" target="_blank" style="color:var(--cyan)">Figma Make</a> export, text description, or existing codebase into production-ready code in your chosen stack</td>
-          <td><code>nexus run</code> · <code>nexus ingest</code> · <code>nexus remap</code> · <code>nexus transform</code> · <code>nexus validate</code> · <code>nexus package</code></td>
-        </tr>
-        <tr>
-          <td><strong>Dev-Workflow Agents</strong></td>
-          <td>22 specialized Claude agents for every SDLC stage: code review, security scanning, QA, deployment, architecture, and more</td>
-          <td><code>nexus agent list</code> · <code>nexus agent run</code></td>
-        </tr>
-        <tr>
-          <td><strong>Workflow Commands</strong></td>
-          <td>11 multi-step orchestration workflows that chain agent tasks: design → implement → review → deploy → document</td>
-          <td><code>nexus workflow run</code></td>
-        </tr>
-      </tbody>
-    </table>
-
-    <p>The MCP server additionally exposes <code>nexus_search</code> and <code>nexus_read</code> — hybrid web search and doc-optimised reading tools for AI agents (MCP only, not available in the CLI).</p>
-
-    <!-- Prerequisites -->
-    <h2 id="prereqs">Prerequisites</h2>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-content">
-          <div class="step-title">Python 3.10+</div>
-          <div class="step-desc">Check if you have it: <code>python3 --version</code></div>
-          <div class="step-desc" style="margin-top:0.5rem">If not installed:</div>
-          <pre style="margin-top:0.5rem"><code><span class="comment"># macOS (via Homebrew)</span>
-<span class="prompt">$</span> <span class="cmd">brew install python</span>
-
-<span class="comment"># or download from python.org</span></code></pre>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-content">
-          <div class="step-title">uv <span style="color:var(--muted);font-weight:normal">(recommended)</span></div>
-          <div class="step-desc">The installer prefers <code>uv</code> over pip for fast, isolated installs.</div>
-          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">curl</span> -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-content">
-          <div class="step-title">Claude Code CLI</div>
-          <div class="step-desc">Required for the transform step and all agent/workflow commands. Needs an active <a href="https://claude.ai" target="_blank" style="color:var(--cyan)">Claude</a> subscription (Pro or above).</div>
-          <pre style="margin-top:0.5rem"><code><span class="comment"># Install Claude Code</span>
-<span class="prompt">$</span> <span class="cmd">npm install -g</span> @anthropic-ai/claude-code
-
-<span class="comment"># Authenticate</span>
-<span class="prompt">$</span> <span class="cmd">claude login</span>
-
-<span class="comment"># Verify</span>
-<span class="prompt">$</span> <span class="cmd">claude --version</span></code></pre>
-        </div>
-      </div>
-    </div>
-
-    <div class="callout warn">
-      <code>nexus transform</code>, <code>nexus agent run</code>, and <code>nexus workflow run</code> all call the <code>claude</code> CLI with <code>--dangerously-skip-permissions</code> for non-interactive execution. Make sure it's installed and authenticated before use.
-    </div>
+    <p>Everything the AI needs — skills, rules, knowledge — lives in your repo under <code>.claude/commands/</code> and <code>knowledge/</code>. Versioned, shared, enforced across the team.</p>
 
     <!-- Install -->
-    <h2 id="install">Installation &amp; Integration</h2>
+    <h2 id="install">Install</h2>
 
-    <p>Pick the use case that matches what you want to do — each one is self-contained.</p>
+    <p><strong>Requirements:</strong> Python 3.10+, <code>uv</code> (recommended) or <code>pip</code></p>
 
-    <!-- Use case 1: CLI -->
-    <h3 id="integration-cli">I want to generate code from a Figma Make export or prompt</h3>
-    <p>Install the <code>nexus</code> CLI and run the Design-to-Code pipeline from your terminal.</p>
+    <pre><code><span class="comment"># Recommended</span>
+<span class="prompt">$</span> <span class="cmd">uv tool install</span> nexus-dev-toolkit
+
+<span class="comment"># Or via pip</span>
+<span class="prompt">$</span> <span class="cmd">pip install</span> nexus-dev-toolkit
+
+<span class="comment"># Or via curl</span>
+<span class="prompt">$</span> <span class="cmd">curl</span> -fsSL https://nexus.coderstudio.co/install.sh | bash</code><button class="copy-btn" onclick="copy(this, 'uv tool install nexus-dev-toolkit')">copy</button></pre>
+
+    <!-- nexus init -->
+    <h2 id="init">nexus init</h2>
+
+    <p>Run once in your project directory. Creates the full workflow scaffold.</p>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">nexus init</span> .</code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
+
+    <p>Creates:</p>
+
+    <pre><code>.claude/
+├── commands/
+│   ├── scaffold.md    <span class="comment">← /scaffold  — Day 0 setup</span>
+│   ├── evaluate.md    <span class="comment">← /evaluate  — orient on task</span>
+│   ├── plan.md        <span class="comment">← /plan      — blueprint</span>
+│   ├── apply.md       <span class="comment">← /apply     — implement</span>
+│   ├── validate.md    <span class="comment">← /validate  — verify</span>
+│   └── epav.md        <span class="comment">← /epav      — full cycle guide</span>
+└── settings.json      <span class="comment">← PostToolUse: graphify auto-update</span>
+knowledge/
+├── rules/             <span class="comment">← coding standards, arch decisions</span>
+├── patterns/          <span class="comment">← reusable implementation patterns</span>
+├── prompts/dev/       <span class="comment">← task prompt templates</span>
+└── retros/            <span class="comment">← retrospective notes</span>
+.mcp.json              <span class="comment">← MCP server config</span></code></pre>
+
+    <!-- Day 0 -->
+    <h2 id="day0">Day 0 — /scaffold</h2>
+
+    <p>Run once per project. Produces a production-grade scaffold from your architecture document and Figma design. No business logic, no live integrations — mock auth, mock data, zero external dependencies.</p>
+
+    <div class="callout">
+      Day 0 uses <code>/scaffold</code> — not EPAV. EPAV is only for Day 1 feature tasks.
+    </div>
+
+    <h3 id="day0-prereqs">Prerequisites</h3>
 
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <div class="step-title">Install nexus-toolkit</div>
-          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">curl</span> -fsSL https://nexus.coderstudio.co/install.sh | bash</code><button class="copy-btn" onclick="copy(this, 'curl -fsSL https://nexus.coderstudio.co/install.sh | bash')">copy</button></pre>
-          <div class="step-desc" style="margin-top:0.5rem">Or: <code>pip install nexus-toolkit</code> / <code>uv tool install nexus-toolkit</code></div>
+          <div class="step-title">Architecture document in <code>docs/arch-docs/</code></div>
+          <div class="step-desc">Stack, data model, auth flow, error format, security rules, NFRs.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
         <div class="step-content">
-          <div class="step-title">Install &amp; authenticate Claude Code</div>
-          <div class="step-desc">Required for the transform step and all agent/workflow commands.</div>
-          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">npm install -g</span> @anthropic-ai/claude-code
-<span class="prompt">$</span> <span class="cmd">claude login</span></code></pre>
+          <div class="step-title">Run <code>nexus init .</code></div>
+          <div class="step-desc">Sets up <code>.claude/commands/</code>, <code>knowledge/</code>, and <code>.mcp.json</code>.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <div class="step-content">
-          <div class="step-title">Run</div>
-          <pre style="margin-top:0.5rem"><code><span class="comment"># From a text prompt</span>
-<span class="prompt">$</span> <span class="cmd">nexus run prompt</span> <span class="str">"A SaaS dashboard"</span> -g nextjs-fullstack -p my-app
-
-<span class="comment"># From a Figma Make ZIP</span>
-<span class="prompt">$</span> <span class="cmd">nexus run zip</span> ~/Downloads/figma-export.zip -g nextjs-fullstack -p my-app</code><button class="copy-btn" onclick="copy(this, 'nexus run prompt \"A SaaS dashboard\" -g nextjs-fullstack -p my-app')">copy</button></pre>
+          <div class="step-title">Ingest the architecture document</div>
+          <pre style="margin-top:0.5rem"><code><span class="comment">// In Claude Code — MCP tool</span>
+<span class="cmd">ingest_architecture_doc</span>({ path: "docs/arch-docs/ARCH.md" })</code></pre>
+          <div class="step-desc">Extracts stack, schema, auth, error format → <code>knowledge/rules/arch-summary.md</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Have the Figma export ready</div>
+          <div class="step-desc">The AI reads Figma directly during EVALUATE — not via a tool.</div>
         </div>
       </div>
     </div>
 
-    <!-- Use case 2: Claude Code -->
-    <h3 id="integration-claude-code">I want to use Nexus tools inside a Claude Code session</h3>
-    <p>Register Nexus as an MCP server — no separate install needed, <code>uvx</code> handles it on demand.</p>
+    <h3 id="day0-evaluate">EVALUATE</h3>
+
+    <p>Type <code>/scaffold</code> in Claude Code. The AI walks through a 10-point summary from the arch doc + Figma before writing a single line of code:</p>
+
+    <table>
+      <thead><tr><th>#</th><th>Question</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Stack decisions and why</td></tr>
+        <tr><td>2</td><td>Data model — tables, relationships, indexes</td></tr>
+        <tr><td>3</td><td>Infrastructure needed from day one</td></tr>
+        <tr><td>4</td><td>Middleware + auth flow</td></tr>
+        <tr><td>5</td><td>Error response format</td></tr>
+        <tr><td>6</td><td>Security rules and constraints</td></tr>
+        <tr><td>7</td><td>Design tokens — Figma oklch/hex → hsl() for web, Color() for Flutter</td></tr>
+        <tr><td>8</td><td>Component inventory — every component, variants, states</td></tr>
+        <tr><td>9</td><td>Layout patterns — grid, breakpoints, responsive</td></tr>
+        <tr><td>10</td><td>Iconography — library, sizes, style</td></tr>
+      </tbody>
+    </table>
+
+    <p>AI stops and waits for approval before PLAN.</p>
+
+    <h3 id="day0-plan">PLAN</h3>
+
+    <p>Blueprint only — no code. Four outputs:</p>
+
+    <table>
+      <thead><tr><th>Output</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td>Infrastructure</td><td>Directory structure, schema, env vars, auth flow, error handler</td></tr>
+        <tr><td>UI shell</td><td>Component list, props interfaces, page layouts, build order</td></tr>
+        <tr><td>AGENTS.md</td><td>Project rules for all AI tools — coding standards, git conventions, quality gates</td></tr>
+        <tr><td>knowledge/</td><td>Coding standards, patterns, prompt templates, design system spec</td></tr>
+      </tbody>
+    </table>
+
+    <p>AI stops and waits for <code>/apply</code> approval.</p>
+
+    <h3 id="day0-apply">APPLY</h3>
+
+    <p><strong>First step — always:</strong> call <code>resolve_package_versions</code> before writing any file. Exact versions from the real package manager lock file — never from AI memory.</p>
+
+    <pre><code><span class="comment">// MCP tool — call this first</span>
+<span class="cmd">resolve_package_versions</span>({
+  packages: ["next@16", "react@19", "@supabase/supabase-js@2"],
+  stack_hint: "Next.js 16 TypeScript"
+})
+<span class="comment">// → { "versions": { "next": "16.3.2", "react": "19.1.0", ... } }</span></code><button class="copy-btn" onclick="copy(this, 'resolve_package_versions')">copy</button></pre>
+
+    <p>Then generates everything in one scaffold:</p>
+
+    <table>
+      <thead><tr><th>Category</th><th>Files</th></tr></thead>
+      <tbody>
+        <tr><td>Config</td><td><code>.gitignore</code>, <code>.env.example</code>, ESLint, Prettier, TypeScript</td></tr>
+        <tr><td>Auth (mock)</td><td>Login sets <code>mock-role</code> cookie (8h). No credentials checked. Route guard reads cookie.</td></tr>
+        <tr><td>Infrastructure</td><td>Schema migration, error handler, health check, seed script</td></tr>
+        <tr><td>Git hooks</td><td>Husky + lint-staged + commitlint. <code>chmod +x .husky/pre-commit</code>. <code>HUSKY=0</code> for CI.</td></tr>
+        <tr><td>CI</td><td>GitHub Actions: lint, typecheck, test, build</td></tr>
+        <tr><td>Design system</td><td>Tailwind config, globals.css (hsl() tokens — never oklch), font loading</td></tr>
+        <tr><td>Components</td><td>All components with every visual state — default, hover, focus, disabled, loading, empty, error</td></tr>
+        <tr><td>Pages</td><td>All pages responsive at 320/768/1024/1440px with mock data</td></tr>
+        <tr><td>Project rules</td><td>AGENTS.md, knowledge/rules/coding-standards.md</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      Never write "latest" or semver ranges (^ ~) in the package manifest. Use exact versions from <code>resolve_package_versions</code>. Never use <code>npx create-next-app</code> or any scaffold CLI.
+    </div>
+
+    <h3 id="day0-validate">VALIDATE</h3>
+
+    <p>Build must pass first. Then 19-point checklist:</p>
+
+    <table>
+      <thead><tr><th>Category</th><th>Checks</th></tr></thead>
+      <tbody>
+        <tr><td>Packages (4)</td><td>Stable versions, no deprecated APIs, lock file pinned, no CVEs</td></tr>
+        <tr><td>Infrastructure (6)</td><td>Structure matches arch, schema matches data model, env vars documented, production logging, security headers, DB pooling</td></tr>
+        <tr><td>UI fidelity (6)</td><td>Matches Figma, responsive at 4 breakpoints, all visual states, WCAG AA, props typed for Day 1, no API calls in components</td></tr>
+        <tr><td>AGENTS.md + knowledge (2)</td><td>Coding standards match arch, design system spec saved</td></tr>
+        <tr><td>Git hooks (1)</td><td>Pre-commit hook configured and executable</td></tr>
+      </tbody>
+    </table>
+
+    <p>Every <code>[BLOCKER]</code> and <code>[FIX NOW]</code> must be fixed before Day 0 is called complete.</p>
+
+    <p><strong>Success:</strong> <code>npm install &amp;&amp; npm run dev</code> works. Zero credentials needed.</p>
+
+    <!-- Day 1 -->
+    <h2 id="day1">Day 1 — EPAV</h2>
+
+    <p>One task from the dev tasks CSV. Four steps. Repeat forever.</p>
+
+    <pre><code>/evaluate &lt;task&gt;  →  /plan  →  /apply  →  /validate</code></pre>
+
+    <h3 id="evaluate">/evaluate</h3>
+
+    <p>Orient on the task before touching any code.</p>
 
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <div class="step-title">Add the MCP server</div>
-          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">claude mcp add</span> nexus -- uvx --refresh --from nexus-toolkit@latest nexus-mcp</code><button class="copy-btn" onclick="copy(this, 'claude mcp add nexus -- uvx --refresh --from nexus-toolkit@latest nexus-mcp')">copy</button></pre>
+          <div class="step-title">graphify query</div>
+          <div class="step-desc">Find all files the task touches. Map the blast radius — what else references those files.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
         <div class="step-content">
-          <div class="step-title">Verify</div>
-          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">claude mcp list</span>   <span class="comment"># nexus ✓ Connected</span></code></pre>
+          <div class="step-title">Check knowledge/</div>
+          <div class="step-desc">Load relevant rules, patterns, and prior retros.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Output</div>
+          <div class="step-desc">Affected files, acceptance criteria restated, risks flagged. Stops and waits for approval.</div>
         </div>
       </div>
     </div>
-    <div class="callout">All 9 MCP tools are now available in every Claude Code session — pipeline tools (<code>ingest_figma_zip</code>, <code>remap_to_golden_path</code>, <code>validate_output</code>, …) and agent tools (<code>run_agent</code>, <code>list_agents</code>).</div>
 
-    <!-- Use case 3: Claude Desktop / Cursor -->
-    <h3 id="integration-desktop">I want to use Nexus in Claude Desktop or Cursor</h3>
-    <p>Add one entry to your app's config file — no separate install needed.</p>
+    <h3 id="plan">/plan</h3>
+
+    <p>Blueprint only — no code written.</p>
 
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <div class="step-title">Edit your config file</div>
-          <div class="step-desc">macOS: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code><br>Windows: <code>%APPDATA%\Claude\claude_desktop_config.json</code></div>
-          <pre style="margin-top:0.5rem"><code>{
+          <div class="step-title">graphify path check</div>
+          <div class="step-desc">Confirm relationships between primary files. State what else will be affected.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Numbered blueprint</div>
+          <div class="step-desc">File by file — what changes and why. Files created / modified / deleted. AGENTS.md rules that apply.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Wait for /apply</div>
+          <div class="step-desc">No code until the plan is approved.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 id="apply">/apply</h3>
+
+    <p>Implement exactly what the plan says. No scope creep.</p>
+
+    <table>
+      <thead><tr><th>Day 1 replaces</th><th>With</th></tr></thead>
+      <tbody>
+        <tr><td>Mock data in components</td><td>Real DB client calls</td></tr>
+        <tr><td>Mock auth cookie</td><td>Real auth provider</td></tr>
+        <tr><td>Placeholder Route Handlers</td><td>Validated API handlers with error handling</td></tr>
+        <tr><td>Schema file</td><td>Applied migration + RLS policies</td></tr>
+      </tbody>
+    </table>
+
+    <p>graphify auto-updates after every file edit via the PostToolUse hook in <code>.claude/settings.json</code>.</p>
+
+    <h3 id="validate">/validate</h3>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Build must pass first</div>
+          <div class="step-desc"><code>npm run build</code> / <code>flutter build apk</code> / <code>go build ./...</code> — fix all errors before continuing.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Acceptance criteria</div>
+          <div class="step-desc">Every criterion from the CSV task: <code>[PASS]</code> / <code>[FAIL]</code> / <code>[PARTIAL]</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Classify and fix</div>
+          <div class="step-desc"><code>[BLOCKER]</code> and <code>[FIX NOW]</code> must be resolved before the task is done. <code>[BACKLOG]</code> items go to <code>knowledge/retros/</code>.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Contribute patterns back</div>
+          <div class="step-desc">If APPLY revealed a better approach, add it to <code>knowledge/patterns/</code>.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP -->
+    <h2 id="mcp">MCP Server Setup</h2>
+
+    <p><code>nexus init</code> writes <code>.mcp.json</code> automatically. For Claude Desktop or Cursor, add manually:</p>
+
+    <h3>Claude Code (project-level)</h3>
+    <pre><code><span class="comment">// .mcp.json</span>
+{
   "mcpServers": {
     "nexus": {
       "command": "uvx",
-      "args": ["--refresh", "--from", "nexus-toolkit", "nexus-mcp"]
+      "args": ["--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"]
     }
   }
-}</code><button class="copy-btn" onclick="copy(this, '{\"mcpServers\":{\"nexus\":{\"command\":\"uvx\",\"args\":[\"--refresh\",\"--from\",\"nexus-toolkit\",\"nexus-mcp\"]}}}')">copy</button></pre>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-content">
-          <div class="step-title">Restart the app</div>
-          <div class="step-desc">Nexus tools will appear in the tool picker.</div>
-        </div>
-      </div>
-    </div>
+}</code><button class="copy-btn" onclick="copy(this, '{\"mcpServers\":{\"nexus\":{\"command\":\"uvx\",\"args\":[\"--refresh\",\"--from\",\"nexus-dev-toolkit\",\"nexus-mcp\"]}}}')">copy</button></pre>
 
-    <!-- Use case 4: n8n -->
-    <h3 id="integration-n8n">I want to automate workflows with n8n</h3>
-    <p>Run Nexus as a persistent HTTP MCP server — your n8n instance calls its tools to automate code review, security scanning, QA gates, and more.</p>
-
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-content">
-          <div class="step-title">Start the server in HTTP mode</div>
-          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">MCP_TRANSPORT=http MCP_HOST=0.0.0.0 MCP_PORT=3900</span> uvx --from nexus-toolkit nexus-mcp</code><button class="copy-btn" onclick="copy(this, 'MCP_TRANSPORT=http MCP_HOST=0.0.0.0 MCP_PORT=3900 uvx --from nexus-toolkit nexus-mcp')">copy</button></pre>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-content">
-          <div class="step-title">Point your n8n MCP Client node at it</div>
-          <pre style="margin-top:0.5rem"><code>http://&lt;server-ip&gt;:3900/mcp</code></pre>
-          <div class="step-desc" style="margin-top:0.5rem">Nexus tools (<code>run_agent</code>, pipeline tools, <code>nexus_search</code>) are then callable from any n8n workflow node.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Updating -->
-    <h2 id="updating">Updating</h2>
-
-    <h3>Auto-update (recommended for uvx setups)</h3>
-
-    <p>Add <code>--refresh</code> to your uvx command once — Nexus will check PyPI for a new version on every startup and update automatically if one is available. No manual steps after a release.</p>
-
-    <p><strong>Claude Code:</strong> If you already added the server, remove it first then re-add with <code>@latest</code>:</p>
-    <pre><code><span class="prompt">$</span> <span class="cmd">claude mcp remove</span> nexus
-<span class="prompt">$</span> <span class="cmd">claude mcp add</span> nexus -- uvx --refresh --from nexus-toolkit@latest nexus-mcp</code><button class="copy-btn" onclick="copy(this, 'claude mcp remove nexus\nclaude mcp add nexus -- uvx --refresh --from nexus-toolkit@latest nexus-mcp')">copy</button></pre>
-
-    <p><strong>Claude Desktop / Cursor</strong> — edit your config file:</p>
-    <pre><code>{
+    <h3>Claude Desktop (macOS)</h3>
+    <pre><code><span class="comment">// ~/Library/Application Support/Claude/claude_desktop_config.json</span>
+{
   "mcpServers": {
     "nexus": {
       "command": "uvx",
-      "args": ["--refresh", "--from", "nexus-toolkit", "nexus-mcp"]
+      "args": ["--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"]
     }
   }
-}</code><button class="copy-btn" onclick="copy(this, '{\"mcpServers\":{\"nexus\":{\"command\":\"uvx\",\"args\":[\"--refresh\",\"--from\",\"nexus-toolkit\",\"nexus-mcp\"]}}}')">copy</button></pre>
+}</code><button class="copy-btn" onclick="copy(this, '{\"mcpServers\":{\"nexus\":{\"command\":\"uvx\",\"args\":[\"--refresh\",\"--from\",\"nexus-dev-toolkit\",\"nexus-mcp\"]}}}')">copy</button></pre>
 
-    <div class="callout">
-      <code>--refresh</code> adds ~1–2 seconds to startup while uvx checks PyPI. When there is no new version, it skips the reinstall and starts immediately. When there is a new version, it reinstalls before starting.
-    </div>
-
-    <h3>Manual update</h3>
+    <h2 id="mcp-tools">MCP Tool Reference</h2>
 
     <table>
-      <thead>
-        <tr><th>Integration</th><th>Command</th></tr>
-      </thead>
+      <thead><tr><th>Tool</th><th>Purpose</th><th>When to call</th></tr></thead>
       <tbody>
-        <tr><td><strong>CLI</strong> (pip / uv tool)</td><td><code>pip install --upgrade nexus-toolkit</code> or <code>uv tool upgrade nexus-toolkit</code></td></tr>
-        <tr><td><strong>Claude Code / Desktop / Cursor</strong> (uvx)</td><td><code>uvx --reinstall --from nexus-toolkit nexus-mcp</code> then restart the app</td></tr>
-        <tr><td><strong>n8n HTTP server</strong> (persistent process)</td><td><code>uvx --reinstall --from nexus-toolkit nexus-mcp</code> then restart the process</td></tr>
+        <tr>
+          <td><code>ingest_architecture_doc</code></td>
+          <td>Extract arch doc sections → <code>knowledge/rules/arch-summary.md</code></td>
+          <td>Day 0, Step 2 — before /scaffold</td>
+        </tr>
+        <tr>
+          <td><code>load_task</code></td>
+          <td>Load a CSV task row + graphify blast radius into context</td>
+          <td>Day 1, start of /evaluate</td>
+        </tr>
+        <tr>
+          <td><code>generate_project_rules</code></td>
+          <td>Generate AGENTS.md + knowledge/ structure from arch doc</td>
+          <td>Day 0 PLAN — before writing files</td>
+        </tr>
+        <tr>
+          <td><code>resolve_package_versions</code></td>
+          <td>Run real package manager in temp dir → exact pinned versions</td>
+          <td>Day 0 APPLY — must be first step</td>
+        </tr>
       </tbody>
     </table>
 
-    <!-- Quick Start -->
-    <h2 id="quickstart">Quick Start</h2>
-
-    <h3>Design-to-Code — generate a full Next.js app from a description</h3>
-
-    <pre><code><span class="prompt">$</span> <span class="cmd">nexus run prompt</span> <span class="str">"A SaaS dashboard with sidebar, stats cards, and a data table"</span> \
-    -g nextjs-fullstack \
-    -p my-dashboard</code><button class="copy-btn" onclick="copy(this, 'nexus run prompt \"A SaaS dashboard with sidebar, stats cards, and a data table\" -g nextjs-fullstack -p my-dashboard')">copy</button></pre>
-
-    <p>Nexus will ingest → remap → transform (via Claude) → validate → package — then output a ZIP ready to run.</p>
-
-    <pre><code><span class="prompt">$</span> <span class="cmd">unzip</span> /tmp/nexus-my-dashboard/my-dashboard.zip
-<span class="prompt">$</span> <span class="cmd">cd</span> my-dashboard
-<span class="prompt">$</span> <span class="cmd">pnpm install</span> && pnpm dev</code></pre>
-
-    <h3>Dev Agents — run a security review on a file</h3>
-
-    <pre><code><span class="prompt">$</span> <span class="cmd">nexus agent run</span> security src/api/routes.ts</code><button class="copy-btn" onclick="copy(this, 'nexus agent run security src/api/routes.ts')">copy</button></pre>
-
-    <h3>Workflow Commands — review a PR diff end-to-end</h3>
-
-    <pre><code><span class="prompt">$</span> <span class="cmd">git diff</span> main...HEAD | <span class="cmd">nexus workflow run</span> workflow-review-code -</code><button class="copy-btn" onclick="copy(this, 'git diff main...HEAD | nexus workflow run workflow-review-code -')">copy</button></pre>
-
-    <!-- From prompt -->
-    <h2 id="from-prompt">Design-to-Code — from a text prompt</h2>
-
-    <p>No <a href="https://www.figma.com/make" target="_blank" style="color:var(--cyan)">Figma Make</a> file? No problem. Describe what you want to build:</p>
-
-    <pre><code><span class="prompt">$</span> <span class="cmd">nexus run prompt</span> <span class="str">"A landing page with hero, features grid, pricing, and footer"</span> \
-    --golden-path nextjs-static \
-    --project-name my-landing \
-    --output-dir ~/Desktop/</code><button class="copy-btn" onclick="copy(this, 'nexus run prompt \"A landing page with hero, features grid, pricing, and footer\" --golden-path nextjs-static --project-name my-landing --output-dir ~/Desktop/')">copy</button></pre>
-
-    <!-- From ZIP -->
-    <h2 id="from-zip">Design-to-Code — from a Figma Make ZIP</h2>
-
-    <p>Export your project from <a href="https://www.figma.com/make" target="_blank" style="color:var(--cyan)">Figma Make</a>, then run:</p>
-
-    <pre><code><span class="prompt">$</span> <span class="cmd">nexus run zip</span> ~/Downloads/figma-export.zip \
-    --golden-path nextjs-fullstack \
-    --project-name my-app \
-    --output-dir ~/Desktop/</code><button class="copy-btn" onclick="copy(this, 'nexus run zip ~/Downloads/figma-export.zip --golden-path nextjs-fullstack --project-name my-app --output-dir ~/Desktop/')">copy</button></pre>
-
-    <!-- From codebase -->
-    <h2 id="from-codebase">Design-to-Code — from an existing codebase</h2>
-
-    <p>Migrate an existing React/Next.js project to a golden path convention:</p>
-
-    <pre><code><span class="prompt">$</span> <span class="cmd">nexus run codebase</span> ~/Projects/old-react-app \
-    --golden-path nextjs-fullstack \
-    --project-name migrated-app \
-    --output-dir ~/Desktop/</code><button class="copy-btn" onclick="copy(this, 'nexus run codebase ~/Projects/old-react-app --golden-path nextjs-fullstack --project-name migrated-app --output-dir ~/Desktop/')">copy</button></pre>
-
-    <!-- Dev-Workflow Agents -->
-    <h2 id="agents">Dev-Workflow Agents</h2>
-
-    <p>22 specialized Claude agents covering every stage of the SDLC. Each agent has deep domain expertise — pass it any content (file, diff, description) and get structured findings back.</p>
-
-    <h3>List available agents</h3>
-
-    <pre><code><span class="prompt">$</span> <span class="cmd">nexus agent list</span></code><button class="copy-btn" onclick="copy(this, 'nexus agent list')">copy</button></pre>
+    <!-- Skills -->
+    <h2 id="skills">Built-in Skills</h2>
 
     <table>
-      <thead>
-        <tr><th>Category</th><th>Agents</th></tr>
-      </thead>
+      <thead><tr><th>Skill</th><th>Trigger</th><th>Phase</th></tr></thead>
       <tbody>
-        <tr><td><code>cross-cutting</code></td><td>code-reviewer · security · database · deployment · monitoring · performance · product-manager · qa-tester · task-planner · tech-writer · test-planner</td></tr>
-        <tr><td><code>architecture</code></td><td>software-architect · solution-architect · solution-designer</td></tr>
-        <tr><td><code>javascript</code></td><td>backend-api · frontend-ui · fullstack-nextjs · react-native</td></tr>
-        <tr><td><code>savants</code></td><td>savant-fullstack-js · savant-flutter · savant-java-spring · savant-react-native</td></tr>
+        <tr><td><code>scaffold.md</code></td><td><code>/scaffold</code></td><td>Day 0 — one-time setup</td></tr>
+        <tr><td><code>evaluate.md</code></td><td><code>/evaluate</code></td><td>Day 1 — orient on task</td></tr>
+        <tr><td><code>plan.md</code></td><td><code>/plan</code></td><td>Day 1 — blueprint</td></tr>
+        <tr><td><code>apply.md</code></td><td><code>/apply</code></td><td>Day 1 — implement</td></tr>
+        <tr><td><code>validate.md</code></td><td><code>/validate</code></td><td>Day 1 — verify</td></tr>
+        <tr><td><code>epav.md</code></td><td><code>/epav</code></td><td>Day 1 — full cycle guide</td></tr>
       </tbody>
     </table>
 
-    <h3>Run an agent against a file</h3>
+    <h2 id="custom-skills">Custom Skills</h2>
 
-    <pre><code><span class="comment"># Security review on an API route</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> security src/api/auth.ts
+    <pre><code><span class="prompt">$</span> <span class="cmd">nexus skill add</span> code-review</code><button class="copy-btn" onclick="copy(this, 'nexus skill add code-review')">copy</button></pre>
 
-<span class="comment"># Code review on a PR diff (stdin)</span>
-<span class="prompt">$</span> <span class="cmd">git diff</span> HEAD~1 | <span class="cmd">nexus agent run</span> code-reviewer -
+    <p>Creates <code>.claude/commands/code-review.md</code> with a starter template. Edit it, then type <code>/code-review</code> in Claude Code.</p>
 
-<span class="comment"># Deployment review with inline context</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> deployment --context <span class="str">"$(cat docker-compose.yml)"</span>
+    <pre><code><span class="comment"># .claude/commands/code-review.md</span>
 
-<span class="comment"># Database migration review</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> database prisma/migrations/20240101_add_users.sql
+# /code-review
 
-<span class="comment"># Architecture review</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> software-architect --context <span class="str">"$(cat ARCHITECTURE.md)"</span></code><button class="copy-btn" onclick="copy(this, 'nexus agent run security src/api/auth.ts')">copy</button></pre>
+**code-review** — review the current diff for correctness, security, and style.
 
-    <div class="callout">
-      Use <code>-</code> as the file argument to read from stdin. Use <code>--context</code> / <code>-c</code> to pass an inline string. If neither is provided, the agent runs without context (useful for general questions).
-    </div>
+## Steps
 
-    <h3>Review a GitHub repository</h3>
+### 1 — Load context
+Run graphify query on changed files. Check knowledge/rules/ for relevant standards.
 
-    <p>Pass <code>--github owner/repo</code> to download a public repo and run the agent against it — no cloning required. Full URLs and <code>.git</code> suffixes are accepted.</p>
+### 2 — Review
+Check: correctness, security, performance, style, test coverage.
 
-    <pre><code><span class="comment"># Code review of a public GitHub repo</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> code-reviewer <span class="flag">--github</span> rcdelacruz/skills
+### 3 — Output
+Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
 
-<span class="comment"># Security audit of a repo (full URL also works)</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> security <span class="flag">--github</span> https://github.com/rcdelacruz/skills
+    <h2 id="rules">Rules</h2>
 
-<span class="comment"># Private repo — set GITHUB_TOKEN first</span>
-<span class="prompt">$</span> <span class="cmd">export</span> GITHUB_TOKEN=ghp_...
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> code-reviewer <span class="flag">--github</span> your-org/private-repo</code><button class="copy-btn" onclick="copy(this, 'nexus agent run code-reviewer --github rcdelacruz/skills')">copy</button></pre>
+    <pre><code><span class="prompt">$</span> <span class="cmd">nexus rule add</span> api-standards</code><button class="copy-btn" onclick="copy(this, 'nexus rule add api-standards')">copy</button></pre>
 
-    <div class="callout">
-      <code>--github</code> downloads the repo as a ZIP from the GitHub API, extracts it to a temp directory, and passes it to the agent via <code>--add-dir</code>. The temp directory is cleaned up automatically after the run. For private repos, set <code>GITHUB_TOKEN</code> or <code>GH_TOKEN</code> in your environment.
-    </div>
-
-    <h3>Model selection</h3>
-
-    <p>By default, agents use <code>claude-sonnet-4-6</code>. Override per-run or set a global default:</p>
-
-    <pre><code><span class="comment"># Override model for a single run</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> code-reviewer src/api/auth.ts <span class="flag">--model</span> claude-opus-4-6
-
-<span class="comment"># Set default model for all runs (add to ~/.zshrc or ~/.bashrc)</span>
-<span class="prompt">$</span> <span class="cmd">export</span> NEXUS_DEFAULT_MODEL=claude-opus-4-6</code><button class="copy-btn" onclick="copy(this, 'export NEXUS_DEFAULT_MODEL=claude-opus-4-6')">copy</button></pre>
-
-    <h3>Remote server</h3>
-
-    <p>Run an agent on a remote Nexus MCP server (e.g. a shared team server) instead of the local <code>claude</code> CLI:</p>
-
-    <pre><code><span class="comment"># Run code-reviewer on remote server</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> code-reviewer src/api/routes.ts \
-    <span class="flag">--server</span> http://your-server:3900/mcp
-
-<span class="comment"># Inline context</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> product-manager \
-    <span class="flag">--context</span> <span class="str">"Create a PRD for user auth with OAuth2"</span> \
-    <span class="flag">--server</span> http://your-server:3900/mcp</code><button class="copy-btn" onclick="copy(this, 'nexus agent run code-reviewer src/api/routes.ts --server http://your-server:3900/mcp')">copy</button></pre>
-
-    <p>When <code>--server</code> is used, the local <code>claude</code> CLI is not required — the agent runs entirely on the remote server.</p>
-
-    <!-- Agent Memory -->
-    <h2 id="agent-memory">Agent Memory (v2.3.4)</h2>
-
-    <p>Agents are stateless by default — every run starts fresh. Enable persistent memory so agents accumulate project-specific knowledge over time, becoming smarter the more you use them.</p>
-
-    <h3>Enable memory for a run</h3>
-
-    <pre><code><span class="comment"># Run with memory — inject past findings as context</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> code-reviewer src/api/auth.ts \
-    <span class="flag">--memory-path</span> .claude/memory/agents/
-
-<span class="comment"># Run and save findings back to memory</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> code-reviewer src/api/auth.ts \
-    <span class="flag">--memory-path</span> .claude/memory/agents/ \
-    <span class="flag">--remember</span>
-
-<span class="comment"># Auto-detect project root (works if you're inside a git repo)</span>
-<span class="prompt">$</span> <span class="cmd">nexus agent run</span> security src/api/auth.ts <span class="flag">--remember</span></code><button class="copy-btn" onclick="copy(this, 'nexus agent run code-reviewer src/api/auth.ts --remember')">copy</button></pre>
-
-    <h3>Memory file layout</h3>
-
-    <p>Memory lives inside your project — not inside nexus-mcp:</p>
-
-    <pre><code>.claude/memory/agents/
-├── shared/           <span class="comment"># git-committed — team-owned, reviewed in PRs</span>
-│   └── code-reviewer.md
-└── personal/         <span class="comment"># gitignored automatically — per-developer</span>
-    └── code-reviewer.md</code></pre>
-
-    <p>The <code>personal/</code> directory is added to your project's <code>.gitignore</code> automatically on first write. Promote curated findings to <code>shared/</code> via a normal git commit when they're worth sharing with the team.</p>
-
-    <h3>Memory sections</h3>
-
-    <table>
-      <thead><tr><th>Section</th><th>Purpose</th></tr></thead>
-      <tbody>
-        <tr><td><code>Architecture Decisions</code></td><td>Significant patterns and design choices detected over time</td></tr>
-        <tr><td><code>Recurring Issues</code></td><td>Issues seen across multiple runs, with occurrence counts</td></tr>
-        <tr><td><code>Resolved</code></td><td>Previously flagged issues that have been fixed</td></tr>
-        <tr><td><code>Recent Findings</code></td><td>Rolling window of the last 3 run summaries</td></tr>
-        <tr><td><code>⚠️ Pending Human Review</code></td><td>Major decisions (migrations, breaking changes) flagged for review</td></tr>
-      </tbody>
-    </table>
-
-    <div class="callout">
-      Items in <strong>Pending Human Review</strong> use <code>- [ ]</code> checkboxes. Tick them to <code>- [x]</code> after acting — future runs skip already-reviewed items. Triggers are detected by keyword matching (migrate, breaking change, deprecate, rewrite, etc.) — no extra LLM calls.
-    </div>
-
-    <h3>MCP tools for memory</h3>
-
-    <pre><code><span class="comment">// Read agent memory</span>
-<span class="cmd">get_agent_memory</span>({ agent_name: "code-reviewer", memory_path: ".claude/memory/agents/" })
-
-<span class="comment">// Write / merge findings into memory</span>
-<span class="cmd">update_agent_memory</span>({ agent_name: "code-reviewer", memory_path: "...", content: "...", mode: "append" })
-
-<span class="comment">// Modes: append (default) | replace | reset</span></code><button class="copy-btn" onclick="copy(this, 'get_agent_memory')">copy</button></pre>
-
-    <!-- Workflow Commands -->
-    <h2 id="workflow-cmds">Workflow Commands</h2>
-
-    <p>Multi-step orchestration workflows that guide Claude through a structured sequence of tasks. Unlike agents (which are role-based system prompts), workflows are user-level step sequences — design → implement → review → deploy → document.</p>
-
-    <h3>Available workflows</h3>
-
-    <table>
-      <thead>
-        <tr><th>Workflow</th><th>Description</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>workflow-review-code</code></td><td>Multi-step code review: complexity → patterns → security → summary</td></tr>
-        <tr><td><code>workflow-review-security</code></td><td>Security review: OWASP top 10 → secrets → auth → findings</td></tr>
-        <tr><td><code>workflow-review-performance</code></td><td>Performance review: bottlenecks → queries → caching → recommendations</td></tr>
-        <tr><td><code>workflow-deploy</code></td><td>Deployment review: IaC → risk assessment → checklist → rollback plan</td></tr>
-        <tr><td><code>workflow-design-architecture</code></td><td>Architecture design: requirements → components → data flow → ADRs</td></tr>
-        <tr><td><code>workflow-design-nextjs</code></td><td>Next.js-specific design: routing → data fetching → state → deployment</td></tr>
-        <tr><td><code>workflow-implement-backend</code></td><td>Backend implementation guide: API design → validation → error handling</td></tr>
-        <tr><td><code>workflow-implement-frontend</code></td><td>Frontend implementation guide: components → state → accessibility</td></tr>
-        <tr><td><code>workflow-implement-fullstack</code></td><td>Full-stack implementation: end-to-end feature guide</td></tr>
-        <tr><td><code>workflow-qa-e2e</code></td><td>QA planning: test coverage → edge cases → E2E scenarios</td></tr>
-        <tr><td><code>workflow-write-docs</code></td><td>Documentation generation: API docs → README → usage examples</td></tr>
-      </tbody>
-    </table>
-
-    <h3>Run a workflow</h3>
-
-    <pre><code><span class="comment"># Full code review workflow on a file</span>
-<span class="prompt">$</span> <span class="cmd">nexus workflow run</span> workflow-review-code src/api/routes.ts
-
-<span class="comment"># Security workflow on a PR diff</span>
-<span class="prompt">$</span> <span class="cmd">git diff</span> main...HEAD | <span class="cmd">nexus workflow run</span> workflow-review-security -
-
-<span class="comment"># Deploy workflow with inline context</span>
-<span class="prompt">$</span> <span class="cmd">nexus workflow run</span> workflow-deploy --context <span class="str">"$(cat docker-compose.yml)"</span>
-
-<span class="comment"># Generate docs for a module</span>
-<span class="prompt">$</span> <span class="cmd">nexus workflow run</span> workflow-write-docs src/lib/auth.ts</code><button class="copy-btn" onclick="copy(this, 'nexus workflow run workflow-review-code src/api/routes.ts')">copy</button></pre>
-
-    <div class="callout">
-      Workflows and agents can be combined via the MCP <code>run_agent</code> tool: pass both <code>agent_name</code> and <code>workflow</code> parameters to apply a role-based system prompt (agent) and structured step instructions (workflow) at the same time.
-    </div>
-
-    <!-- Golden paths -->
-    <h2 id="golden-paths">Golden Paths</h2>
-
-    <p>A golden path is the target stack and conventions Nexus generates code for in the Design-to-Code pipeline.</p>
-
-    <table>
-      <thead>
-        <tr><th>Golden Path</th><th>Stack</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>nextjs-fullstack</code></td><td>Next.js 16, React 19, Tailwind v4, tRPC v11, Prisma v7, NextAuth v5</td></tr>
-        <tr><td><code>nextjs-static</code></td><td>Next.js 16, React 19, Tailwind v4, static export</td></tr>
-        <tr><td><code>t3-stack</code></td><td>T3 conventions, tRPC + Prisma + NextAuth + Zustand, Tailwind v4</td></tr>
-        <tr><td><code>vite-spa</code></td><td>Vite 6, React 19, Tailwind v4, React Router v7, TanStack Query</td></tr>
-        <tr><td><code>monorepo</code></td><td>Turborepo, apps/web + apps/marketing, shared packages</td></tr>
-        <tr><td><code>full-stack-rn</code></td><td>Next.js web + Expo 54 mobile (NativeWind), shared packages</td></tr>
-        <tr><td><code>full-stack-flutter</code></td><td>Next.js web + Flutter 3.32 mobile (Riverpod + go_router)</td></tr>
-      </tbody>
-    </table>
+    <p>Creates <code>knowledge/rules/api-standards.md</code>. Skills reference rules via <code>knowledge/</code> — the AI reads them during EVALUATE and APPLY to enforce project standards.</p>
 
     <!-- Commands -->
     <h2 id="commands">All Commands</h2>
 
     <table>
-      <thead>
-        <tr><th>Command</th><th>Description</th></tr>
-      </thead>
+      <thead><tr><th>Command</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Design-to-Code Pipeline</td></tr>
-        <tr><td><code>nexus run prompt "&lt;desc&gt;"</code></td><td>Full pipeline: ingest → remap → transform → validate → package</td></tr>
-        <tr><td><code>nexus run zip &lt;file.zip&gt;</code></td><td>Full pipeline from a Figma Make ZIP</td></tr>
-        <tr><td><code>nexus run codebase &lt;dir&gt;</code></td><td>Full pipeline from an existing project</td></tr>
-        <tr><td><code>nexus ingest prompt "&lt;desc&gt;"</code></td><td>Ingest step only — produces manifest</td></tr>
-        <tr><td><code>nexus ingest zip &lt;file.zip&gt;</code></td><td>Ingest step only</td></tr>
-        <tr><td><code>nexus ingest codebase &lt;dir&gt;</code></td><td>Ingest step only</td></tr>
-        <tr><td><code>nexus remap &lt;project&gt;</code></td><td>Seed boilerplate + write transform queue</td></tr>
-        <tr><td><code>nexus transform &lt;project&gt;</code></td><td>LLM transform step (calls claude CLI)</td></tr>
-        <tr><td><code>nexus validate &lt;project&gt;</code></td><td>Run 26 checks on generated files</td></tr>
-        <tr><td><code>nexus package &lt;project&gt;</code></td><td>Package output into ZIP</td></tr>
-        <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Dev-Workflow Agents</td></tr>
-        <tr><td><code>nexus agent list</code></td><td>List all 22 available agents grouped by category</td></tr>
-        <tr><td><code>nexus agent run &lt;name&gt; [file]</code></td><td>Run a named agent against a file, stdin (<code>-</code>), or <code>--context</code></td></tr>
-        <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Workflow Commands</td></tr>
-        <tr><td><code>nexus workflow run &lt;name&gt; [file]</code></td><td>Run a multi-step workflow against a file, stdin (<code>-</code>), or <code>--context</code></td></tr>
-        <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Utility</td></tr>
-        <tr><td><code>nexus update</code></td><td>Upgrade to the latest version from PyPI</td></tr>
-        <tr><td><code>nexus version</code></td><td>Print current version</td></tr>
-        <tr><td><code>nexus --help</code></td><td>Show all commands and options</td></tr>
+        <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Project Setup</td></tr>
+        <tr><td><code>nexus init [dir]</code></td><td>Initialize .claude/commands/, knowledge/, .mcp.json</td></tr>
+        <tr><td><code>nexus update</code></td><td>Update nexus-dev-toolkit to latest</td></tr>
+        <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Skills</td></tr>
+        <tr><td><code>nexus skill list</code></td><td>List all skills in .claude/commands/</td></tr>
+        <tr><td><code>nexus skill add &lt;name&gt;</code></td><td>Create a custom skill</td></tr>
+        <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Rules</td></tr>
+        <tr><td><code>nexus rule list</code></td><td>List all rules in knowledge/rules/</td></tr>
+        <tr><td><code>nexus rule add &lt;name&gt;</code></td><td>Create a project rule</td></tr>
       </tbody>
     </table>
 
-    <!-- Options -->
-    <h2 id="options">Options</h2>
+    <!-- knowledge/ layout -->
+    <h2 id="knowledge">knowledge/ Layout</h2>
 
-    <table>
-      <thead>
-        <tr><th>Flag</th><th>Short</th><th>Default</th><th>Description</th></tr>
-      </thead>
-      <tbody>
-        <tr><td colspan="4" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">nexus run * · nexus transform · nexus remap</td></tr>
-        <tr><td><code>--golden-path</code></td><td><code>-g</code></td><td>required</td><td>Target stack (see golden paths table)</td></tr>
-        <tr><td><code>--project-name</code></td><td><code>-p</code></td><td><code>my-app</code></td><td>Output project slug</td></tr>
-        <tr><td><code>--prompt</code></td><td>—</td><td>—</td><td>Extra instructions for the LLM agent</td></tr>
-        <tr><td><code>--output-dir</code></td><td><code>-o</code></td><td><code>/tmp/</code></td><td>Copy final ZIP here</td></tr>
-        <tr><td><code>--model</code></td><td><code>-m</code></td><td><code>claude-sonnet-4-6</code></td><td>Claude model for transform</td></tr>
-        <tr><td><code>--claude-path</code></td><td>—</td><td>auto-detect</td><td>Explicit path to claude CLI binary</td></tr>
-        <tr><td colspan="4" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">nexus agent run · nexus workflow run</td></tr>
-        <tr><td><code>--context</code></td><td><code>-c</code></td><td>—</td><td>Inline context string instead of a file</td></tr>
-        <tr><td><code>--github</code></td><td>—</td><td>—</td><td>GitHub repo to review (<code>owner/repo</code> or full URL). Downloads and adds the repo as context.</td></tr>
-        <tr><td><code>--model</code></td><td><code>-m</code></td><td><code>claude-sonnet-4-6</code></td><td>Claude model to use</td></tr>
-        <tr><td><code>--server</code></td><td>—</td><td>—</td><td>Remote Nexus MCP server URL (e.g. <code>http://host:3900/mcp</code>). Skips local claude CLI.</td></tr>
-        <tr><td><code>--memory-path</code></td><td>—</td><td>—</td><td>Path to <code>.claude/memory/agents/</code> for persistent memory</td></tr>
-        <tr><td><code>--remember</code></td><td>—</td><td>—</td><td>Write findings back to memory after run</td></tr>
-        <tr><td><code>--claude-path</code></td><td>—</td><td>auto-detect</td><td>Explicit path to claude CLI binary</td></tr>
-      </tbody>
-    </table>
-
-    <div class="callout">
-      You can also set <code>CLAUDE_PATH</code> as an environment variable instead of using <code>--claude-path</code>.
-    </div>
+    <pre><code>knowledge/
+├── rules/
+│   ├── arch-summary.md      <span class="comment">← generated by ingest_architecture_doc</span>
+│   └── coding-standards.md  <span class="comment">← generated by generate_project_rules</span>
+├── patterns/
+│   └── implement-and-test.md <span class="comment">← E→P→A→V pattern</span>
+├── prompts/dev/             <span class="comment">← task prompt templates</span>
+└── retros/                  <span class="comment">← [BACKLOG] items from /validate</span></code></pre>
 
     <div style="margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.7rem;">
       built by <a href="https://coderstudio.co" target="_blank" style="color:var(--cyan-dim);text-decoration:none;">CoderStudio Labs</a>
-      &nbsp;·&nbsp;
-      requires <a href="https://claude.ai/code" target="_blank" style="color:var(--cyan-dim);text-decoration:none;">Claude Code</a>
     </div>
   </main>
 
