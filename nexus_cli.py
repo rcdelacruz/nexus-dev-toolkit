@@ -11,12 +11,14 @@ from rich.table import Table
 app = typer.Typer(name="nexus", no_args_is_help=False, help="nexus-dev-toolkit — Day 0 scaffold + Day 1 EPAV workflow for Claude Code")
 skill_app = typer.Typer(name="skill", no_args_is_help=True, help="Manage skills in .claude/commands/")
 rule_app = typer.Typer(name="rule", no_args_is_help=True, help="Manage rules in knowledge/rules/")
+agent_app = typer.Typer(name="agent", no_args_is_help=True, help="Manage subagents in .claude/agents/")
 app.add_typer(skill_app, name="skill")
 app.add_typer(rule_app, name="rule")
+app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.0"
+_VERSION = "3.1.1"
 
 _LOGO = """\
 [cyan]███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗[/cyan]
@@ -35,8 +37,17 @@ def _print_logo() -> None:
     console.print()
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"nexus-dev-toolkit v{_VERSION}")
+        raise typer.Exit()
+
+
 @app.callback(invoke_without_command=True)
-def _callback(ctx: typer.Context) -> None:
+def _callback(
+    ctx: typer.Context,
+    version: bool = typer.Option(None, "--version", "-V", callback=_version_callback, is_eager=True, help="Show version and exit."),
+) -> None:
     if ctx.invoked_subcommand is None:
         _print_logo()
         console.print(ctx.get_help())
@@ -334,6 +345,84 @@ def rule_list(
     table.add_column("Rule", style="cyan")
     for r in rules:
         table.add_row(r.stem)
+    console.print(table)
+
+
+# ── agent subcommands ─────────────────────────────────────────────────────────
+
+_AGENT_TEMPLATE = """\
+---
+name: {name}
+description: Describe when Claude should spawn this agent (role, not action — e.g. "reviews X for Y")
+---
+
+# {name}
+
+## Role
+
+Describe what this agent does.
+
+## Steps
+
+### 1 — Discover context
+
+Read CLAUDE.md, project manifest, and relevant source files.
+
+### 2 — Perform task
+
+What the agent should do.
+
+### 3 — Output
+
+What the agent should return when done.
+"""
+
+
+@agent_app.command("add")
+def agent_add(
+    name: str = typer.Argument(..., help="Agent name (e.g. 'security-reviewer')"),
+    project_dir: str = typer.Option(".", "--dir", "-d"),
+) -> None:
+    """Create a new subagent in .claude/agents/."""
+    root = Path(project_dir).resolve()
+    dest = root / ".claude" / "agents" / f"{name}.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    if dest.exists():
+        console.print(f"  [yellow]·[/yellow]  .claude/agents/{name}.md already exists")
+        return
+
+    dest.write_text(_AGENT_TEMPLATE.format(name=name), encoding="utf-8")
+    console.print(f"  [green]✓[/green]  Created .claude/agents/{name}.md")
+    console.print(f"  [dim]Edit the description so Claude knows when to spawn it.[/dim]")
+
+
+@agent_app.command("list")
+def agent_list(
+    project_dir: str = typer.Option(".", "--dir", "-d"),
+) -> None:
+    """List all subagents in .claude/agents/."""
+    root = Path(project_dir).resolve()
+    agents_dir = root / ".claude" / "agents"
+
+    if not agents_dir.exists():
+        console.print("  [yellow]·[/yellow]  No .claude/agents/ found. Run [cyan]nexus init[/cyan] first.")
+        return
+
+    agents = sorted(agents_dir.glob("*.md"))
+    if not agents:
+        console.print("  [yellow]·[/yellow]  No agents yet. Run [cyan]nexus agent add <name>[/cyan]")
+        return
+
+    table = Table(show_header=True, header_style="dim")
+    table.add_column("Agent", style="cyan")
+    table.add_column("Source")
+
+    builtins = set(_BUILTIN_AGENTS)
+    for a in agents:
+        source = "built-in" if a.name in builtins else "custom"
+        table.add_row(a.stem, source)
+
     console.print(table)
 
 

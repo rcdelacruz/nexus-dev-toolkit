@@ -205,7 +205,7 @@
 
   <nav>
     <div class="nav-logo">NEXUS</div>
-    <div class="nav-version">v3.1.0</div>
+    <div class="nav-version">v3.1.1</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
@@ -308,27 +308,43 @@
     <!-- nexus init -->
     <h2 id="init">nexus init</h2>
 
-    <p>Run once in your project directory. Creates the full workflow scaffold.</p>
+    <p>Run once <strong>inside your project folder</strong>. All nexus commands operate on the current directory by default — <code>.claude/</code>, <code>knowledge/</code>, and <code>.mcp.json</code> are created relative to where you run them.</p>
 
-    <pre><code><span class="prompt">$</span> <span class="cmd">nexus init</span> .</code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
+    <div class="callout">
+      Always <code>cd</code> into your project first, then run <code>nexus init .</code> — the dot means "here".
+    </div>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">cd</span> my-project
+<span class="prompt">$</span> <span class="cmd">nexus init</span> .</code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
 
     <p>Creates:</p>
 
     <pre><code>.claude/
 ├── commands/
-│   ├── scaffold.md    <span class="comment">← /scaffold  — Day 0 setup</span>
-│   ├── evaluate.md    <span class="comment">← /evaluate  — orient on task</span>
-│   ├── plan.md        <span class="comment">← /plan      — blueprint</span>
-│   ├── apply.md       <span class="comment">← /apply     — implement</span>
-│   ├── validate.md    <span class="comment">← /validate  — verify</span>
-│   └── epav.md        <span class="comment">← /epav      — full cycle guide</span>
-└── settings.json      <span class="comment">← PostToolUse: graphify auto-update</span>
+│   ├── scaffold.md          <span class="comment">← /scaffold         — Day 0 setup</span>
+│   ├── evaluate.md          <span class="comment">← /evaluate         — orient on task</span>
+│   ├── plan.md              <span class="comment">← /plan             — blueprint</span>
+│   ├── apply.md             <span class="comment">← /apply            — implement</span>
+│   ├── validate.md          <span class="comment">← /validate         — verify</span>
+│   ├── epav.md              <span class="comment">← /epav             — full cycle guide</span>
+│   ├── code-review.md       <span class="comment">← /code-review      — reviewer skill</span>
+│   ├── database-review.md   <span class="comment">← /database-review  — reviewer skill</span>
+│   ├── deployment-review.md <span class="comment">← /deployment-review</span>
+│   ├── performance-review.md<span class="comment">← /performance-review</span>
+│   └── monitoring-review.md <span class="comment">← /monitoring-review</span>
+├── agents/
+│   ├── code-reviewer.md
+│   ├── database-reviewer.md
+│   ├── deployment-reviewer.md
+│   ├── performance-reviewer.md
+│   └── monitoring-reviewer.md
+└── settings.json            <span class="comment">← PostToolUse: graphify auto-update</span>
 knowledge/
-├── rules/             <span class="comment">← coding standards, arch decisions</span>
-├── patterns/          <span class="comment">← reusable implementation patterns</span>
-├── prompts/dev/       <span class="comment">← task prompt templates</span>
-└── retros/            <span class="comment">← retrospective notes</span>
-.mcp.json              <span class="comment">← MCP server config</span></code></pre>
+├── rules/                   <span class="comment">← coding standards, arch decisions</span>
+├── patterns/                <span class="comment">← reusable implementation patterns</span>
+├── prompts/dev/             <span class="comment">← task prompt templates</span>
+└── retros/                  <span class="comment">← retrospective notes</span>
+.mcp.json                    <span class="comment">← MCP server config</span></code></pre>
 
     <!-- Day 0 -->
     <h2 id="day0">Day 0 — /scaffold</h2>
@@ -723,11 +739,15 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
       <thead><tr><th>Command</th><th>Description</th></tr></thead>
       <tbody>
         <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Project Setup</td></tr>
-        <tr><td><code>nexus init [dir]</code></td><td>Initialize .claude/commands/, knowledge/, .mcp.json</td></tr>
+        <tr><td><code>nexus init [dir]</code></td><td>Initialize .claude/, knowledge/, .mcp.json in your project</td></tr>
         <tr><td><code>nexus update</code></td><td>Update nexus-dev-toolkit to latest</td></tr>
+        <tr><td><code>nexus --version</code></td><td>Show installed version</td></tr>
         <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Skills</td></tr>
         <tr><td><code>nexus skill list</code></td><td>List all skills in .claude/commands/</td></tr>
         <tr><td><code>nexus skill add &lt;name&gt;</code></td><td>Create a custom skill</td></tr>
+        <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Agents</td></tr>
+        <tr><td><code>nexus agent list</code></td><td>List all subagents in .claude/agents/</td></tr>
+        <tr><td><code>nexus agent add &lt;name&gt;</code></td><td>Create a custom subagent</td></tr>
         <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Rules</td></tr>
         <tr><td><code>nexus rule list</code></td><td>List all rules in knowledge/rules/</td></tr>
         <tr><td><code>nexus rule add &lt;name&gt;</code></td><td>Create a project rule</td></tr>

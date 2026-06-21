@@ -221,7 +221,7 @@
 ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
 ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝</pre>
 
-  <p class="subtitle">developer workflow toolkit &nbsp;·&nbsp; <span>v3.1.0</span></p>
+  <p class="subtitle">developer workflow toolkit &nbsp;·&nbsp; <span>v3.1.1</span></p>
 
   <div class="install-box">
     <div class="install-label">Install</div>
@@ -281,12 +281,17 @@
     <div class="cmd-list">
 
       <div class="cmd-group-label">Project Setup</div>
-      <div class="cmd-row"><span class="c">nexus init .</span><span class="d">set up .claude/commands/ + knowledge/ + .mcp.json</span></div>
+      <div class="cmd-row"><span class="c">nexus init .</span><span class="d">run inside your project — sets up .claude/ + knowledge/ + .mcp.json</span></div>
       <div class="cmd-row"><span class="c">nexus update</span><span class="d">update to latest version</span></div>
+      <div class="cmd-row"><span class="c">nexus --version</span><span class="d">show installed version</span></div>
 
       <div class="cmd-group-label">Skills</div>
       <div class="cmd-row"><span class="c">nexus skill list</span><span class="d">show all skills in .claude/commands/</span></div>
       <div class="cmd-row"><span class="c">nexus skill add &lt;name&gt;</span><span class="d">create a custom skill</span></div>
+
+      <div class="cmd-group-label">Agents</div>
+      <div class="cmd-row"><span class="c">nexus agent list</span><span class="d">show all subagents in .claude/agents/</span></div>
+      <div class="cmd-row"><span class="c">nexus agent add &lt;name&gt;</span><span class="d">create a custom subagent</span></div>
 
       <div class="cmd-group-label">Rules</div>
       <div class="cmd-row"><span class="c">nexus rule list</span><span class="d">show all rules in knowledge/rules/</span></div>

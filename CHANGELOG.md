@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.1.1] - 2026-06-21
+
+### Added
+- `nexus --version` / `-V` flag to show installed version
+- `nexus agent add <name>` — create a custom subagent in `.claude/agents/`
+- `nexus agent list` — list all subagents in `.claude/agents/`
+- Docs: "run inside your project folder" guidance in nexus init section
+- Docs: commands table updated with agent subcommands and `--version`
+- Docs: `nexus init` output tree now shows all reviewer skills and agents
+
 ## [3.1.0] - 2026-06-21
 
 ### Added
