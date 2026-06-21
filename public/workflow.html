@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus v3 Workflow — Day 0 + Day 1</title>
+  <meta name="description" content="Nexus v3 workflow: Day 0 project scaffold with /scaffold, Day 1 feature development with EPAV — powered by Claude Code." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #161616;
+      --border: #222222;
+      --cyan: #06b6d4;
+      --cyan-dim: #0e7490;
+      --white: #f8fafc;
+      --muted: #64748b;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --purple: #a855f7;
+      --purple-dim: #6b21a8;
+      --orange: #f97316;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* Sidebar */
+    nav {
+      width: 220px;
+      min-height: 100vh;
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .nav-logo { color: var(--cyan); font-size: 1rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .nav-version { color: var(--muted); font-size: 0.65rem; margin-bottom: 2rem; }
+
+    .nav-section {
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 0.3rem 0;
+      transition: color 0.15s;
+    }
+
+    nav a:hover, nav a.active { color: var(--cyan); }
+
+    /* Main */
+    main {
+      flex: 1;
+      padding: 3rem 3rem 5rem;
+      max-width: 820px;
+    }
+
+    h1 { color: var(--white); font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+    h2 {
+      color: var(--white);
+      font-size: 1rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 { color: var(--cyan); font-size: 0.85rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+
+    p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 1rem; }
+
+    .lead { color: #94a3b8; font-size: 0.85rem; margin-bottom: 2rem; }
+
+    /* Code blocks */
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    pre code { color: var(--white); font-size: 0.8rem; line-height: 1.6; }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 0.65rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+    .prompt { color: var(--muted); }
+    .cmd { color: var(--cyan); }
+    .arg { color: var(--white); }
+    .comment { color: var(--muted); }
+    .str { color: var(--green); }
+    .kw { color: var(--purple); }
+
+    /* Callout */
+    .callout {
+      background: var(--surface);
+      border-left: 3px solid var(--cyan);
+      border-radius: 0 6px 6px 0;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .callout.warn { border-color: var(--yellow); }
+    .callout.rule { border-color: var(--purple); }
+    .callout.day0 { border-color: var(--cyan); }
+    .callout.day1 { border-color: var(--green); }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: 0.78rem; }
+
+    th {
+      color: var(--muted);
+      text-align: left;
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: normal;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.65rem;
+    }
+
+    td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #1a1a1a;
+      color: #94a3b8;
+      vertical-align: top;
+    }
+
+    td code, p code { color: var(--cyan); font-size: 0.78rem; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }
+
+    .step { display: flex; gap: 1rem; align-items: flex-start; }
+
+    .step-num {
+      background: var(--cyan-dim);
+      color: var(--white);
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    .step-num.green { background: #15803d; }
+    .step-num.purple { background: var(--purple-dim); }
+
+    .step-content { flex: 1; }
+    .step-title { color: var(--white); font-size: 0.82rem; margin-bottom: 0.25rem; }
+    .step-desc { color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
+
+    /* Phase badge */
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .badge.day0 { background: rgba(6,182,212,0.12); color: var(--cyan); border: 1px solid rgba(6,182,212,0.3); }
+    .badge.day1 { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+
+    /* Back link */
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.72rem;
+      margin-bottom: 2rem;
+      transition: color 0.15s;
+    }
+
+    .back:hover { color: var(--cyan); }
+
+    /* Flow diagram */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      line-height: 2;
+    }
+
+    .flow .node { color: var(--white); }
+    .flow .arrow { color: var(--border); }
+    .flow .node-cyan { color: var(--cyan); }
+    .flow .node-green { color: var(--green); }
+    .flow .node-muted { color: var(--muted); }
+
+    @media (max-width: 640px) {
+      nav { display: none; }
+      main { padding: 2rem 1.25rem 4rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-logo">NEXUS</div>
+    <div class="nav-version">v3 Workflow</div>
+
+    <div class="nav-section">Overview</div>
+    <a href="#overview">What is v3</a>
+    <a href="#artifact-chain">Artifact chain</a>
+    <a href="#setup">Setup</a>
+
+    <div class="nav-section">Day 0 — /scaffold</div>
+    <a href="#day0">Overview</a>
+    <a href="#nexus-init">nexus init</a>
+    <a href="#evaluate">EVALUATE</a>
+    <a href="#plan">PLAN</a>
+    <a href="#apply">APPLY</a>
+    <a href="#validate">VALIDATE</a>
+
+    <div class="nav-section">Day 1 — EPAV</div>
+    <a href="#day1">Overview</a>
+    <a href="#evaluate-task">/evaluate</a>
+    <a href="#plan-task">/plan</a>
+    <a href="#apply-task">/apply</a>
+    <a href="#validate-task">/validate</a>
+
+    <div class="nav-section">Reference</div>
+    <a href="#mcp-tools">MCP tools</a>
+    <a href="#skills">Skills</a>
+    <a href="#rules">Key rules</a>
+
+    <div class="nav-section">Links</div>
+    <a href="/">← Home</a>
+    <a href="/docs.html">Docs</a>
+    <a href="https://github.com/rcdelacruz/nexus-mcp" target="_blank">GitHub</a>
+  </nav>
+
+  <main>
+    <a href="/" class="back">← back to home</a>
+
+    <h1>v3 Workflow</h1>
+    <p class="lead">Two distinct workflows: <strong style="color:var(--cyan)">Day 0</strong> sets up the project once with <code>/scaffold</code>. <strong style="color:var(--green)">Day 1</strong> delivers features repeatedly with EPAV (<code>/evaluate → /plan → /apply → /validate</code>).</p>
+
+    <!-- Overview -->
+    <h2 id="overview">What is v3</h2>
+
+    <p>v3 replaces static boilerplate templates with AI-generated scaffolds driven by your architecture document and Figma design. Any stack, any project — one workflow.</p>
+
+    <table>
+      <thead>
+        <tr><th>Workflow</th><th>When</th><th>Skill</th><th>Output</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge day0">Day 0</span></td>
+          <td>Once, at project start</td>
+          <td><code>/scaffold</code></td>
+          <td>Complete scaffold — builds and runs with zero credentials</td>
+        </tr>
+        <tr>
+          <td><span class="badge day1">Day 1</span></td>
+          <td>Every feature, every sprint</td>
+          <td><code>/evaluate → /plan → /apply → /validate</code></td>
+          <td>Shipped feature with real auth, real DB, real integrations</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Day 0 is never run via EPAV.</strong> <code>/scaffold</code> is its own skill. EPAV is only for Day 1 feature tasks from the dev tasks CSV.
+    </div>
+
+    <!-- Artifact chain -->
+    <h2 id="artifact-chain">Artifact Chain</h2>
+
+    <p>These documents must exist before Day 0 starts. They are produced once by the product and architecture team.</p>
+
+    <div class="flow">
+      <span class="node">BRD</span> <span class="arrow">→</span>
+      <span class="node">PRD</span> <span class="arrow">→</span>
+      <span class="node">Architecture Doc + ADRs</span> <span class="arrow">→</span>
+      <span class="node-cyan">Dev Tasks CSV</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Artifact</th><th>What it contains</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>BRD</strong></td><td>Business requirements</td></tr>
+        <tr><td><strong>PRD</strong></td><td>Features and acceptance criteria</td></tr>
+        <tr><td><strong>Architecture Doc + ADRs</strong></td><td>Stack, data model, auth, security, NFRs, error format, and the reasoning behind each decision</td></tr>
+        <tr><td><strong>Dev Tasks CSV</strong></td><td>Every feature broken into tasks. Each row has a task ID, description, and definition of done (acceptance criteria). This is the input for every Day 1 EPAV cycle.</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Setup -->
+    <h2 id="setup">Setup</h2>
+
+    <h3>Add the MCP server</h3>
+
+    <p>Add to <code>.mcp.json</code> in your project (Claude Code) or <code>claude_desktop_config.json</code> (Claude Desktop / Cursor):</p>
+
+    <pre><button class="copy-btn" onclick="copy(this)">copy</button><code>{
+  <span class="str">"mcpServers"</span>: {
+    <span class="str">"nexus"</span>: {
+      <span class="str">"command"</span>: <span class="str">"uvx"</span>,
+      <span class="str">"args"</span>: [<span class="str">"--refresh"</span>, <span class="str">"--from"</span>, <span class="str">"nexus-toolkit"</span>, <span class="str">"nexus-mcp"</span>]
+    }
+  }
+}</code></pre>
+
+    <h3>Install the CLI</h3>
+
+    <pre><button class="copy-btn" onclick="copy(this)">copy</button><code><span class="comment"># macOS / Linux — one-liner</span>
+<span class="prompt">$</span> <span class="cmd">curl -fsSL https://nexus.coderstudio.co/install.sh | sh</span></code></pre>
+
+    ---
+
+    <!-- Day 0 -->
+    <h2 id="day0">Day 0 — <code>/scaffold</code></h2>
+
+    <span class="badge day0">Day 0</span>
+    <p>One-time project setup. Generates a complete production-grade scaffold from the architecture document and Figma export. Output: infrastructure + design system + UI shell + AGENTS.md + knowledge/.</p>
+
+    <div class="callout rule">
+      <strong>Core rule:</strong> Day 0 is structure and standards only — no live integrations.
+      Mock auth. Mock data. Zero external dependencies.
+      <code>npm install &amp;&amp; npm run dev</code> must work with no credentials configured.
+    </div>
+
+    <!-- nexus init -->
+    <h2 id="nexus-init">Step 1 — <code>nexus init</code></h2>
+
+    <p>Run once in the terminal before opening the project in Claude Code.</p>
+
+    <pre><button class="copy-btn" onclick="copy(this)">copy</button><code><span class="comment"># From anywhere — point at your new project directory</span>
+<span class="prompt">$</span> <span class="cmd">uvx --from nexus-toolkit nexus init</span> <span class="arg">/path/to/my-project</span>
+
+<span class="comment"># Or from inside the project</span>
+<span class="prompt">$</span> <span class="cmd">cd my-project &amp;&amp; uvx --from nexus-toolkit nexus init</span> <span class="arg">.</span></code></pre>
+
+    <p>This drops into the project:</p>
+
+    <table>
+      <thead>
+        <tr><th>Path</th><th>What it is</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>.claude/commands/scaffold.md</code></td><td>Day 0 skill — invoked by <code>/scaffold</code></td></tr>
+        <tr><td><code>.claude/commands/evaluate.md</code></td><td>Day 1 EPAV skill</td></tr>
+        <tr><td><code>.claude/commands/plan.md</code></td><td>Day 1 EPAV skill</td></tr>
+        <tr><td><code>.claude/commands/apply.md</code></td><td>Day 1 EPAV skill</td></tr>
+        <tr><td><code>.claude/commands/validate.md</code></td><td>Day 1 EPAV skill</td></tr>
+        <tr><td><code>.claude/commands/epav.md</code></td><td>Full-cycle orchestrator</td></tr>
+        <tr><td><code>.claude/settings.json</code></td><td>PostToolUse hook — auto-runs <code>graphify update</code> after every file edit</td></tr>
+        <tr><td><code>knowledge/</code></td><td>Empty scaffold (rules/, patterns/, prompts/dev/)</td></tr>
+      </tbody>
+    </table>
+
+    <p>Then ingest your inputs before running <code>/scaffold</code>:</p>
+
+    <pre><button class="copy-btn" onclick="copy(this)">copy</button><code><span class="comment"># Ingest the architecture document</span>
+<span class="comment"># Use the MCP tool: ingest_architecture_doc</span>
+<span class="comment"># → extracts arch sections to knowledge/rules/arch-summary.md</span>
+
+<span class="comment"># Ingest the Figma export</span>
+<span class="comment"># Use the MCP tool: ingest_figma_zip</span>
+<span class="comment"># → extracts Figma components into the project</span></code></pre>
+
+    <div class="callout">
+      Open the project in Claude Code after <code>nexus init</code>. The MCP tools and <code>/scaffold</code> skill are now available in your session.
+    </div>
+
+    <!-- EVALUATE -->
+    <h2 id="evaluate">EVALUATE</h2>
+
+    <p>Type <code>/scaffold</code> in Claude Code. The AI reads the arch doc + Figma and produces a 10-point summary before writing any code.</p>
+
+    <table>
+      <thead>
+        <tr><th>#</th><th>Area</th><th>What is covered</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>Stack</td><td>Decisions and why they were made</td></tr>
+        <tr><td>2</td><td>Data model</td><td>Tables, relationships, indexes</td></tr>
+        <tr><td>3</td><td>Infrastructure</td><td>What is needed from day one</td></tr>
+        <tr><td>4</td><td>Auth flow</td><td>Middleware stack, route protection</td></tr>
+        <tr><td>5</td><td>Error handling</td><td>Response format, error strategy</td></tr>
+        <tr><td>6</td><td>Security</td><td>Rules and constraints</td></tr>
+        <tr><td>7</td><td>Design tokens</td><td>Colors (converted from Figma oklch/hex), typography, spacing, radii</td></tr>
+        <tr><td>8</td><td>Component inventory</td><td>Every component, variants, all states</td></tr>
+        <tr><td>9</td><td>Layout patterns</td><td>Grid, breakpoints, responsive behavior</td></tr>
+        <tr><td>10</td><td>Iconography</td><td>Library, sizes, style</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <strong>Stops here.</strong> AI waits for your approval before proceeding to PLAN. Review the summary — confirm the stack, data model, and design tokens are correct.
+    </div>
+
+    <!-- PLAN -->
+    <h2 id="plan">PLAN</h2>
+
+    <p>After approval, the AI produces a blueprint — no code yet. Four outputs:</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Infrastructure boilerplate</div>
+          <div class="step-desc">Directory structure, database schema, environment variables, auth flow, error handler</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">UI shell</div>
+          <div class="step-desc">Component list with prop interfaces, page layouts, build order (dependency chain)</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">AGENTS.md</div>
+          <div class="step-desc">Project rules for every AI tool: stack summary, coding standards, security rules, git conventions, quality gates</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">knowledge/ structure</div>
+          <div class="step-desc">Coding standards, prompt templates, design system spec, implement-and-test patterns</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>Stops here.</strong> AI waits for your <code>/apply</code> approval before writing any files.
+    </div>
+
+    <!-- APPLY -->
+    <h2 id="apply">APPLY</h2>
+
+    <p>Plan approved — the AI generates everything in one pass.</p>
+
+    <div class="callout rule">
+      <strong>First step — always:</strong> <code>resolve_package_versions</code> MCP tool runs before any file is written. It installs packages in a temp directory and returns exact pinned versions from the real lock file. Never from AI memory.
+    </div>
+
+    <p>What gets written:</p>
+
+    <table>
+      <thead>
+        <tr><th>Category</th><th>Files</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Config</td><td><code>.gitignore</code>, <code>.env.example</code>, linter + formatter config</td></tr>
+        <tr><td>Database</td><td>Schema migration (SQL ready, not applied yet), seed script</td></tr>
+        <tr><td>Auth</td><td>Mock auth middleware — reads <code>mock-role</code> cookie, redirects unauthenticated requests</td></tr>
+        <tr><td>API</td><td>Health-check endpoint only. No business logic.</td></tr>
+        <tr><td>Git hooks</td><td>husky + lint-staged + commitlint (npm); equivalent for other stacks. <code>chmod +x .husky/pre-commit</code> runs automatically. CI sets <code>HUSKY=0</code>.</td></tr>
+        <tr><td>Design system</td><td>Tailwind config, globals.css with converted hsl() tokens, font loading</td></tr>
+        <tr><td>Components</td><td>All components from Figma with every visual state (default, hover, focus, disabled, loading, empty, error)</td></tr>
+        <tr><td>Pages</td><td>All pages from Figma with mock data — no API calls</td></tr>
+        <tr><td>Project rules</td><td>AGENTS.md at project root, knowledge/ with coding standards + design system spec</td></tr>
+        <tr><td>CI</td><td>GitHub Actions: lint, typecheck, build</td></tr>
+        <tr><td>Docs</td><td>README with local setup instructions</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Mock auth pattern</h3>
+
+    <p>Day 0 uses cookie-based mock auth — readable server-side, no real provider needed.</p>
+
+    <pre><button class="copy-btn" onclick="copy(this)">copy</button><code><span class="comment"># Login page sets the cookie — no credentials checked</span>
+<span class="comment"># Cookie: mock-role=admin (or manager, employee, etc.)</span>
+<span class="comment"># Expiry: 8 hours</span>
+
+<span class="comment"># Route guard reads the cookie and redirects if missing</span>
+<span class="comment"># Server components call getMockSession() — no Context provider needed</span>
+
+<span class="comment"># Real auth provider replaces this on Day 1</span></code></pre>
+
+    <h3>Package versions</h3>
+
+    <pre><button class="copy-btn" onclick="copy(this)">copy</button><code><span class="comment"># What the AI does — always</span>
+resolve_package_versions({
+  packages: [<span class="str">"next@^16"</span>, <span class="str">"react@^19"</span>, <span class="str">"@supabase/supabase-js@^2"</span>],
+  stack_hint: <span class="str">"Next.js 16 TypeScript"</span>
+})
+<span class="comment"># → { "next": "16.2.9", "react": "19.2.7", ... }</span>
+
+<span class="comment"># Then writes package.json with exact versions — no ^ or ~</span>
+<span class="comment"># Then runs: npm install → package-lock.json</span></code></pre>
+
+    <div class="callout warn">
+      NEVER write <code>"latest"</code>. NEVER write semver ranges. NEVER use versions from AI training data — they are always stale.
+    </div>
+
+    <h3>Do NOT implement in Day 0</h3>
+
+    <table>
+      <thead>
+        <tr><th>What</th><th>When</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Real auth provider (Supabase Auth, NextAuth, OAuth)</td><td>Day 1</td></tr>
+        <tr><td>Live database queries or mutations</td><td>Day 1</td></tr>
+        <tr><td>External service calls (email, storage, payment)</td><td>Day 1</td></tr>
+        <tr><td>API endpoints beyond health check</td><td>Day 1</td></tr>
+        <tr><td>Dev tasks from the CSV</td><td>Day 1</td></tr>
+      </tbody>
+    </table>
+
+    <!-- VALIDATE -->
+    <h2 id="validate">VALIDATE</h2>
+
+    <p>Build must pass before anything else is checked.</p>
+
+    <table>
+      <thead>
+        <tr><th>Stack</th><th>Build command</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Next.js / Vite</td><td><code>npm run build</code></td></tr>
+        <tr><td>Flutter</td><td><code>flutter build apk --debug</code></td></tr>
+        <tr><td>Go</td><td><code>go build ./...</code></td></tr>
+        <tr><td>Rust</td><td><code>cargo build</code></td></tr>
+        <tr><td>Java / Spring</td><td><code>mvn package -DskipTests</code></td></tr>
+      </tbody>
+    </table>
+
+    <p>19-point checklist after build passes:</p>
+
+    <table>
+      <thead>
+        <tr><th>Group</th><th>Checks</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Packages (4)</td><td>Stable versions, no deprecated APIs, lock file pinned, no CVEs</td></tr>
+        <tr><td>Infrastructure (6)</td><td>Structure matches arch, schema matches data model, env vars documented, production logging, security headers, DB pooling</td></tr>
+        <tr><td>UI fidelity (6)</td><td>Matches Figma, responsive at 320/768/1024/1440px, all visual states, WCAG AA, props typed for Day 1 wiring, no API calls in components</td></tr>
+        <tr><td>AGENTS.md + knowledge (2)</td><td>Coding standards match arch, design system spec saved</td></tr>
+        <tr><td>Git hygiene (1)</td><td>Pre-commit hooks configured and executable</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout day0">
+      Every <strong>[BLOCKER]</strong> and <strong>[FIX NOW]</strong> is fixed before Day 0 is called complete. <code>npm install &amp;&amp; npm run dev</code> works. Zero credentials needed.
+    </div>
+
+    ---
+
+    <!-- Day 1 -->
+    <h2 id="day1">Day 1 — EPAV</h2>
+
+    <span class="badge day1">Day 1</span>
+    <p>Runs for every feature task from the dev tasks CSV. Repeats for every sprint, forever. This is where real auth, real DB, and real integrations are wired.</p>
+
+    <div class="flow">
+      <span class="node-muted">Dev Tasks CSV row</span><br/>
+      <span class="arrow">↓</span><br/>
+      <span class="node-cyan">/evaluate</span> <span class="arrow">→</span> blast radius + acceptance criteria<br/>
+      <span class="node-cyan">/plan</span> <span class="arrow">→</span> implementation blueprint (no code)<br/>
+      <span class="node-cyan">/apply</span> <span class="arrow">→</span> write the code<br/>
+      <span class="node-cyan">/validate</span> <span class="arrow">→</span> all criteria pass, fix all blockers<br/>
+      <span class="arrow">↓</span><br/>
+      <span class="node-green">Ship the feature</span>
+    </div>
+
+    <!-- /evaluate -->
+    <h2 id="evaluate-task"><code>/evaluate &lt;task&gt;</code></h2>
+
+    <p>Input: one row from the dev tasks CSV.</p>
+
+    <pre><button class="copy-btn" onclick="copy(this)">copy</button><code><span class="comment"># Example</span>
+/evaluate <span class="arg">TASK-042 — Leave approval flow
+  AC1: Manager can approve with optional note
+  AC2: leave_balances.used_days increments atomically
+  AC3: audit_log entry created on every status change</span></code></pre>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num green">1</div>
+        <div class="step-content">
+          <div class="step-title">graphify blast radius</div>
+          <div class="step-desc"><code>graphify query</code> finds all files the task touches and what references them</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num green">2</div>
+        <div class="step-content">
+          <div class="step-title">knowledge check</div>
+          <div class="step-desc">Checks <code>knowledge/</code> for relevant rules, patterns, and prior retros</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num green">3</div>
+        <div class="step-content">
+          <div class="step-title">Output</div>
+          <div class="step-desc">Affected files, acceptance criteria restated, risks flagged. Waits for approval.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- /plan -->
+    <h2 id="plan-task"><code>/plan</code></h2>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num green">1</div>
+        <div class="step-content">
+          <div class="step-title">graphify path check</div>
+          <div class="step-desc"><code>graphify path A B</code> confirms relationships between primary files</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num green">2</div>
+        <div class="step-content">
+          <div class="step-title">Blueprint</div>
+          <div class="step-desc">Numbered steps: file by file, what changes and why. Files created / modified / deleted. Which AGENTS.md rules apply.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      No code written. Waits for <code>/apply</code> approval.
+    </div>
+
+    <!-- /apply -->
+    <h2 id="apply-task"><code>/apply</code></h2>
+
+    <p>Implements exactly what the plan says — nothing more.</p>
+
+    <table>
+      <thead>
+        <tr><th>What gets wired</th><th>How</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Real auth</td><td>Replace mock cookie with real provider (<code>@supabase/ssr</code>, magic link, OAuth)</td></tr>
+        <tr><td>Database</td><td>Apply migration (<code>supabase db push</code>), replace mock data imports with real client calls</td></tr>
+        <tr><td>Route Handlers</td><td>Written with Zod input validation, consistent error format from arch doc</td></tr>
+        <tr><td>RLS policies</td><td>Using <code>get_my_role()</code> — never recursive subqueries</td></tr>
+        <tr><td>Multi-step mutations</td><td>Atomic transactions — all succeed or all roll back</td></tr>
+      </tbody>
+    </table>
+
+    <p>graphify updates automatically via PostToolUse hook after every file written — no manual step.</p>
+
+    <!-- /validate -->
+    <h2 id="validate-task"><code>/validate</code></h2>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num green">1</div>
+        <div class="step-content">
+          <div class="step-title">Build must pass first</div>
+          <div class="step-desc">A failed build is an automatic [BLOCKER]. Nothing else is checked until it exits 0.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num green">2</div>
+        <div class="step-content">
+          <div class="step-title">Acceptance criteria</div>
+          <div class="step-desc">Every criterion: <strong>[PASS]</strong> / <strong>[FAIL]</strong> / <strong>[PARTIAL]</strong></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num green">3</div>
+        <div class="step-content">
+          <div class="step-title">Fix all blockers</div>
+          <div class="step-desc">Every [BLOCKER] and [FIX NOW] is fixed before the task is marked done</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num green">4</div>
+        <div class="step-content">
+          <div class="step-title">Contribute patterns back</div>
+          <div class="step-desc">New patterns discovered go to <code>knowledge/patterns/</code> for future tasks</div>
+        </div>
+      </div>
+    </div>
+
+    ---
+
+    <!-- MCP tools -->
+    <h2 id="mcp-tools">MCP Tools Reference</h2>
+
+    <h3>EPAV tools</h3>
+    <table>
+      <thead>
+        <tr><th>Tool</th><th>What it does</th><th>Used in</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>ingest_architecture_doc</code></td><td>Extracts arch doc → <code>knowledge/rules/arch-summary.md</code></td><td>Day 0 setup</td></tr>
+        <tr><td><code>ingest_figma_zip</code></td><td>Extracts Figma export ZIP into project</td><td>Day 0 setup</td></tr>
+        <tr><td><code>resolve_package_versions</code></td><td>Returns exact pinned versions from real lock file</td><td>Day 0 APPLY</td></tr>
+        <tr><td><code>load_task</code></td><td>Loads CSV task row + graphify blast radius</td><td>Day 1 /evaluate</td></tr>
+        <tr><td><code>generate_project_rules</code></td><td>Creates AGENTS.md + knowledge/ from arch doc</td><td>Day 0 APPLY</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Pipeline tools</h3>
+    <table>
+      <thead>
+        <tr><th>Tool</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>ingest_from_prompt</code></td><td>Ingests requirements from a prompt</td></tr>
+        <tr><td><code>ingest_from_codebase</code></td><td>Ingests an existing codebase</td></tr>
+        <tr><td><code>remap_to_golden_path</code></td><td>Remaps files to project structure</td></tr>
+        <tr><td><code>validate_output</code></td><td>Validates pipeline output</td></tr>
+        <tr><td><code>package_output</code></td><td>Packages output into a ZIP</td></tr>
+        <tr><td><code>update_file_in_tree</code></td><td>Updates a single file in the output tree</td></tr>
+        <tr><td><code>nexus_search</code></td><td>Hybrid semantic search</td></tr>
+        <tr><td><code>nexus_read</code></td><td>Doc-optimised file reading</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Skills -->
+    <h2 id="skills">Skills</h2>
+
+    <p>Installed to <code>.claude/commands/</code> by <code>nexus init</code>. Invoked as slash commands in Claude Code.</p>
+
+    <table>
+      <thead>
+        <tr><th>Skill</th><th>When</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/scaffold</code></td><td>Day 0 — one-time project setup</td></tr>
+        <tr><td><code>/evaluate</code></td><td>Day 1 — blast radius + acceptance criteria</td></tr>
+        <tr><td><code>/plan</code></td><td>Day 1 — implementation blueprint</td></tr>
+        <tr><td><code>/apply</code></td><td>Day 1 — write the code</td></tr>
+        <tr><td><code>/validate</code></td><td>Day 1 — verify and fix</td></tr>
+        <tr><td><code>/epav</code></td><td>Day 1 — full cycle orchestrator</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Key rules -->
+    <h2 id="rules">Key Rules</h2>
+
+    <table>
+      <thead>
+        <tr><th>Rule</th><th>Detail</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>graphify first</td><td>Run <code>graphify query</code> before reading any source file. The graph orients you — raw file reads come after.</td></tr>
+        <tr><td>No version guessing</td><td><code>resolve_package_versions</code> before every APPLY. Never write versions from AI training data.</td></tr>
+        <tr><td>No scaffold CLIs</td><td>Never run <code>npx create-next-app</code> or equivalent. Write all files directly.</td></tr>
+        <tr><td>Figma colors → hsl()</td><td>Figma exports oklch or hex. Convert to hsl() (web), <code>Color()</code> (Flutter), hex (RN) before writing design files.</td></tr>
+        <tr><td>Day 0 = mock only</td><td>No real auth, no real DB, no external calls. The project must build with zero credentials.</td></tr>
+        <tr><td>Stop before each phase</td><td>EVALUATE stops before PLAN. PLAN stops before APPLY. User approves each transition.</td></tr>
+        <tr><td>Fix all blockers</td><td>Every [BLOCKER] and [FIX NOW] is fixed before the phase is called complete. Never defer a blocker.</td></tr>
+      </tbody>
+    </table>
+
+  </main>
+
+  <script>
+    function copy(btn) {
+      const code = btn.nextElementSibling.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = 'copied';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+      });
+    }
+
+    // Active nav link on scroll
+    const sections = document.querySelectorAll('h2[id], h3[id]');
+    const links = document.querySelectorAll('nav a[href^="#"]');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          links.forEach(l => l.classList.remove('active'));
+          const active = document.querySelector(`nav a[href="#${e.target.id}"]`);
+          if (active) active.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    sections.forEach(s => observer.observe(s));
+  </script>
+
+</body>
+</html>
