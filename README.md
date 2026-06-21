@@ -4,40 +4,46 @@
 [![Python](https://img.shields.io/pypi/pyversions/nexus-dev-toolkit)](https://pypi.org/project/nexus-dev-toolkit/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-LLM-agnostic developer workflow toolkit. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle — across Claude Code, Cursor, GitHub Copilot, and Windsurf.
+Developer workflow toolkit for AI-assisted development. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
 
 ---
 
 ## Why
 
-Every team re-invents the same wheel: how do we give our AI assistant the right context? How do we keep skills and rules in sync across devs using different tools? How do we stop ad-hoc prompting and start shipping consistently?
+Ad-hoc AI prompting doesn't scale. Every dev prompts differently, context drifts, and nobody knows what the AI was told last sprint.
 
-`nexus-dev-toolkit` solves this with two things:
+`nexus-dev-toolkit` gives your team a single workflow:
 
-1. **`.nexus/`** — a single source of truth for your project's skills, rules, and knowledge. Tool-agnostic.
-2. **`nexus sync`** — translates `.nexus/` to wherever your team works: `.claude/commands/`, `.cursor/rules/`, `.github/copilot-instructions.md`, `.windsurfrules`.
+- **Day 0** — scaffold the project once, production-grade, zero credentials needed
+- **Day 1** — every feature follows the same four steps: evaluate → plan → apply → validate
+
+Every skill, every rule, every pattern lives in the project repo — versioned, shared, and enforced.
 
 ---
 
 ## The Workflow
 
-### Day 0 — Scaffold once
+### Day 0 — `/scaffold` (once per project)
+
+```
+nexus init <project-dir>
+```
+
+Sets up `.claude/commands/`, `.claude/settings.json`, and `knowledge/`. Then in Claude Code:
 
 ```
 /scaffold
 ```
 
-EVALUATE → PLAN → APPLY → VALIDATE. Produces a production-grade project: mock auth, mock data, design system, AGENTS.md, zero external dependencies. Runs with `npm install && npm run dev` (or equivalent for your stack) from the first commit.
+EVALUATE → PLAN → APPLY → VALIDATE. Produces a production-grade project: correct stack from your arch doc, mock auth, mock data, design system, AGENTS.md — all from your architecture document. Runs with `npm install && npm run dev` (or equivalent) from commit one.
 
-### Day 1 — Ship features with EPAV
-
-Every feature follows the same four steps:
+### Day 1 — EPAV (every feature, every sprint)
 
 ```
 /evaluate   →   /plan   →   /apply   →   /validate
 ```
 
-No ad-hoc prompting. No drift. Every dev on the team follows the same cycle.
+Each step is a built-in skill in `.claude/commands/`. Every task starts with a row from the dev tasks CSV. Every task ends with acceptance criteria verified.
 
 ---
 
@@ -58,42 +64,50 @@ pip install nexus-dev-toolkit
 ## Quick Start
 
 ```bash
-# Go to your project
 cd my-project
-
-# One-command setup: init .nexus/, write MCP config, sync to your LLM tool
-nexus setup
-
-# Then open your AI assistant and type:
-# /scaffold
+nexus init .
 ```
 
-`nexus setup` detects your LLM tool automatically (Claude Code, Cursor, etc.) and wires everything in one step.
+Then open the project in Claude Code and type `/scaffold`.
 
 ---
 
 ## Commands
 
 ```bash
-nexus setup                  # init + MCP config + sync (one command)
-nexus init                   # init .nexus/ only
-nexus sync                   # push .nexus/ → detected LLM tool(s)
-nexus sync --tool cursor     # force a specific tool
-
-nexus skill add code-review  # create a custom skill
+nexus init .                 # set up .claude/commands/ + knowledge/ + .mcp.json
+nexus skill add code-review  # create a custom skill in .claude/commands/
 nexus skill list             # list all skills
-
-nexus rule add api-standards # create a project rule
+nexus rule add api-standards # create a rule in knowledge/rules/
 nexus rule list              # list all rules
-
 nexus update                 # update to latest version
 ```
 
 ---
 
-## MCP Server
+## What `nexus init` Creates
 
-For Claude Code and Claude Desktop, the MCP server exposes tools that power the EPAV cycle:
+```
+.claude/
+├── commands/
+│   ├── scaffold.md    ← /scaffold  — Day 0 one-time setup
+│   ├── evaluate.md    ← /evaluate  — orient on a task
+│   ├── plan.md        ← /plan      — blueprint, no code
+│   ├── apply.md       ← /apply     — implement the plan
+│   ├── validate.md    ← /validate  — verify acceptance criteria
+│   └── epav.md        ← /epav      — full cycle guide
+└── settings.json      ← PostToolUse hook: graphify auto-updates after every file edit
+knowledge/
+├── rules/             ← coding standards, arch decisions
+├── patterns/          ← reusable implementation patterns
+├── prompts/dev/       ← task prompt templates
+└── retros/            ← retrospective notes
+.mcp.json              ← MCP server config
+```
+
+---
+
+## MCP Server
 
 ```json
 {
@@ -106,69 +120,28 @@ For Claude Code and Claude Desktop, the MCP server exposes tools that power the 
 }
 ```
 
-`nexus setup` writes this automatically. Manual config goes in:
-- `.mcp.json` — Claude Code (project-level)
-- `~/Library/Application Support/Claude/claude_desktop_config.json` — Claude Desktop (macOS)
-- `~/.cursor/mcp.json` — Cursor
+`nexus init` writes `.mcp.json` automatically.
 
 ### MCP Tools
 
 | Tool | Purpose |
 |---|---|
-| `ingest_architecture_doc` | Load arch doc into knowledge/ |
-| `load_task` | Load a task from the CSV into context |
-| `generate_project_rules` | Generate AGENTS.md from arch doc |
-| `resolve_package_versions` | Resolve exact package versions via real PM |
+| `ingest_architecture_doc` | Load arch doc → `knowledge/rules/arch-summary.md` |
+| `load_task` | Load a CSV task row into context |
+| `generate_project_rules` | Generate `AGENTS.md` from arch doc |
+| `resolve_package_versions` | Resolve exact package versions via real package manager |
 
 ---
 
-## Built-in Skills
-
-| Skill | Trigger | Purpose |
-|---|---|---|
-| `/scaffold` | Day 0 | One-time project setup |
-| `/evaluate` | Day 1 | Orient on a task, load context |
-| `/plan` | Day 1 | Blueprint — no code yet |
-| `/apply` | Day 1 | Implement the approved plan |
-| `/validate` | Day 1 | Verify against acceptance criteria |
-| `/epav` | Any | Full EPAV cycle guide |
-
----
-
-## Custom Skills and Rules
-
-Skills and rules live in `.nexus/` and are yours to own:
-
-```
-.nexus/
-├── skills/
-│   ├── scaffold.md           ← built-in
-│   ├── evaluate.md           ← built-in
-│   └── my-code-review.md     ← yours
-├── rules/
-│   └── api-standards.md      ← yours
-└── settings.json
-```
+## Custom Skills
 
 ```bash
 nexus skill add my-code-review
-# Edit .nexus/skills/my-code-review.md
-nexus sync
-# Syncs to all detected LLM tools automatically
+# Edit .claude/commands/my-code-review.md
+# Type /my-code-review in Claude Code
 ```
 
----
-
-## Supported LLM Tools
-
-| Tool | Output |
-|---|---|
-| Claude Code | `.claude/commands/` + `.claude/settings.json` |
-| Cursor | `.cursor/rules/*.mdc` |
-| GitHub Copilot | `.github/copilot-instructions.md` |
-| Windsurf | `.windsurfrules` |
-
-Auto-detected from your project. Override with `nexus sync --tool <name>`.
+Custom skills live alongside built-in skills in `.claude/commands/` — versioned in your repo, shared across the team.
 
 ---
 
