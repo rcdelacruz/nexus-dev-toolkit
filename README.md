@@ -1,8 +1,5 @@
 # nexus-dev-toolkit
 
-[![PyPI version](https://img.shields.io/pypi/v/nexus-dev-toolkit)](https://pypi.org/project/nexus-dev-toolkit/)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/nexus-dev-toolkit/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Developer workflow toolkit for Claude Code. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
 
