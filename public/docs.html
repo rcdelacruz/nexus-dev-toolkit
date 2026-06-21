@@ -266,18 +266,43 @@
     <p>Everything the AI needs — skills, rules, knowledge — lives in your repo under <code>.claude/commands/</code> and <code>knowledge/</code>. Versioned, shared, enforced across the team.</p>
 
     <!-- Install -->
-    <h2 id="install">Install</h2>
+    <h2 id="install">Setup</h2>
 
-    <p><strong>Requirements:</strong> Python 3.10+, <code>uv</code> (recommended) or <code>pip</code></p>
-
-    <pre><code><span class="comment"># Recommended</span>
-<span class="prompt">$</span> <span class="cmd">uv tool install</span> nexus-dev-toolkit
-
-<span class="comment"># Or via pip</span>
-<span class="prompt">$</span> <span class="cmd">pip install</span> nexus-dev-toolkit
-
-<span class="comment"># Or via curl</span>
-<span class="prompt">$</span> <span class="cmd">curl</span> -fsSL https://nexus.coderstudio.co/install.sh | bash</code><button class="copy-btn" onclick="copy(this, 'uv tool install nexus-dev-toolkit')">copy</button></pre>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Install uv</div>
+          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">curl</span> -LsSf https://astral.sh/uv/install.sh | sh</code><button class="copy-btn" onclick="copy(this, 'curl -LsSf https://astral.sh/uv/install.sh | sh')">copy</button></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Install Claude Code</div>
+          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">npm install -g</span> @anthropic-ai/claude-code
+<span class="prompt">$</span> <span class="cmd">claude login</span></code><button class="copy-btn" onclick="copy(this, 'npm install -g @anthropic-ai/claude-code && claude login')">copy</button></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Install graphify <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(strongly recommended)</span></div>
+          <div class="step-desc">graphify builds a queryable knowledge graph of your codebase — every file, function, and relationship mapped. EPAV skills query this graph before touching any code to understand blast radius and cross-file dependencies.<br><br>
+          <strong>With graphify:</strong> scoped subgraph queries — fast, accurate, low token cost. Auto-updates after every file edit via the PostToolUse hook.<br>
+          <strong>Without graphify:</strong> EPAV skills still work but fall back to full file reads — slower, more token-heavy, and blast radius analysis is best-effort only.</div>
+          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> graphifyy
+<span class="prompt">$</span> <span class="cmd">graphify install</span>    <span class="comment"># registers /graphify skill into Claude Code</span></code><button class="copy-btn" onclick="copy(this, 'uv tool install graphifyy && graphify install')">copy</button></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Install nexus-dev-toolkit</div>
+          <pre style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> nexus-dev-toolkit</code><button class="copy-btn" onclick="copy(this, 'uv tool install nexus-dev-toolkit')">copy</button></pre>
+        </div>
+      </div>
+    </div>
 
     <!-- nexus init -->
     <h2 id="init">nexus init</h2>
@@ -285,6 +310,10 @@
     <p>Run once in your project directory. Creates the full workflow scaffold.</p>
 
     <pre><code><span class="prompt">$</span> <span class="cmd">nexus init</span> .</code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
+
+    <p>Then open the project in Claude Code and build the knowledge graph:</p>
+
+    <pre><code><span class="skill">/graphify .</span>    <span class="comment"># builds graphify-out/graph.json — required by all EPAV skills</span></code><button class="copy-btn" onclick="copy(this, '/graphify .')">copy</button></pre>
 
     <p>Creates:</p>
 

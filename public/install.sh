@@ -130,9 +130,43 @@ if [ -f "$NEXUS_BIN" ] && ! command -v nexus >/dev/null 2>&1; then
   fi
 fi
 
+# ── Optional: graphify ────────────────────────────────────────────────────────
+printf "\n"
+printf "  ${BOLD}graphify${RESET} ${DIM}(strongly recommended)${RESET}\n"
+printf "  ${DIM}Builds a queryable knowledge graph of your codebase. EPAV skills${RESET}\n"
+printf "  ${DIM}(/evaluate, /plan, /apply, /validate) query it for blast radius and${RESET}\n"
+printf "  ${DIM}cross-file context — faster and more accurate than full file reads.${RESET}\n"
+printf "  ${DIM}EPAV works without it, but falls back to slower grep-based analysis.${RESET}\n\n"
+printf "  Install graphify? [Y/n] "
+
+if read -r INSTALL_GRAPHIFY </dev/tty 2>/dev/null; then
+  case "$INSTALL_GRAPHIFY" in
+    [nN]*)
+      printf "\n  ${DIM}Skipped. Install later: uv tool install graphifyy && graphify install${RESET}\n"
+      ;;
+    *)
+      step "Installing graphify…"
+      if [ "$INSTALLER" = "uv" ]; then
+        uv tool install graphifyy --quiet
+      else
+        pip3 install --quiet graphifyy
+      fi
+      ok "graphify installed"
+      step "Registering graphify skill in Claude Code…"
+      graphify install 2>/dev/null && ok "graphify skill registered" || \
+        printf "  ${DIM}· Run 'graphify install' manually after opening Claude Code${RESET}\n"
+      ;;
+  esac
+else
+  printf "\n  ${DIM}(non-interactive shell — skipping graphify prompt)${RESET}\n"
+  printf "  ${DIM}Install later: uv tool install graphifyy && graphify install${RESET}\n"
+fi
+
 # ── Done ──────────────────────────────────────────────────────────────────────
 printf "\n  ${GREEN}${BOLD}Installation complete!${RESET}\n\n"
 printf "  ${DIM}Get started:${RESET}\n"
-printf "  ${CYAN}nexus setup${RESET}                ${DIM}# init project + write MCP config + sync skills${RESET}\n"
-printf "  ${CYAN}nexus skill add${RESET} ${DIM}my-review${RESET}  ${DIM}# create a custom skill${RESET}\n"
-printf "  ${CYAN}nexus sync${RESET}                 ${DIM}# push .nexus/ to your LLM tool${RESET}\n\n"
+printf "  ${CYAN}cd my-project${RESET}\n"
+printf "  ${CYAN}nexus init .${RESET}               ${DIM}# set up .claude/commands/ + knowledge/ + .mcp.json${RESET}\n"
+printf "  ${DIM}Then open in Claude Code and run:${RESET}\n"
+printf "  ${CYAN}/graphify .${RESET}                ${DIM}# build the knowledge graph (first time)${RESET}\n"
+printf "  ${CYAN}/scaffold${RESET}                  ${DIM}# Day 0 — scaffold the project${RESET}\n\n"
