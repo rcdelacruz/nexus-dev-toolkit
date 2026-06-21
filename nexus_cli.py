@@ -8,13 +8,38 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-app = typer.Typer(name="nexus", no_args_is_help=True, help="nexus-dev-toolkit — LLM-agnostic developer workflow toolkit")
+app = typer.Typer(name="nexus", no_args_is_help=False, help="nexus-dev-toolkit — Day 0 scaffold + Day 1 EPAV workflow for Claude Code")
 skill_app = typer.Typer(name="skill", no_args_is_help=True, help="Manage skills in .claude/commands/")
 rule_app = typer.Typer(name="rule", no_args_is_help=True, help="Manage rules in knowledge/rules/")
 app.add_typer(skill_app, name="skill")
 app.add_typer(rule_app, name="rule")
 
 console = Console()
+
+_VERSION = "3.0.1"
+
+_LOGO = """\
+[cyan]███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗[/cyan]
+[cyan]████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝[/cyan]
+[cyan]██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗[/cyan]
+[cyan]██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║[/cyan]
+[cyan]██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║[/cyan]
+[cyan]╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝[/cyan]
+[dim white]dev toolkit[/dim white]  [dim cyan]v{version}[/dim cyan]"""
+
+
+def _print_logo() -> None:
+    from rich.padding import Padding
+    console.print()
+    console.print(Padding(_LOGO.format(version=_VERSION), (0, 2)))
+    console.print()
+
+
+@app.callback(invoke_without_command=True)
+def _callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        _print_logo()
+        console.print(ctx.get_help())
 
 # ── Built-in skills shipped with the package ──────────────────────────────────
 
@@ -121,7 +146,7 @@ def init(
 ) -> None:
     """Initialize .claude/commands/, .claude/settings.json, and knowledge/ in a project."""
     root = Path(project_dir).resolve()
-    console.print(f"\n  [cyan]▶[/cyan]  Initializing nexus in [bold]{root}[/bold]\n")
+    console.print(f"  [cyan]▶[/cyan]  Initializing nexus in [bold]{root}[/bold]\n")
 
     created = _init_project(root)
     for f in created:

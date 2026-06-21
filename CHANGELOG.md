@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.0.1] - 2026-06-21
+
+### Added
+- ASCII logo displays when running `nexus` — cyan branded header with version
+
+### Fixed
+- graphify documented as prerequisite in README and docs with pros/cons trade-off
+- install.sh: interactive graphify setup prompt with graceful non-interactive fallback
+- CHANGELOG: corrected 3.0.0 entries to reflect actual v3 architecture
+
 ## [3.0.0] - 2026-06-21
 
 ### Added
