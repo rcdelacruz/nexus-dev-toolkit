@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from nexus_cli import app, _BUILTIN_SKILLS, _KNOWLEDGE_DIRS
+from nexus_cli import app, _BUILTIN_SKILLS, _BUILTIN_AGENTS, _KNOWLEDGE_DIRS
 
 runner = CliRunner()
 
@@ -21,6 +21,16 @@ def test_init_creates_commands(tmp_project):
     assert commands_dir.exists()
     for skill in _BUILTIN_SKILLS:
         assert (commands_dir / skill).exists(), f"Missing skill: {skill}"
+
+
+def test_init_creates_agents(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project)])
+    assert result.exit_code == 0
+    agents_dir = tmp_project / ".claude" / "agents"
+    assert agents_dir.exists()
+    for agent in _BUILTIN_AGENTS:
+        assert (agents_dir / agent).exists(), f"Missing agent: {agent}"
+
 
 
 def test_init_creates_knowledge_dirs(tmp_project):
@@ -56,17 +66,17 @@ def test_init_idempotent(tmp_project):
 
 def test_skill_add(tmp_project):
     runner.invoke(app, ["init", str(tmp_project)])
-    result = runner.invoke(app, ["skill", "add", "code-review", "--dir", str(tmp_project)])
+    result = runner.invoke(app, ["skill", "add", "my-custom-skill", "--dir", str(tmp_project)])
     assert result.exit_code == 0
-    skill_file = tmp_project / ".claude" / "commands" / "code-review.md"
+    skill_file = tmp_project / ".claude" / "commands" / "my-custom-skill.md"
     assert skill_file.exists()
-    assert "/code-review" in skill_file.read_text()
+    assert "/my-custom-skill" in skill_file.read_text()
 
 
 def test_skill_add_idempotent(tmp_project):
     runner.invoke(app, ["init", str(tmp_project)])
-    runner.invoke(app, ["skill", "add", "code-review", "--dir", str(tmp_project)])
-    result = runner.invoke(app, ["skill", "add", "code-review", "--dir", str(tmp_project)])
+    runner.invoke(app, ["skill", "add", "my-custom-skill", "--dir", str(tmp_project)])
+    result = runner.invoke(app, ["skill", "add", "my-custom-skill", "--dir", str(tmp_project)])
     assert result.exit_code == 0
     assert "already exists" in result.output
 

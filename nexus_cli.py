@@ -16,7 +16,7 @@ app.add_typer(rule_app, name="rule")
 
 console = Console()
 
-_VERSION = "3.0.1"
+_VERSION = "3.1.0"
 
 _LOGO = """\
 [cyan]███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗[/cyan]
@@ -52,7 +52,23 @@ _BUILTIN_SKILLS = [
     "apply.md",
     "validate.md",
     "epav.md",
+    "code-review.md",
+    "database-review.md",
+    "deployment-review.md",
+    "performance-review.md",
+    "monitoring-review.md",
 ]
+
+_AGENTS_SRC = Path(__file__).parent / "tools" / "agents"
+
+_BUILTIN_AGENTS = [
+    "deployment-reviewer.md",
+    "code-reviewer.md",
+    "performance-reviewer.md",
+    "monitoring-reviewer.md",
+    "database-reviewer.md",
+]
+
 
 # ── .claude/settings.json ────────────────────────────────────────────────────
 
@@ -95,6 +111,7 @@ def _init_project(project_dir: Path) -> list[str]:
     """
     nexus init — sets up:
       .claude/commands/     ← built-in skills
+      .claude/agents/       ← built-in subagents
       .claude/settings.json ← PostToolUse graphify hook
       knowledge/            ← empty scaffold
     """
@@ -110,6 +127,17 @@ def _init_project(project_dir: Path) -> list[str]:
         if src.exists() and not dest.exists():
             shutil.copy2(src, dest)
             created.append(f".claude/commands/{skill_name}")
+
+    # .claude/agents/ — copy built-in subagents
+    agents_dir = project_dir / ".claude" / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+
+    for agent_name in _BUILTIN_AGENTS:
+        src = _AGENTS_SRC / agent_name
+        dest = agents_dir / agent_name
+        if src.exists() and not dest.exists():
+            shutil.copy2(src, dest)
+            created.append(f".claude/agents/{agent_name}")
 
     # .claude/settings.json — PostToolUse graphify hook
     settings_path = project_dir / ".claude" / "settings.json"

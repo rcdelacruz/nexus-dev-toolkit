@@ -205,7 +205,7 @@
 
   <nav>
     <div class="nav-logo">NEXUS</div>
-    <div class="nav-version">v3.0.1</div>
+    <div class="nav-version">v3.1.0</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
@@ -233,6 +233,7 @@
 
     <div class="nav-section">Skills &amp; Rules</div>
     <a href="#skills">Built-in skills</a>
+    <a href="#agents">Built-in agents</a>
     <a href="#custom-skills">Custom skills</a>
     <a href="#rules">Rules</a>
 
@@ -650,14 +651,41 @@ knowledge/
     <table>
       <thead><tr><th>Skill</th><th>Trigger</th><th>Phase</th></tr></thead>
       <tbody>
+        <tr><td colspan="3" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">EPAV Workflow</td></tr>
         <tr><td><code>scaffold.md</code></td><td><code>/scaffold</code></td><td>Day 0 — one-time setup</td></tr>
         <tr><td><code>evaluate.md</code></td><td><code>/evaluate</code></td><td>Day 1 — orient on task</td></tr>
         <tr><td><code>plan.md</code></td><td><code>/plan</code></td><td>Day 1 — blueprint</td></tr>
         <tr><td><code>apply.md</code></td><td><code>/apply</code></td><td>Day 1 — implement</td></tr>
         <tr><td><code>validate.md</code></td><td><code>/validate</code></td><td>Day 1 — verify</td></tr>
         <tr><td><code>epav.md</code></td><td><code>/epav</code></td><td>Day 1 — full cycle guide</td></tr>
+        <tr><td colspan="3" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Reviewers</td></tr>
+        <tr><td><code>code-review.md</code></td><td><code>/code-review</code></td><td>Review code quality, bugs, security</td></tr>
+        <tr><td><code>database-review.md</code></td><td><code>/database-review</code></td><td>Review schema, migrations, queries</td></tr>
+        <tr><td><code>deployment-review.md</code></td><td><code>/deployment-review</code></td><td>Review CI/CD, Docker, infra config</td></tr>
+        <tr><td><code>performance-review.md</code></td><td><code>/performance-review</code></td><td>Review performance and bottlenecks</td></tr>
+        <tr><td><code>monitoring-review.md</code></td><td><code>/monitoring-review</code></td><td>Review observability and alerting</td></tr>
       </tbody>
     </table>
+
+    <!-- Agents -->
+    <h2 id="agents">Built-in Agents</h2>
+
+    <p>Subagents copied to <code>.claude/agents/</code> on <code>nexus init</code>. Claude Code can spawn them automatically based on context, or you can ask Claude to use one directly.</p>
+
+    <table>
+      <thead><tr><th>Agent</th><th>Triggers when</th></tr></thead>
+      <tbody>
+        <tr><td><code>code-reviewer</code></td><td>Code quality review, best practices, maintainability</td></tr>
+        <tr><td><code>database-reviewer</code></td><td>Schema changes, migrations, query optimization</td></tr>
+        <tr><td><code>deployment-reviewer</code></td><td>CI/CD pipelines, Docker, infrastructure config</td></tr>
+        <tr><td><code>performance-reviewer</code></td><td>Performance bottlenecks, caching, resource usage</td></tr>
+        <tr><td><code>monitoring-reviewer</code></td><td>Observability gaps, logging, metrics, alerting</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      Reviewers ship in two forms: as <strong>skills</strong> (<code>/code-review</code>) you invoke manually, and as <strong>agents</strong> (<code>code-reviewer</code>) Claude can spawn automatically. Both are installed by <code>nexus init</code>.
+    </div>
 
     <h2 id="custom-skills">Custom Skills</h2>
 

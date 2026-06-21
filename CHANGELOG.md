@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.1.0] - 2026-06-21
+
+### Added
+- 5 built-in reviewer skills: `/code-review`, `/database-review`, `/deployment-review`, `/performance-review`, `/monitoring-review` — copied to `.claude/commands/` on `nexus init`
+- 5 built-in subagents copied to `.claude/agents/` on `nexus init` — stack-agnostic, review-focused
+- Documentation URL added to PyPI project metadata
+
+### Changed
+- Package description updated to reflect Claude Code specificity (not LLM-agnostic)
+- README aligned with docs.html: Day 0 flow, reference docs step, graphify step
+
+### Fixed
+- CI workflows upgraded to Node.js 24 native action versions (checkout@v7, setup-python@v6, setup-uv@v8.2.0)
+
 ## [3.0.1] - 2026-06-21
 
 ### Added

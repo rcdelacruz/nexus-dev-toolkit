@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Workflow — Developer Workflow Toolkit v3</title>
+  <meta name="description" content="Visual workflow diagram for nexus-dev-toolkit — Day 0 scaffold and Day 1 EPAV methodology." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #161616;
+      --border: #222222;
+      --cyan: #06b6d4;
+      --cyan-dim: #0e7490;
+      --white: #f8fafc;
+      --muted: #64748b;
+      --green: #22c55e;
+      --green-dim: #15803d;
+      --yellow: #eab308;
+      --yellow-dim: #854d0e;
+      --purple: #a855f7;
+      --purple-dim: #6b21a8;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+      min-height: 100vh;
+      padding: 3rem 1.5rem 5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back {
+      align-self: flex-start;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+    }
+
+    .page-title {
+      font-size: 1.3rem;
+      color: var(--white);
+      margin-bottom: 0.3rem;
+    }
+
+    .page-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 3.5rem;
+    }
+
+    /* Two column layout */
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      width: 100%;
+      max-width: 1000px;
+    }
+
+    /* Column header */
+    .col-header {
+      text-align: center;
+      padding: 0.6rem 1.5rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+    }
+
+    .col-header.day0 {
+      background: rgba(6,182,212,0.08);
+      border: 1px solid var(--cyan-dim);
+      color: var(--cyan);
+    }
+
+    .col-header.day1 {
+      background: rgba(34,197,94,0.08);
+      border: 1px solid var(--green-dim);
+      color: var(--green);
+    }
+
+    .col-sub {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-transform: none;
+      letter-spacing: 0;
+      margin-top: 0.25rem;
+    }
+
+    /* Flow */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* Node */
+    .node {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .box {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+
+    .box-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.4rem;
+    }
+
+    .box-title {
+      font-size: 0.9rem;
+      color: var(--white);
+      margin-bottom: 0.4rem;
+    }
+
+    .box-desc {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .box.cmd .box-label { color: var(--cyan); }
+    .box.cmd { border-color: var(--cyan-dim); }
+
+    .box.phase .box-label { color: var(--purple); }
+    .box.phase { border-color: var(--purple-dim); }
+
+    .box.gate .box-label { color: var(--yellow); }
+    .box.gate { border-color: var(--yellow-dim); background: rgba(234,179,8,0.04); }
+
+    .box.done .box-label { color: var(--green); }
+    .box.done { border-color: var(--green-dim); background: rgba(34,197,94,0.04); }
+
+    /* Connector */
+    .connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.2rem 0;
+    }
+
+    .connector-line {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+    }
+
+    .connector-arrow {
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+
+    .connector-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 0 0.4rem;
+      margin: 0.1rem 0;
+    }
+
+    /* Loop indicator */
+    .loop-badge {
+      margin-top: 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid var(--green-dim);
+      color: var(--green);
+      font-size: 0.68rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 20px;
+    }
+
+    /* Legend */
+    .legend {
+      margin-top: 3.5rem;
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      border: 1px solid;
+    }
+
+    .legend-dot.cyan { border-color: var(--cyan); background: rgba(6,182,212,0.15); }
+    .legend-dot.purple { border-color: var(--purple); background: rgba(168,85,247,0.15); }
+    .legend-dot.yellow { border-color: var(--yellow); background: rgba(234,179,8,0.1); }
+    .legend-dot.green { border-color: var(--green); background: rgba(34,197,94,0.1); }
+  </style>
+</head>
+<body>
+
+  <a href="/docs" class="back">← back to docs</a>
+
+  <h1 class="page-title">Workflow Diagram</h1>
+  <p class="page-sub">nexus-dev-toolkit — Day 0 scaffold + Day 1 EPAV</p>
+
+  <div class="columns">
+
+    <!-- Day 0 -->
+    <div>
+      <div class="col-header day0">
+        Day 0 — /scaffold
+        <div class="col-sub">Run once per project</div>
+      </div>
+
+      <div class="flow">
+
+        <div class="node">
+          <div class="box cmd">
+            <div class="box-label">Trigger</div>
+            <div class="box-title">/scaffold</div>
+            <div class="box-desc">Claude reads your arch doc, BRD, PRD, and Figma export. Kicks off EVALUATE automatically.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box phase">
+            <div class="box-label">Phase 1 — EVALUATE</div>
+            <div class="box-title">10 Key Decisions</div>
+            <div class="box-desc">Stack, data model, auth pattern, folder structure, component strategy, API design, deployment target, testing approach, design system, seed data — all confirmed before any code is written.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-label">Claude stops · you review</div>
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box gate">
+            <div class="box-label">Human Gate</div>
+            <div class="box-title">type /plan to continue</div>
+            <div class="box-desc">Review the EVALUATE summary. Correct any wrong assumptions before the plan is written.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box phase">
+            <div class="box-label">Phase 2 — PLAN</div>
+            <div class="box-title">File-by-File Blueprint</div>
+            <div class="box-desc">Every file listed with its purpose. Exact package versions resolved via <code>resolve_package_versions</code>. No code written yet.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-label">Claude stops · you review</div>
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box gate">
+            <div class="box-label">Human Gate</div>
+            <div class="box-title">type /apply to continue</div>
+            <div class="box-desc">Review the blueprint. Adjust scope or file structure before implementation begins.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box phase">
+            <div class="box-label">Phase 3 — APPLY</div>
+            <div class="box-title">Full Scaffold Generated</div>
+            <div class="box-desc">Mock auth, mock data, design system, AGENTS.md, all config files. Zero external dependencies. Runs <code>npm install && npm run dev</code> from commit one.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-label">Claude stops · you review</div>
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box gate">
+            <div class="box-label">Human Gate</div>
+            <div class="box-title">type /validate to continue</div>
+            <div class="box-desc">Build passes. Review the generated scaffold before validation runs.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box phase">
+            <div class="box-label">Phase 4 — VALIDATE</div>
+            <div class="box-title">19-Point Checklist</div>
+            <div class="box-desc">Build integrity, mock auth, design fidelity, responsive layout, WCAG AA, AGENTS.md completeness. Every [BLOCKER] fixed before Day 0 is called done.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box done">
+            <div class="box-label">Complete</div>
+            <div class="box-title">✓ Scaffold ready</div>
+            <div class="box-desc">Run <code>/graphify .</code> to build the knowledge graph. Then start Day 1.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Day 1 -->
+    <div>
+      <div class="col-header day1">
+        Day 1 — EPAV
+        <div class="col-sub">Every feature · every sprint</div>
+      </div>
+
+      <div class="flow">
+
+        <div class="node">
+          <div class="box cmd">
+            <div class="box-label">Trigger</div>
+            <div class="box-title">/evaluate &lt;task&gt;</div>
+            <div class="box-desc">Load a task from the dev tasks CSV. Claude queries the knowledge graph to understand blast radius and cross-file dependencies.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box phase">
+            <div class="box-label">EVALUATE</div>
+            <div class="box-title">Orient on the Task</div>
+            <div class="box-desc">Identifies affected files, applicable rules from <code>knowledge/rules/</code>, relevant patterns from <code>knowledge/patterns/</code>, and acceptance criteria. Surfaces risks before any code is touched.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box cmd">
+            <div class="box-label">Command</div>
+            <div class="box-title">/plan</div>
+            <div class="box-desc">File-by-file implementation plan. Lists what changes and why. References AGENTS.md rules that apply. No code until the plan is approved.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-label">you review the plan</div>
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box cmd">
+            <div class="box-label">Command</div>
+            <div class="box-title">/apply</div>
+            <div class="box-desc">Implements exactly what the plan says. No scope creep. Knowledge graph auto-updates after every file edit via the PostToolUse hook.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box cmd">
+            <div class="box-label">Command</div>
+            <div class="box-title">/validate</div>
+            <div class="box-desc">Runs acceptance criteria from EVALUATE. Checks tests, linting, build. Documents new patterns in <code>knowledge/patterns/</code> for future tasks.</div>
+          </div>
+        </div>
+
+        <div class="connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow">↓</div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="node">
+          <div class="box done">
+            <div class="box-label">Complete</div>
+            <div class="box-title">✓ Feature shipped</div>
+            <div class="box-desc">Acceptance criteria verified. Knowledge graph updated. Patterns documented. Ready for the next task.</div>
+          </div>
+        </div>
+
+        <div class="loop-badge">
+          ↺ repeat for every task
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot cyan"></div> Slash command you trigger</div>
+    <div class="legend-item"><div class="legend-dot purple"></div> Claude executes this phase</div>
+    <div class="legend-item"><div class="legend-dot yellow"></div> Human review gate</div>
+    <div class="legend-item"><div class="legend-dot green"></div> Outcome</div>
+  </div>
+
+</body>
+</html>

@@ -1,7 +1,7 @@
 [project]
 name = "nexus-dev-toolkit"
-version = "3.0.1"
-description = "LLM-agnostic developer workflow toolkit — Day 0 scaffold + Day 1 EPAV"
+version = "3.1.0"
+description = "Developer workflow toolkit for Claude Code — Day 0 scaffold + Day 1 EPAV"
 authors = [
     {name = "Ronald dela Cruz", email = "rcdelacruz@users.noreply.github.com"}
 ]
@@ -43,6 +43,7 @@ include = ["tools*"]
 
 [tool.setuptools.package-data]
 "tools.epav" = ["skills/*.md"]
+"tools.agents" = ["*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
