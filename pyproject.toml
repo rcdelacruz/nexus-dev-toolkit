@@ -41,7 +41,7 @@ where = ["."]
 include = ["tools*"]
 
 [tool.setuptools.package-data]
-"tools" = ["epav/skills/*.md"]
+"tools.epav" = ["skills/*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
