@@ -1,10 +1,10 @@
 # nexus-dev-toolkit
 
-LLM-agnostic developer workflow toolkit. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle — across Claude Code, Cursor, GitHub Copilot, and Windsurf.
+[![PyPI version](https://img.shields.io/pypi/v/nexus-dev-toolkit)](https://pypi.org/project/nexus-dev-toolkit/)
+[![Python](https://img.shields.io/pypi/pyversions/nexus-dev-toolkit)](https://pypi.org/project/nexus-dev-toolkit/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/rcdelacruz/nexus-dev-toolkit/main/public/install.sh | bash
-```
+LLM-agnostic developer workflow toolkit. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle — across Claude Code, Cursor, GitHub Copilot, and Windsurf.
 
 ---
 
@@ -46,10 +46,7 @@ No ad-hoc prompting. No drift. Every dev on the team follows the same cycle.
 **Requirements:** Python 3.10+, `uv` (recommended) or `pip`
 
 ```bash
-# One-liner
-curl -fsSL https://raw.githubusercontent.com/rcdelacruz/nexus-dev-toolkit/main/public/install.sh | bash
-
-# Or via uv
+# Recommended
 uv tool install nexus-dev-toolkit
 
 # Or via pip
@@ -61,14 +58,17 @@ pip install nexus-dev-toolkit
 ## Quick Start
 
 ```bash
-# Initialize a project
+# Go to your project
 cd my-project
+
+# One-command setup: init .nexus/, write MCP config, sync to your LLM tool
 nexus setup
 
-# Type /scaffold in your AI assistant to begin Day 0
+# Then open your AI assistant and type:
+# /scaffold
 ```
 
-That's it. `nexus setup` creates `.nexus/`, writes your MCP config, and syncs skills to your detected LLM tool.
+`nexus setup` detects your LLM tool automatically (Claude Code, Cursor, etc.) and wires everything in one step.
 
 ---
 
@@ -106,7 +106,10 @@ For Claude Code and Claude Desktop, the MCP server exposes tools that power the 
 }
 ```
 
-`nexus setup` writes this automatically. Manual config goes in `.mcp.json` (Claude Code project) or `~/Library/Application Support/Claude/claude_desktop_config.json` (Claude Desktop on macOS).
+`nexus setup` writes this automatically. Manual config goes in:
+- `.mcp.json` — Claude Code (project-level)
+- `~/Library/Application Support/Claude/claude_desktop_config.json` — Claude Desktop (macOS)
+- `~/.cursor/mcp.json` — Cursor
 
 ### MCP Tools
 
@@ -139,11 +142,11 @@ Skills and rules live in `.nexus/` and are yours to own:
 ```
 .nexus/
 ├── skills/
-│   ├── scaffold.md       ← built-in
-│   ├── evaluate.md       ← built-in
-│   └── my-code-review.md ← yours
+│   ├── scaffold.md           ← built-in
+│   ├── evaluate.md           ← built-in
+│   └── my-code-review.md     ← yours
 ├── rules/
-│   └── api-standards.md  ← yours
+│   └── api-standards.md      ← yours
 └── settings.json
 ```
 
@@ -151,10 +154,7 @@ Skills and rules live in `.nexus/` and are yours to own:
 nexus skill add my-code-review
 # Edit .nexus/skills/my-code-review.md
 nexus sync
-# → .claude/commands/my-code-review.md
-# → .cursor/rules/skill-my-code-review.mdc
-# → .github/copilot-instructions.md (merged)
-# → .windsurfrules (merged)
+# Syncs to all detected LLM tools automatically
 ```
 
 ---
@@ -174,4 +174,4 @@ Auto-detected from your project. Override with `nexus sync --tool <name>`.
 
 ## License
 
-MIT
+[MIT](LICENSE)
