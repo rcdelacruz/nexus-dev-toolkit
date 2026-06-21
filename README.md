@@ -60,20 +60,21 @@ cd my-project
 nexus init .
 ```
 
-### 4. Build the knowledge graph
+### 4. Start Day 0
 
 Open the project in Claude Code and run:
+```
+/scaffold
+```
+
+### 5. Build the knowledge graph
+
+After `/scaffold` completes, run:
 ```
 /graphify .
 ```
 
-This generates `graphify-out/graph.json` — required by all EPAV skills.
-
-### 5. Start Day 0
-
-```
-/scaffold
-```
+This generates `graphify-out/graph.json` — required by all EPAV skills before starting Day 1.
 
 ---
 
