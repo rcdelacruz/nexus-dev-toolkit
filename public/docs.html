@@ -311,10 +311,6 @@
 
     <pre><code><span class="prompt">$</span> <span class="cmd">nexus init</span> .</code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
 
-    <p>Then open the project in Claude Code and build the knowledge graph:</p>
-
-    <pre><code><span class="skill">/graphify .</span>    <span class="comment"># builds graphify-out/graph.json — required by all EPAV skills</span></code><button class="copy-btn" onclick="copy(this, '/graphify .')">copy</button></pre>
-
     <p>Creates:</p>
 
     <pre><code>.claude/
@@ -361,33 +357,40 @@ knowledge/
         </div>
       </div>
       <div class="step">
-        <div class="step-num">3</div>
+        <div class="step-num">2</div>
         <div class="step-content">
           <div class="step-title">Run <code>nexus init .</code></div>
           <div class="step-desc">Sets up <code>.claude/commands/</code>, <code>knowledge/</code>, and <code>.mcp.json</code>.</div>
         </div>
       </div>
       <div class="step">
-        <div class="step-num">4</div>
+        <div class="step-num">3</div>
         <div class="step-content">
           <div class="step-title">Run <code>/scaffold</code></div>
           <pre style="margin-top:0.5rem"><code><span class="skill">/scaffold</span></code></pre>
-          <div class="step-desc">EVALUATE → PLAN → APPLY → VALIDATE. Produces a production-grade scaffold.</div>
+          <div class="step-desc">Claude reads your docs and produces a production-grade scaffold.</div>
         </div>
       </div>
       <div class="step">
-        <div class="step-num">5</div>
+        <div class="step-num">4</div>
         <div class="step-content">
-          <div class="step-title">Build the knowledge graph (after scaffold completes)</div>
+          <div class="step-title">Build the knowledge graph</div>
           <pre style="margin-top:0.5rem"><code><span class="skill">/graphify .</span></code></pre>
-          <div class="step-desc">Run after Day 0 is done — now there's real code to graph. Required before starting Day 1 EPAV.</div>
+          <div class="step-desc">Run after scaffold completes — now there's real code to graph. Required before starting Day 1 EPAV.</div>
         </div>
       </div>
     </div>
 
+    <div class="callout">
+      <code>/scaffold</code> runs EVALUATE first, then <strong>stops and waits</strong>. You review and type the next command to continue. The flow is:<br><br>
+      <code>/scaffold</code> → (review) → <code>/plan</code> → (review) → <code>/apply</code> → (review) → <code>/validate</code>
+    </div>
+
+    <p>Here is what happens at each step:</p>
+
     <h3 id="day0-evaluate">EVALUATE</h3>
 
-    <p>The AI walks through a 10-point summary from the arch doc + Figma before writing a single line of code:</p>
+    <p>Claude summarises 10 key decisions from your arch doc and Figma before writing a single line of code:</p>
 
     <table>
       <thead><tr><th>#</th><th>Question</th></tr></thead>
@@ -405,7 +408,7 @@ knowledge/
       </tbody>
     </table>
 
-    <p>AI stops and waits for approval before PLAN.</p>
+    <p>Claude stops. Review the summary, then type <code>/plan</code> to continue.</p>
 
     <h3 id="day0-plan">PLAN</h3>
 
@@ -421,11 +424,11 @@ knowledge/
       </tbody>
     </table>
 
-    <p>AI stops and waits for <code>/apply</code> approval.</p>
+    <p>Claude stops. Review the blueprint, then type <code>/apply</code> to generate code.</p>
 
     <h3 id="day0-apply">APPLY</h3>
 
-    <p><strong>First step — always:</strong> call <code>resolve_package_versions</code> before writing any file. Exact versions from the real package manager lock file — never from AI memory.</p>
+    <p><strong>First step — always:</strong> Claude calls <code>resolve_package_versions</code> before writing any file. Exact versions from the real package manager lock file — never from AI memory.</p>
 
     <pre><code><span class="comment">// MCP tool — call this first</span>
 <span class="cmd">resolve_package_versions</span>({
@@ -457,7 +460,7 @@ knowledge/
 
     <h3 id="day0-validate">VALIDATE</h3>
 
-    <p>Build must pass first. Then 19-point checklist:</p>
+    <p>Type <code>/validate</code> after APPLY completes. Build must pass first, then Claude runs a 19-point checklist:</p>
 
     <table>
       <thead><tr><th>Category</th><th>Checks</th></tr></thead>
