@@ -13,9 +13,9 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v4.2.2
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5.4.0
         with:
           python-version: "3.12"
       - run: uv build
