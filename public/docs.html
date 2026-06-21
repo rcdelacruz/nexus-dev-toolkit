@@ -348,38 +348,46 @@ knowledge/
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <div class="step-title">Architecture document in <code>docs/arch-docs/</code></div>
-          <div class="step-desc">Stack, data model, auth flow, error format, security rules, NFRs.</div>
+          <div class="step-title">Place all reference documents in <code>docs/</code></div>
+          <div class="step-desc">
+            Keep everything Claude needs in one place:
+            <ul style="margin-top:0.5rem;padding-left:1.25rem;line-height:1.8">
+              <li><code>docs/arch-docs/</code> — architecture doc, ADRs</li>
+              <li><code>docs/figma/</code> — Figma export ZIP</li>
+              <li><code>docs/brd/</code> — Business Requirements Document</li>
+              <li><code>docs/prd/</code> — Product Requirements Document</li>
+            </ul>
+          </div>
         </div>
       </div>
       <div class="step">
-        <div class="step-num">2</div>
+        <div class="step-num">3</div>
         <div class="step-content">
           <div class="step-title">Run <code>nexus init .</code></div>
           <div class="step-desc">Sets up <code>.claude/commands/</code>, <code>knowledge/</code>, and <code>.mcp.json</code>.</div>
         </div>
       </div>
       <div class="step">
-        <div class="step-num">3</div>
+        <div class="step-num">4</div>
         <div class="step-content">
-          <div class="step-title">Ingest the architecture document</div>
-          <pre style="margin-top:0.5rem"><code><span class="comment">// In Claude Code — MCP tool</span>
-<span class="cmd">ingest_architecture_doc</span>({ path: "docs/arch-docs/ARCH.md" })</code></pre>
-          <div class="step-desc">Extracts stack, schema, auth, error format → <code>knowledge/rules/arch-summary.md</code></div>
+          <div class="step-title">Run <code>/scaffold</code></div>
+          <pre style="margin-top:0.5rem"><code><span class="skill">/scaffold</span></code></pre>
+          <div class="step-desc">EVALUATE → PLAN → APPLY → VALIDATE. Produces a production-grade scaffold.</div>
         </div>
       </div>
       <div class="step">
-        <div class="step-num">4</div>
+        <div class="step-num">5</div>
         <div class="step-content">
-          <div class="step-title">Have the Figma export ready</div>
-          <div class="step-desc">The AI reads Figma directly during EVALUATE — not via a tool.</div>
+          <div class="step-title">Build the knowledge graph (after scaffold completes)</div>
+          <pre style="margin-top:0.5rem"><code><span class="skill">/graphify .</span></code></pre>
+          <div class="step-desc">Run after Day 0 is done — now there's real code to graph. Required before starting Day 1 EPAV.</div>
         </div>
       </div>
     </div>
 
     <h3 id="day0-evaluate">EVALUATE</h3>
 
-    <p>Type <code>/scaffold</code> in Claude Code. The AI walks through a 10-point summary from the arch doc + Figma before writing a single line of code:</p>
+    <p>The AI walks through a 10-point summary from the arch doc + Figma before writing a single line of code:</p>
 
     <table>
       <thead><tr><th>#</th><th>Question</th></tr></thead>
