@@ -20,6 +20,7 @@ nexus-mcp = "nexus_server:main"
 
 [project.urls]
 Homepage = "https://nexus.coderstudio.co"
+Documentation = "https://nexus.coderstudio.co/docs"
 Repository = "https://github.com/rcdelacruz/nexus-dev-toolkit"
 Issues = "https://github.com/rcdelacruz/nexus-dev-toolkit/issues"
 

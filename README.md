@@ -3,6 +3,8 @@
 
 Developer workflow toolkit for Claude Code. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
 
+**[Documentation](https://nexus.coderstudio.co/docs)**
+
 ---
 
 ## Why
@@ -60,16 +62,34 @@ cd my-project
 nexus init .
 ```
 
-### 4. Start Day 0
+### 4. Place your reference docs
+
+Before running `/scaffold`, put everything Claude needs in `docs/`:
+
+```
+docs/
+├── arch-docs/   ← architecture doc, ADRs
+├── figma/       ← Figma export ZIP
+├── brd/         ← Business Requirements Document
+└── prd/         ← Product Requirements Document
+```
+
+### 5. Start Day 0
 
 Open the project in Claude Code and run:
 ```
 /scaffold
 ```
 
-### 5. Build the knowledge graph
+`/scaffold` runs EVALUATE first then stops. You drive each phase by typing the next command:
 
-After `/scaffold` completes, run:
+```
+/scaffold → (review) → /plan → (review) → /apply → (review) → /validate
+```
+
+### 6. Build the knowledge graph
+
+After `/scaffold` completes, run in Claude Code:
 ```
 /graphify .
 ```
@@ -82,12 +102,12 @@ This generates `graphify-out/graph.json` — required by all EPAV skills before 
 
 ### Day 0 — `/scaffold` (once per project)
 
-EVALUATE → PLAN → APPLY → VALIDATE. Produces a production-grade project from your architecture document and Figma design: correct stack, mock auth, mock data, design system, AGENTS.md — zero external dependencies. Runs `npm install && npm run dev` (or equivalent) from commit one.
+Produces a production-grade project from your architecture document and Figma design: correct stack, mock auth, mock data, design system, AGENTS.md — zero external dependencies. Runs `npm install && npm run dev` (or equivalent) from commit one.
 
 ### Day 1 — EPAV (every feature, every sprint)
 
 ```
-/evaluate   →   /plan   →   /apply   →   /validate
+/evaluate <task>  →  /plan  →  /apply  →  /validate
 ```
 
 Each step is a built-in skill in `.claude/commands/`. Every task starts from the dev tasks CSV. Every task ends with acceptance criteria verified.
