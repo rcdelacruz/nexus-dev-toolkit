@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.1.3] - 2026-07-01
+
+### Added
+- `nexus sync` — sync built-in skills and agents to latest versions in an existing project; custom files are never touched
+- `nexus doctor` — validate project setup: checks tool binaries, MCP config, built-in skills/agents, knowledge dirs, graphify install and graph
+
+### Fixed
+- `_check_and_offer_install()` now skips interactive prompt in non-interactive/CI environments (`sys.stdin.isatty()` check) — fixes GitHub Actions test failures
+
 ## [3.1.2] - 2026-07-01
 
 ### Added

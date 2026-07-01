@@ -151,6 +151,8 @@ nexus init .                      # Claude Code — set up .claude/ + knowledge/
 nexus init . --tool opencode      # OpenCode — set up .opencode/ + knowledge/ + opencode.json
 nexus --version                   # show installed version
 nexus update                      # update to latest version
+nexus sync                        # sync built-in skills & agents to latest (custom files untouched)
+nexus doctor                      # validate project setup
 
 nexus skill list                  # list all skills in .claude/commands/
 nexus skill add my-review         # create a custom skill

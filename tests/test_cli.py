@@ -150,3 +150,76 @@ def test_init_opencode_idempotent(tmp_project):
 def test_init_unknown_tool(tmp_project):
     result = runner.invoke(app, ["init", str(tmp_project), "--tool", "cursor"])
     assert result.exit_code == 1
+
+
+# ── sync ──────────────────────────────────────────────────────────────────────
+
+def test_sync_not_nexus_project(tmp_project):
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 1
+    assert "Not a nexus project" in result.output
+
+
+def test_sync_shows_ok_when_current(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "ok" in result.output
+
+
+def test_sync_updates_modified_builtin(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    skill_file = tmp_project / ".claude" / "commands" / "scaffold.md"
+    skill_file.write_text("# stale content")
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "updated" in result.output
+    assert "stale content" not in skill_file.read_text()
+
+
+def test_sync_skips_custom_files(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    custom = tmp_project / ".claude" / "commands" / "my-custom.md"
+    custom.write_text("# custom skill")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert custom.exists()
+    assert custom.read_text() == "# custom skill"
+
+
+def test_sync_opencode(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    assert ".opencode/commands" in result.output
+
+
+# ── doctor ────────────────────────────────────────────────────────────────────
+
+def test_doctor_not_initialized(tmp_project):
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    assert result.exit_code == 1
+    assert "Not a nexus project" in result.output or "✗" in result.output
+
+
+def test_doctor_healthy_project(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "✓" in result.output
+    assert "all 11 present" in result.output
+    assert "all 5 present" in result.output
+
+
+def test_doctor_missing_skills(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    (tmp_project / ".claude" / "commands" / "scaffold.md").unlink()
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "missing" in result.output
+
+
+def test_doctor_missing_graph(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "not built" in result.output

@@ -18,7 +18,7 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.2"
+_VERSION = "3.1.3"
 
 _LOGO = """\
 [cyan]███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗[/cyan]
@@ -301,6 +301,11 @@ def _check_and_offer_install(tool: str) -> None:
         return
 
     console.print(f"  [yellow]⚠[/yellow]  {info['name']} not found — you need it to use nexus.\n")
+
+    if not sys.stdin.isatty():
+        console.print(f"  [dim]Install manually: {info['install']}[/dim]\n")
+        return
+
     answer = console.input(f"  Install {info['name']} now? [y/N] ").strip().lower()
     if answer != "y":
         console.print(f"  [dim]Skipping. Install manually: {info['install']}[/dim]\n")
@@ -362,6 +367,223 @@ def update() -> None:
     else:
         subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "nexus-dev-toolkit"])
     console.print("\n  [green]✓[/green]  Done.\n")
+
+
+@app.command()
+def sync(
+    project_dir: str = typer.Argument(".", help="Project directory to sync"),
+) -> None:
+    """Sync built-in skills and agents to their latest versions (custom files untouched)."""
+    root = Path(project_dir).resolve()
+    has_claude = (root / ".claude").is_dir()
+    has_opencode = (root / ".opencode").is_dir()
+
+    if not has_claude and not has_opencode:
+        console.print("  [red]✗[/red]  Not a nexus project. Run [cyan]nexus init[/cyan] first.\n")
+        raise typer.Exit(1)
+
+    console.print(f"\n  [cyan]▶[/cyan]  Syncing built-ins in [bold]{root}[/bold]\n")
+
+    table = Table(show_header=True, header_style="dim")
+    table.add_column("File")
+    table.add_column("Status")
+
+    if has_claude:
+        (root / ".claude" / "commands").mkdir(parents=True, exist_ok=True)
+        (root / ".claude" / "agents").mkdir(parents=True, exist_ok=True)
+
+        for fname in _BUILTIN_SKILLS:
+            src = _SKILLS_SRC / fname
+            if not src.exists():
+                continue
+            dst = root / ".claude" / "commands" / fname
+            src_text = src.read_text(encoding="utf-8")
+            if dst.exists() and dst.read_text(encoding="utf-8") == src_text:
+                table.add_row(f".claude/commands/{fname}", "[dim green]ok[/dim green]")
+            else:
+                dst.write_text(src_text, encoding="utf-8")
+                table.add_row(f".claude/commands/{fname}", "[cyan]updated[/cyan]")
+
+        for fname in _BUILTIN_AGENTS:
+            src = _AGENTS_SRC / fname
+            if not src.exists():
+                continue
+            dst = root / ".claude" / "agents" / fname
+            src_text = src.read_text(encoding="utf-8")
+            if dst.exists() and dst.read_text(encoding="utf-8") == src_text:
+                table.add_row(f".claude/agents/{fname}", "[dim green]ok[/dim green]")
+            else:
+                dst.write_text(src_text, encoding="utf-8")
+                table.add_row(f".claude/agents/{fname}", "[cyan]updated[/cyan]")
+
+    if has_opencode:
+        (root / ".opencode" / "commands").mkdir(parents=True, exist_ok=True)
+        (root / ".opencode" / "agents").mkdir(parents=True, exist_ok=True)
+        (root / ".opencode" / "plugins").mkdir(parents=True, exist_ok=True)
+
+        for fname in _BUILTIN_SKILLS:
+            src = _SKILLS_SRC / fname
+            if not src.exists():
+                continue
+            dst = root / ".opencode" / "commands" / fname
+            src_text = src.read_text(encoding="utf-8")
+            if dst.exists() and dst.read_text(encoding="utf-8") == src_text:
+                table.add_row(f".opencode/commands/{fname}", "[dim green]ok[/dim green]")
+            else:
+                dst.write_text(src_text, encoding="utf-8")
+                table.add_row(f".opencode/commands/{fname}", "[cyan]updated[/cyan]")
+
+        for fname in _BUILTIN_AGENTS:
+            src = _AGENTS_SRC / fname
+            if not src.exists():
+                continue
+            dst = root / ".opencode" / "agents" / fname
+            src_text = _strip_claude_frontmatter(src.read_text(encoding="utf-8"))
+            if dst.exists() and dst.read_text(encoding="utf-8") == src_text:
+                table.add_row(f".opencode/agents/{fname}", "[dim green]ok[/dim green]")
+            else:
+                dst.write_text(src_text, encoding="utf-8")
+                table.add_row(f".opencode/agents/{fname}", "[cyan]updated[/cyan]")
+
+        plugin_dst = root / ".opencode" / "plugins" / "graphify.js"
+        if plugin_dst.exists() and plugin_dst.read_text(encoding="utf-8") == _OPENCODE_GRAPHIFY_PLUGIN:
+            table.add_row(".opencode/plugins/graphify.js", "[dim green]ok[/dim green]")
+        else:
+            plugin_dst.write_text(_OPENCODE_GRAPHIFY_PLUGIN, encoding="utf-8")
+            table.add_row(".opencode/plugins/graphify.js", "[cyan]updated[/cyan]")
+
+    console.print(table)
+    console.print()
+
+
+@app.command()
+def doctor(
+    project_dir: str = typer.Argument(".", help="Project directory to check"),
+) -> None:
+    """Validate the nexus project setup and show what's working or missing."""
+    root = Path(project_dir).resolve()
+
+    table = Table(show_header=True, header_style="dim", show_lines=False)
+    table.add_column("Check", style="dim white")
+    table.add_column("Status")
+
+    has_failure = False
+
+    def ok(msg: str) -> str:
+        return f"[green]✓[/green]  {msg}"
+
+    def warn(msg: str) -> str:
+        return f"[yellow]⚠[/yellow]  {msg}"
+
+    def fail(msg: str) -> str:
+        nonlocal has_failure
+        has_failure = True
+        return f"[red]✗[/red]  {msg}"
+
+    # ── Tool ─────────────────────────────────────────────────────────────────
+    has_claude_bin = bool(shutil.which("claude"))
+    has_opencode_bin = bool(shutil.which("opencode"))
+    table.add_row("Claude Code", ok("installed") if has_claude_bin else warn("not found — install: npm install -g @anthropic-ai/claude-code"))
+    table.add_row("OpenCode", ok("installed") if has_opencode_bin else warn("not found — install: curl -fsSL https://opencode.ai/install | bash"))
+
+    # ── Project ──────────────────────────────────────────────────────────────
+    has_claude_dir = (root / ".claude").is_dir()
+    has_opencode_dir = (root / ".opencode").is_dir()
+    initialized = has_claude_dir or has_opencode_dir
+    table.add_row(
+        "nexus initialized",
+        ok(f"yes ({', '.join(filter(None, ['claude' if has_claude_dir else '', 'opencode' if has_opencode_dir else '']))})")
+        if initialized else fail("no — run nexus init")
+    )
+
+    # MCP config — Claude Code
+    if has_claude_dir:
+        mcp_path = root / ".mcp.json"
+        if not mcp_path.exists():
+            table.add_row(".mcp.json", fail("missing"))
+        else:
+            try:
+                mcp_data = json.loads(mcp_path.read_text())
+                if "nexus" in mcp_data.get("mcpServers", {}):
+                    table.add_row(".mcp.json", ok("nexus entry present"))
+                else:
+                    table.add_row(".mcp.json", warn("exists but no nexus entry"))
+            except Exception:
+                table.add_row(".mcp.json", warn("invalid JSON"))
+
+    # MCP config — OpenCode
+    if has_opencode_dir:
+        oc_json = root / "opencode.json"
+        if not oc_json.exists():
+            table.add_row("opencode.json", fail("missing"))
+        else:
+            try:
+                oc_data = json.loads(oc_json.read_text())
+                if "nexus-mcp" in oc_data.get("mcp", {}):
+                    table.add_row("opencode.json", ok("nexus entry present"))
+                else:
+                    table.add_row("opencode.json", warn("exists but no nexus-mcp entry"))
+            except Exception:
+                table.add_row("opencode.json", warn("invalid JSON"))
+
+    # ── Skills & Agents ──────────────────────────────────────────────────────
+    if has_claude_dir:
+        cmd_dir = root / ".claude" / "commands"
+        present = [f for f in _BUILTIN_SKILLS if (cmd_dir / f).exists()]
+        missing = len(_BUILTIN_SKILLS) - len(present)
+        if missing == 0:
+            table.add_row("Built-in skills (Claude)", ok(f"all {len(_BUILTIN_SKILLS)} present"))
+        else:
+            table.add_row("Built-in skills (Claude)", warn(f"{missing} missing — run nexus sync"))
+
+        ag_dir = root / ".claude" / "agents"
+        present_ag = [f for f in _BUILTIN_AGENTS if (ag_dir / f).exists()]
+        missing_ag = len(_BUILTIN_AGENTS) - len(present_ag)
+        if missing_ag == 0:
+            table.add_row("Built-in agents (Claude)", ok(f"all {len(_BUILTIN_AGENTS)} present"))
+        else:
+            table.add_row("Built-in agents (Claude)", warn(f"{missing_ag} missing — run nexus sync"))
+
+    if has_opencode_dir:
+        oc_cmd_dir = root / ".opencode" / "commands"
+        present_oc = [f for f in _BUILTIN_SKILLS if (oc_cmd_dir / f).exists()]
+        missing_oc = len(_BUILTIN_SKILLS) - len(present_oc)
+        if missing_oc == 0:
+            table.add_row("Built-in skills (OpenCode)", ok(f"all {len(_BUILTIN_SKILLS)} present"))
+        else:
+            table.add_row("Built-in skills (OpenCode)", warn(f"{missing_oc} missing — run nexus sync"))
+
+        oc_ag_dir = root / ".opencode" / "agents"
+        present_oc_ag = [f for f in _BUILTIN_AGENTS if (oc_ag_dir / f).exists()]
+        missing_oc_ag = len(_BUILTIN_AGENTS) - len(present_oc_ag)
+        if missing_oc_ag == 0:
+            table.add_row("Built-in agents (OpenCode)", ok(f"all {len(_BUILTIN_AGENTS)} present"))
+        else:
+            table.add_row("Built-in agents (OpenCode)", warn(f"{missing_oc_ag} missing — run nexus sync"))
+
+    # ── Knowledge ────────────────────────────────────────────────────────────
+    missing_dirs = [d for d in _KNOWLEDGE_DIRS if not (root / d).is_dir()]
+    if not missing_dirs:
+        table.add_row("Knowledge dirs", ok(f"all {len(_KNOWLEDGE_DIRS)} present"))
+    else:
+        table.add_row("Knowledge dirs", warn(f"missing: {', '.join(missing_dirs)}"))
+
+    # ── graphify ─────────────────────────────────────────────────────────────
+    has_graphify = bool(shutil.which("graphify"))
+    table.add_row("graphify", ok("installed") if has_graphify else warn("not installed — uv tool install graphifyy"))
+
+    graph_path = root / "graphify-out" / "graph.json"
+    if graph_path.exists():
+        table.add_row("Knowledge graph", ok("graphify-out/graph.json exists"))
+    else:
+        table.add_row("Knowledge graph", warn("not built — run: graphify ."))
+
+    console.print()
+    console.print(table)
+    console.print()
+
+    if has_failure:
+        raise typer.Exit(1)
 
 
 # ── skill subcommands ─────────────────────────────────────────────────────────
