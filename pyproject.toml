@@ -1,6 +1,6 @@
 [project]
 name = "nexus-dev-toolkit"
-version = "3.1.1"
+version = "3.1.2"
 description = "Developer workflow toolkit for Claude Code — Day 0 scaffold + Day 1 EPAV"
 authors = [
     {name = "Ronald dela Cruz", email = "rcdelacruz@users.noreply.github.com"}

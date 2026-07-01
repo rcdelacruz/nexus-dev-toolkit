@@ -205,12 +205,14 @@
 
   <nav>
     <div class="nav-logo">NEXUS</div>
-    <div class="nav-version">v3.1.1</div>
+    <div class="nav-version">v3.1.2</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
     <a href="#install">Install</a>
     <a href="#init">nexus init</a>
+    <a href="#init-claude" class="sub">→ Claude Code</a>
+    <a href="#init-opencode" class="sub">→ OpenCode</a>
 
     <div class="nav-section">Day 0</div>
     <a href="#day0">Overview</a>
@@ -315,9 +317,10 @@
     </div>
 
     <pre><code><span class="prompt">$</span> <span class="cmd">cd</span> my-project
-<span class="prompt">$</span> <span class="cmd">nexus init</span> .</code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
+<span class="prompt">$</span> <span class="cmd">nexus init</span> .                        <span class="comment"># Claude Code (default)</span>
+<span class="prompt">$</span> <span class="cmd">nexus init</span> . <span class="arg">--tool opencode</span>       <span class="comment"># OpenCode</span></code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
 
-    <p>Creates:</p>
+    <h3 id="init-claude">Claude Code (default)</h3>
 
     <pre><code>.claude/
 ├── commands/
@@ -338,13 +341,47 @@
 │   ├── deployment-reviewer.md
 │   ├── performance-reviewer.md
 │   └── monitoring-reviewer.md
-└── settings.json            <span class="comment">← PostToolUse: graphify auto-update</span>
+└── settings.json            <span class="comment">← PostToolUse: graphify auto-update hook</span>
 knowledge/
 ├── rules/                   <span class="comment">← coding standards, arch decisions</span>
 ├── patterns/                <span class="comment">← reusable implementation patterns</span>
 ├── prompts/dev/             <span class="comment">← task prompt templates</span>
 └── retros/                  <span class="comment">← retrospective notes</span>
 .mcp.json                    <span class="comment">← MCP server config</span></code></pre>
+
+    <h3 id="init-opencode">OpenCode</h3>
+
+    <div class="callout">
+      Agents are automatically adapted for OpenCode compatibility — Claude Code-specific frontmatter fields (<code>tools</code>, <code>model</code>) are stripped on copy. The graphify plugin fires on every tool execution via <code>tool.execute.after</code>.
+    </div>
+
+    <pre><code>.opencode/
+├── commands/
+│   ├── scaffold.md          <span class="comment">← /scaffold         — Day 0 setup</span>
+│   ├── evaluate.md          <span class="comment">← /evaluate         — orient on task</span>
+│   ├── plan.md              <span class="comment">← /plan             — blueprint</span>
+│   ├── apply.md             <span class="comment">← /apply            — implement</span>
+│   ├── validate.md          <span class="comment">← /validate         — verify</span>
+│   ├── epav.md              <span class="comment">← /epav             — full cycle guide</span>
+│   ├── code-review.md       <span class="comment">← /code-review      — reviewer skill</span>
+│   ├── database-review.md   <span class="comment">← /database-review  — reviewer skill</span>
+│   ├── deployment-review.md <span class="comment">← /deployment-review</span>
+│   ├── performance-review.md<span class="comment">← /performance-review</span>
+│   └── monitoring-review.md <span class="comment">← /monitoring-review</span>
+├── agents/
+│   ├── code-reviewer.md
+│   ├── database-reviewer.md
+│   ├── deployment-reviewer.md
+│   ├── performance-reviewer.md
+│   └── monitoring-reviewer.md
+└── plugins/
+│   └── graphify.js          <span class="comment">← tool.execute.after: graphify auto-update</span>
+knowledge/
+├── rules/
+├── patterns/
+├── prompts/dev/
+└── retros/
+opencode.json                <span class="comment">← MCP server config</span></code></pre>
 
     <!-- Day 0 -->
     <h2 id="day0">Day 0 — /scaffold</h2>
@@ -571,7 +608,7 @@ knowledge/
       </tbody>
     </table>
 
-    <p>graphify auto-updates after every file edit via the PostToolUse hook in <code>.claude/settings.json</code>.</p>
+    <p>graphify auto-updates after every file edit — via the PostToolUse hook in <code>.claude/settings.json</code> (Claude Code) or the <code>tool.execute.after</code> plugin in <code>.opencode/plugins/graphify.js</code> (OpenCode). Both are installed automatically by <code>nexus init</code>.</p>
 
     <h3 id="validate">/validate</h3>
 
@@ -609,7 +646,7 @@ knowledge/
     <!-- MCP -->
     <h2 id="mcp">MCP Server Setup</h2>
 
-    <p><code>nexus init</code> writes <code>.mcp.json</code> automatically. For Claude Desktop or Cursor, add manually:</p>
+    <p><code>nexus init</code> writes <code>.mcp.json</code> automatically. For Claude Desktop, add manually:</p>
 
     <h3>Claude Code (project-level)</h3>
     <pre><code><span class="comment">// .mcp.json</span>
@@ -632,6 +669,19 @@ knowledge/
     }
   }
 }</code><button class="copy-btn" onclick="copy(this, '{\"mcpServers\":{\"nexus\":{\"command\":\"uvx\",\"args\":[\"--refresh\",\"--from\",\"nexus-dev-toolkit\",\"nexus-mcp\"]}}}')">copy</button></pre>
+
+    <h3>OpenCode (project-level)</h3>
+    <p><code>nexus init . --tool opencode</code> writes <code>opencode.json</code> automatically. To add manually:</p>
+    <pre><code><span class="comment">// opencode.json</span>
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "nexus-mcp": {
+      "type": "local",
+      "command": ["uvx", "--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"]
+    }
+  }
+}</code><button class="copy-btn" onclick="copy(this, '{\"$schema\":\"https://opencode.ai/config.json\",\"mcp\":{\"nexus-mcp\":{\"type\":\"local\",\"command\":[\"uvx\",\"--refresh\",\"--from\",\"nexus-dev-toolkit\",\"nexus-mcp\"]}}}')">copy</button></pre>
 
     <h2 id="mcp-tools">MCP Tool Reference</h2>
 
@@ -705,9 +755,9 @@ knowledge/
 
     <h2 id="custom-skills">Custom Skills</h2>
 
-    <pre><code><span class="prompt">$</span> <span class="cmd">nexus skill add</span> code-review</code><button class="copy-btn" onclick="copy(this, 'nexus skill add code-review')">copy</button></pre>
+    <pre><code><span class="prompt">$</span> <span class="cmd">nexus skill add</span> my-review</code><button class="copy-btn" onclick="copy(this, 'nexus skill add my-review')">copy</button></pre>
 
-    <p>Creates <code>.claude/commands/code-review.md</code> with a starter template. Edit it, then type <code>/code-review</code> in Claude Code.</p>
+    <p>Creates <code>.claude/commands/my-review.md</code> with a starter template. Edit it, then type <code>/my-review</code> in Claude Code. For OpenCode, manually copy the file to <code>.opencode/commands/</code>.</p>
 
     <pre><code><span class="comment"># .claude/commands/code-review.md</span>
 
@@ -739,7 +789,8 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
       <thead><tr><th>Command</th><th>Description</th></tr></thead>
       <tbody>
         <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Project Setup</td></tr>
-        <tr><td><code>nexus init [dir]</code></td><td>Initialize .claude/, knowledge/, .mcp.json in your project</td></tr>
+        <tr><td><code>nexus init [dir]</code></td><td>Initialize for Claude Code (default)</td></tr>
+        <tr><td><code>nexus init [dir] --tool opencode</code></td><td>Initialize for OpenCode</td></tr>
         <tr><td><code>nexus update</code></td><td>Update nexus-dev-toolkit to latest</td></tr>
         <tr><td><code>nexus --version</code></td><td>Show installed version</td></tr>
         <tr><td colspan="2" style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">Skills</td></tr>

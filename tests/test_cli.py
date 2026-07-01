@@ -103,3 +103,50 @@ def test_rule_list(tmp_project):
     result = runner.invoke(app, ["rule", "list", "--dir", str(tmp_project)])
     assert result.exit_code == 0
     assert "api-standards" in result.output
+
+
+def test_init_opencode_creates_commands(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert result.exit_code == 0
+    commands_dir = tmp_project / ".opencode" / "commands"
+    assert commands_dir.exists()
+    for skill in _BUILTIN_SKILLS:
+        assert (commands_dir / skill).exists(), f"Missing skill: {skill}"
+
+
+def test_init_opencode_creates_agents(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert result.exit_code == 0
+    agents_dir = tmp_project / ".opencode" / "agents"
+    assert agents_dir.exists()
+    for agent in _BUILTIN_AGENTS:
+        assert (agents_dir / agent).exists(), f"Missing agent: {agent}"
+
+
+def test_init_opencode_creates_plugin(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    plugin = tmp_project / ".opencode" / "plugins" / "graphify.js"
+    assert plugin.exists()
+    assert "tool.execute.after" in plugin.read_text()
+
+
+def test_init_opencode_creates_opencode_json(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    config = tmp_project / "opencode.json"
+    assert config.exists()
+    data = json.loads(config.read_text())
+    assert "nexus-mcp" in data["mcp"]
+    assert data["mcp"]["nexus-mcp"]["type"] == "local"
+    assert data["mcp"]["nexus-mcp"]["command"][0] == "uvx"
+
+
+def test_init_opencode_idempotent(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert result.exit_code == 0
+    assert "Already initialized" in result.output
+
+
+def test_init_unknown_tool(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "cursor"])
+    assert result.exit_code == 1

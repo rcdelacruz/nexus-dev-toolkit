@@ -18,7 +18,7 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.1"
+_VERSION = "3.1.2"
 
 _LOGO = """\
 [cyan]███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗[/cyan]
@@ -117,6 +117,29 @@ _MCP_BLOCK = {
     }
 }
 
+_OPENCODE_MCP_BLOCK = {
+    "nexus-mcp": {
+        "type": "local",
+        "command": ["uvx", "--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"],
+    }
+}
+
+_OPENCODE_GRAPHIFY_PLUGIN = """\
+// .opencode/plugins/graphify.js
+// Auto-updates the graphify knowledge graph after every tool execution.
+import { execSync } from "node:child_process"
+
+export const GraphifyPlugin = async ({ directory }) => {
+  return {
+    "tool.execute.after": async () => {
+      try {
+        execSync("graphify update . --force", { cwd: directory, stdio: "ignore" })
+      } catch (_) {}
+    },
+  }
+}
+"""
+
 
 def _init_project(project_dir: Path) -> list[str]:
     """
@@ -164,6 +187,81 @@ def _init_project(project_dir: Path) -> list[str]:
     return created
 
 
+def _strip_claude_frontmatter(content: str) -> str:
+    """Remove Claude Code-only frontmatter fields (tools, model) for OpenCode compatibility."""
+    if not content.startswith("---"):
+        return content
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return content
+    lines = [
+        line for line in parts[1].splitlines()
+        if not line.startswith("tools:") and not line.startswith("model:")
+    ]
+    return "---" + "\n".join(lines) + "---" + parts[2]
+
+
+def _init_opencode(project_dir: Path) -> list[str]:
+    """
+    nexus init --tool opencode — sets up:
+      .opencode/commands/   ← built-in skills
+      .opencode/agents/     ← built-in subagents
+      .opencode/plugins/    ← graphify PostToolUse hook
+      opencode.json         ← MCP server config
+      knowledge/            ← empty scaffold
+    """
+    created = []
+
+    # .opencode/commands/ — copy built-in skills
+    commands_dir = project_dir / ".opencode" / "commands"
+    commands_dir.mkdir(parents=True, exist_ok=True)
+    for skill_name in _BUILTIN_SKILLS:
+        src = _SKILLS_SRC / skill_name
+        dest = commands_dir / skill_name
+        if src.exists() and not dest.exists():
+            shutil.copy2(src, dest)
+            created.append(f".opencode/commands/{skill_name}")
+
+    # .opencode/agents/ — copy built-in subagents, stripping Claude Code-only frontmatter
+    agents_dir = project_dir / ".opencode" / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    for agent_name in _BUILTIN_AGENTS:
+        src = _AGENTS_SRC / agent_name
+        dest = agents_dir / agent_name
+        if src.exists() and not dest.exists():
+            dest.write_text(_strip_claude_frontmatter(src.read_text()), encoding="utf-8")
+            created.append(f".opencode/agents/{agent_name}")
+
+    # .opencode/plugins/graphify.js — PostToolUse hook
+    plugins_dir = project_dir / ".opencode" / "plugins"
+    plugins_dir.mkdir(parents=True, exist_ok=True)
+    plugin_path = plugins_dir / "graphify.js"
+    if not plugin_path.exists():
+        plugin_path.write_text(_OPENCODE_GRAPHIFY_PLUGIN, encoding="utf-8")
+        created.append(".opencode/plugins/graphify.js")
+
+    # opencode.json — MCP server config
+    opencode_json = project_dir / "opencode.json"
+    existing: dict = {}
+    if opencode_json.exists():
+        try:
+            existing = json.loads(opencode_json.read_text())
+        except Exception:
+            pass
+    already_has_mcp = "nexus-mcp" in existing.get("mcp", {})
+    existing.setdefault("$schema", "https://opencode.ai/config.json")
+    existing.setdefault("mcp", {}).update(_OPENCODE_MCP_BLOCK)
+    opencode_json.write_text(json.dumps(existing, indent=2))
+    if not already_has_mcp:
+        created.append("opencode.json")
+
+    # knowledge/ scaffold
+    for d in _KNOWLEDGE_DIRS:
+        (project_dir / d).mkdir(parents=True, exist_ok=True)
+
+    return created
+
+
 def _write_mcp_config(project_dir: Path) -> str:
     mcp_path = project_dir / ".mcp.json"
     existing: dict = {}
@@ -179,26 +277,80 @@ def _write_mcp_config(project_dir: Path) -> str:
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 
+_SUPPORTED_TOOLS = ["claude", "opencode"]
+
+_TOOL_CHECK = {
+    "claude": {
+        "bin": "claude",
+        "name": "Claude Code",
+        "install": "npm install -g @anthropic-ai/claude-code && claude login",
+        "install_cmd": ["npm", "install", "-g", "@anthropic-ai/claude-code"],
+    },
+    "opencode": {
+        "bin": "opencode",
+        "name": "OpenCode",
+        "install": "curl -fsSL https://opencode.ai/install | bash",
+        "install_cmd": None,  # pipe install — run via shell
+    },
+}
+
+
+def _check_and_offer_install(tool: str) -> None:
+    info = _TOOL_CHECK[tool]
+    if shutil.which(info["bin"]):
+        return
+
+    console.print(f"  [yellow]⚠[/yellow]  {info['name']} not found — you need it to use nexus.\n")
+    answer = console.input(f"  Install {info['name']} now? [y/N] ").strip().lower()
+    if answer != "y":
+        console.print(f"  [dim]Skipping. Install manually: {info['install']}[/dim]\n")
+        return
+
+    console.print(f"  [cyan]▶[/cyan]  Installing {info['name']}…\n")
+    if info["install_cmd"]:
+        result = subprocess.run(info["install_cmd"])
+    else:
+        result = subprocess.run(info["install"], shell=True)
+
+    if result.returncode == 0:
+        console.print(f"  [green]✓[/green]  {info['name']} installed.\n")
+    else:
+        console.print(f"  [red]✗[/red]  Install failed. Run manually: {info['install']}\n")
+
+
 @app.command()
 def init(
     project_dir: str = typer.Argument(".", help="Project directory to initialize"),
+    tool: str = typer.Option("claude", "--tool", "-t", help=f"AI coding tool to set up for ({', '.join(_SUPPORTED_TOOLS)})"),
 ) -> None:
-    """Initialize .claude/commands/, .claude/settings.json, and knowledge/ in a project."""
+    """Initialize nexus in a project directory. Defaults to Claude Code."""
+    if tool not in _SUPPORTED_TOOLS:
+        console.print(f"  [red]✗[/red]  Unknown tool '{tool}'. Supported: {', '.join(_SUPPORTED_TOOLS)}")
+        raise typer.Exit(1)
+
+    _check_and_offer_install(tool)
+
     root = Path(project_dir).resolve()
-    console.print(f"  [cyan]▶[/cyan]  Initializing nexus in [bold]{root}[/bold]\n")
+    console.print(f"  [cyan]▶[/cyan]  Initializing nexus for [bold]{tool}[/bold] in [bold]{root}[/bold]\n")
 
-    created = _init_project(root)
-    for f in created:
-        console.print(f"  [green]✓[/green]  {f}")
-
-    if not created:
-        console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
-        return
-
-    mcp = _write_mcp_config(root)
-    console.print(f"  [green]✓[/green]  {mcp}")
-
-    console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in Claude Code and type [cyan]/scaffold[/cyan]\n")
+    if tool == "opencode":
+        created = _init_opencode(root)
+        for f in created:
+            console.print(f"  [green]✓[/green]  {f}")
+        if not created:
+            console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
+            return
+        console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in OpenCode and type [cyan]/scaffold[/cyan]\n")
+    else:
+        created = _init_project(root)
+        for f in created:
+            console.print(f"  [green]✓[/green]  {f}")
+        if not created:
+            console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
+            return
+        mcp = _write_mcp_config(root)
+        console.print(f"  [green]✓[/green]  {mcp}")
+        console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in Claude Code and type [cyan]/scaffold[/cyan]\n")
 
 
 @app.command()

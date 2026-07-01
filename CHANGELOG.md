@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.1.2] - 2026-07-01
+
+### Added
+- `nexus init --tool opencode` — full OpenCode support:
+  - Copies skills to `.opencode/commands/`
+  - Copies subagents to `.opencode/agents/` (Claude Code-only frontmatter stripped)
+  - Writes `.opencode/plugins/graphify.js` for auto knowledge graph updates via `tool.execute.after`
+  - Writes `opencode.json` with MCP server config
+- Tool installation check: `nexus init` detects if Claude Code / OpenCode is missing and offers to install before proceeding
+- Docs: OpenCode MCP config example, graphify plugin note in `/apply` section
+
 ## [3.1.1] - 2026-06-21
 
 ### Added

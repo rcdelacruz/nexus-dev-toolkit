@@ -59,7 +59,8 @@ uv tool install nexus-dev-toolkit
 
 ```bash
 cd my-project
-nexus init .
+nexus init .                    # Claude Code (default)
+nexus init . --tool opencode    # OpenCode
 ```
 
 ### 4. Place your reference docs
@@ -116,15 +117,11 @@ Each step is a built-in skill in `.claude/commands/`. Every task starts from the
 
 ## What `nexus init` Creates
 
+**Claude Code** (`nexus init .`):
 ```
 .claude/
-├── commands/
-│   ├── scaffold.md    ← /scaffold  — Day 0 one-time setup
-│   ├── evaluate.md    ← /evaluate  — orient on a task
-│   ├── plan.md        ← /plan      — blueprint, no code
-│   ├── apply.md       ← /apply     — implement the plan
-│   ├── validate.md    ← /validate  — verify acceptance criteria
-│   └── epav.md        ← /epav      — full cycle guide
+├── commands/          ← EPAV skills + 5 reviewer skills (/code-review, etc.)
+├── agents/            ← 5 reviewer subagents (code-reviewer, database-reviewer, etc.)
 └── settings.json      ← PostToolUse: graphify auto-updates after every file edit
 knowledge/
 ├── rules/             ← coding standards, arch decisions
@@ -134,17 +131,35 @@ knowledge/
 .mcp.json              ← MCP server config
 ```
 
+**OpenCode** (`nexus init . --tool opencode`):
+```
+.opencode/
+├── commands/          ← same EPAV skills + reviewer skills
+├── agents/            ← same reviewer subagents (adapted for OpenCode)
+└── plugins/
+    └── graphify.js    ← tool.execute.after: graphify auto-update
+knowledge/             ← same structure
+opencode.json          ← MCP server config
+```
+
 ---
 
 ## Commands
 
 ```bash
-nexus init .                 # set up .claude/commands/ + knowledge/ + .mcp.json
-nexus skill add code-review  # create a custom skill in .claude/commands/
-nexus skill list             # list all skills
-nexus rule add api-standards # create a rule in knowledge/rules/
-nexus rule list              # list all rules
-nexus update                 # update to latest version
+nexus init .                      # Claude Code — set up .claude/ + knowledge/ + .mcp.json
+nexus init . --tool opencode      # OpenCode — set up .opencode/ + knowledge/ + opencode.json
+nexus --version                   # show installed version
+nexus update                      # update to latest version
+
+nexus skill list                  # list all skills in .claude/commands/
+nexus skill add my-review         # create a custom skill
+
+nexus agent list                  # list all subagents in .claude/agents/
+nexus agent add my-agent          # create a custom subagent
+
+nexus rule list                   # list all rules in knowledge/rules/
+nexus rule add api-standards      # create a project rule
 ```
 
 ---
