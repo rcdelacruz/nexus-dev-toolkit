@@ -29,6 +29,7 @@
       align-items: center;
       justify-content: center;
       padding: 2rem;
+      padding-top: 4rem;
     }
 
     .logo {
@@ -202,6 +203,31 @@
       .cmd-row .c { min-width: unset; }
     }
 
+    .topnav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      padding: 0.65rem 1.5rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.7rem;
+      z-index: 10;
+    }
+
+    .topnav a {
+      color: var(--cyan-dim);
+      text-decoration: none;
+      border: 1px solid var(--cyan-dim);
+      border-radius: 4px;
+      padding: 0.2rem 0.6rem;
+      transition: all 0.15s;
+    }
+    .topnav a:hover { color: var(--cyan); border-color: var(--cyan); }
+
     .footer {
       color: var(--muted);
       font-size: 0.7rem;
@@ -213,6 +239,12 @@
   </style>
 </head>
 <body>
+
+  <nav class="topnav">
+    <a href="/docs">docs</a>
+    <a href="/workflow">workflow</a>
+    <a href="https://github.com/rcdelacruz/nexus-dev-toolkit" target="_blank">GitHub</a>
+  </nav>
 
   <pre class="logo">███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
 ████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝

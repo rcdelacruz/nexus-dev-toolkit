@@ -3,8 +3,12 @@ name: Tests
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'public/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'public/**'
 
 jobs:
   test:
