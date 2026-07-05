@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPAV as an Autonomous Loop — Nexus Loop Engineering Guide</title>
+  <meta name="description" content="How to evolve the EPAV cycle (evaluate → plan → apply → validate) into a self-correcting autonomous loop — loop engineering with a human gate and a hard verifier." />
+  <script>
+    (function () {
+      var t = localStorage.getItem('nexus-theme');
+      if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 110%; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #161616;
+      --border: #222222;
+      --cyan: #06b6d4;
+      --cyan-dim: #0e7490;
+      --white: #f8fafc;
+      --muted: #64748b;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --text2: #94a3b8;
+      --row-border: #1a1a1a;
+      --red: #ef4444;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #eef2f6;
+      --border: #d9e2ec;
+      --cyan: #0e7490;
+      --cyan-dim: #0891b2;
+      --white: #0f172a;
+      --green: #15803d;
+      --yellow: #a16207;
+      --text2: #475569;
+      --row-border: #e5eaf0;
+      --red: #b91c1c;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      transition: background 0.2s, color 0.2s;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    nav {
+      width: 220px;
+      min-height: 100vh;
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .nav-logo { color: var(--cyan); font-size: 1rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .nav-version { color: var(--muted); font-size: 0.65rem; margin-bottom: 2rem; }
+
+    .nav-section {
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 0.3rem 0;
+      transition: color 0.15s;
+    }
+
+    nav a:hover, nav a.active { color: var(--cyan); }
+    nav a.sub { padding-left: 1rem; font-size: 0.7rem; }
+
+    main {
+      flex: 1;
+      padding: 3rem 3rem 5rem;
+      max-width: 820px;
+    }
+
+    h1 { color: var(--white); font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+    h2 {
+      color: var(--white);
+      font-size: 1rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 { color: var(--cyan); font-size: 0.85rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+
+    p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 1rem; }
+
+    .lead { color: var(--text2); font-size: 0.85rem; margin-bottom: 2rem; }
+
+    ul { margin: 0 0 1rem 1.25rem; }
+    li { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 0.35rem; }
+    li strong { color: var(--text2); font-weight: normal; }
+
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    pre code { color: var(--white); font-size: 0.8rem; line-height: 1.6; }
+
+    .prompt { color: var(--muted); }
+    .cmd { color: var(--cyan); }
+    .comment { color: var(--muted); }
+    .str { color: var(--green); }
+    .skill { color: var(--yellow); }
+    .fail { color: var(--red); }
+    .pass { color: var(--green); }
+
+    .callout {
+      background: var(--surface);
+      border-left: 3px solid var(--cyan);
+      border-radius: 0 6px 6px 0;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.78rem;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    .callout.warn { border-color: var(--yellow); }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: 0.78rem; }
+
+    th {
+      color: var(--muted);
+      text-align: left;
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: normal;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.65rem;
+    }
+
+    td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--row-border);
+      color: var(--text2);
+      vertical-align: top;
+    }
+
+    td code, p code, li code { color: var(--cyan); font-size: 0.78rem; }
+    tr:last-child td { border-bottom: none; }
+
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.72rem;
+      margin-bottom: 2rem;
+      transition: color 0.15s;
+    }
+
+    .back:hover { color: var(--cyan); }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--yellow);
+      color: var(--yellow);
+      border-radius: 4px;
+      padding: 0.15rem 0.55rem;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    .theme-btn {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 20;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    .theme-btn::after { content: "light"; }
+    :root[data-theme="light"] .theme-btn::after { content: "dark"; }
+
+    @media (max-width: 640px) {
+      nav { display: none; }
+      main { padding: 2rem 1.25rem 4rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode"></button>
+
+  <nav>
+    <div class="nav-logo">NEXUS</div>
+    <div class="nav-version">v3.1.3</div>
+
+    <div class="nav-section">Loop Guide</div>
+    <a href="#why">Why a loop</a>
+    <a href="#idea">The idea in one picture</a>
+    <a href="#already">What EPAV already does</a>
+
+    <div class="nav-section">The Changes</div>
+    <a href="#changes">File-by-file overview</a>
+    <a href="#epav-md" class="sub">→ epav.md — close the loop</a>
+    <a href="#validate-md" class="sub">→ validate.md — verifier</a>
+    <a href="#apply-md" class="sub">→ apply.md — retry mode</a>
+
+    <div class="nav-section">Tuning</div>
+    <a href="#budget">Retry budget</a>
+    <a href="#telemetry">Loop telemetry</a>
+    <a href="#learning">Outer learning loop</a>
+
+    <div class="nav-section">Adoption</div>
+    <a href="#unchanged">What does NOT change</a>
+    <a href="#rollout">Rollout</a>
+    <a href="#example">Example run</a>
+
+    <div class="nav-section">Links</div>
+    <a href="/">← Home</a>
+    <a href="/docs">Docs</a>
+    <a href="/workflow">Workflow diagram</a>
+    <a href="https://github.com/rcdelacruz/nexus-dev-toolkit" target="_blank">GitHub</a>
+  </nav>
+
+  <main>
+    <a href="/" class="back">← back to home</a>
+
+    <div class="badge">Proposal — targeted for a future release</div>
+    <h1>EPAV as an Autonomous Loop</h1>
+    <p class="lead">Loop engineering is the discipline of designing the loop an AI agent runs inside — act, observe, decide, repeat — until a verifier says done. EPAV is already an engineered loop with a human gate and a hard verifier. This guide shows how to close it, so the apply ↔ validate cycle retries itself within an approved plan instead of waiting for a human to crank every phase.</p>
+
+    <!-- why -->
+    <h2 id="why">Why a Loop</h2>
+    <p>Today, every phase transition in EPAV is a human action. If <code>/validate</code> fails, a human reads the failures and manually restarts. That works — but the agent is capable of consuming its own validation failures and fixing them, and the whole point of a verifier is that it can be trusted to say "not done yet" without a human re-reading everything.</p>
+    <p>Two principles from loop engineering drive this design:</p>
+    <ul>
+      <li><strong>The verifier is the bottleneck, not the model.</strong> A loop is only as trustworthy as its exit condition — so before granting autonomy, the verifier gets hardened.</li>
+      <li><strong>Humans belong on the outer loop.</strong> The human approves scope and reviews outcomes; the agent owns the seconds-to-minutes coding loop inside that scope.</li>
+    </ul>
+    <div class="callout">EPAV's existing <strong>one task, no scope creep</strong> rule is what makes autonomy safe here: retries can only iterate <em>within</em> the approved plan — they can never expand it. The approval gate is the contract; the loop just fulfills it.</div>
+
+    <!-- idea -->
+    <h2 id="idea">The Idea in One Picture</h2>
+
+    <h3>Today — open cycle, human cranks each turn</h3>
+    <pre><code><span class="skill">/evaluate</span> → <span class="skill">/plan</span> → <span class="str">[human approves]</span> → <span class="skill">/apply</span> → <span class="skill">/validate</span> → done
+                                                    │
+                                                  <span class="fail">fail</span> → human reads, human re-runs</code></pre>
+
+    <h3>Target — human approves the plan, inner loop closes itself</h3>
+    <pre><code><span class="skill">/evaluate</span> → <span class="skill">/plan</span> → <span class="str">[human approves plan]</span> ──► INNER LOOP (autonomous)
+                                              ┌──────────────────────┐
+                                              │ <span class="skill">/apply</span>               │
+                                              │    ↓                 │
+                                              │ <span class="skill">/validate</span>            │
+                                              │    ├─ <span class="pass">PASS</span> → done ───┼──► report to human
+                                              │    └─ <span class="fail">FAIL</span>           │
+                                              │        ↓             │
+                                              │ retry budget left?   │
+                                              │    ├─ yes → <span class="skill">/apply</span>   │
+                                              │    │   (failures as  │
+                                              │    │    new context) │
+                                              │    └─ no → escalate ─┼──► human decides
+                                              └──────────────────────┘</code></pre>
+
+    <!-- already -->
+    <h2 id="already">What EPAV Already Does Well as a Loop</h2>
+    <ul>
+      <li><strong>A hard human gate</strong> — <code>/plan</code> stops and waits for approval. That's the developer feedback loop done deliberately.</li>
+      <li><strong>A real verifier</strong> — <code>/validate</code> requires the build to pass and checks acceptance criteria. Most agent workflows have no exit condition at all.</li>
+      <li><strong>Context refresh each iteration</strong> — graphify rebuilds after <code>/apply</code>, so the next iteration sees current reality, not a stale mental model.</li>
+      <li><strong>Scope discipline</strong> — one task at a time, extra work goes to <code>knowledge/retros/</code>.</li>
+    </ul>
+    <p>What's missing is only the <strong>re-entry logic</strong> — the loop doesn't close itself, the verifier could be deeper, and nothing measures the loop. The changes below fix exactly that.</p>
+
+    <!-- changes -->
+    <h2 id="changes">What Changes, File by File</h2>
+    <p>All changes live in three skill files under <code>tools/epav/skills/</code>. No Python changes — the loop is prompt-orchestrated, so rollback is just reverting three files.</p>
+
+    <table>
+      <thead><tr><th>File</th><th>Change</th><th>Effort</th></tr></thead>
+      <tbody>
+        <tr><td><code>epav.md</code></td><td>Retry loop between APPLY and VALIDATE, retry budget, escalation</td><td>~20 lines</td></tr>
+        <tr><td><code>validate.md</code></td><td>Harden the verifier; emit a machine-readable failure block</td><td>~15 lines</td></tr>
+        <tr><td><code>apply.md</code></td><td>Accept retry context (previous iteration's failures)</td><td>~10 lines</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="epav-md">1. epav.md — close the loop</h3>
+    <p>Replace Steps 3–4 of the orchestrator with an iterating inner loop after the existing approval gate:</p>
+    <pre><code>### Step 3+4 — APPLY ↔ VALIDATE inner loop (autonomous after approval)
+
+Set iteration = 1, MAX_ITERATIONS = 3.
+
+1. Run /apply. On iteration &gt; 1, pass the previous VALIDATION FAILURES
+   block as the apply context — fix exactly those failures, nothing else.
+2. Run /validate in full (build, tests, criteria, review).
+3. Zero BLOCKERs and zero FIX NOWs → exit loop, output VALIDATE COMPLETE.
+4. Failures remain and iteration &lt; MAX_ITERATIONS:
+   increment, announce "Iteration N of MAX: re-entering APPLY with M
+   failures", go to 1. Do NOT ask the user between iterations.
+5. Failures remain at MAX_ITERATIONS → ESCALATE and wait for the user:
+
+   LOOP ESCALATION
+   ───────────────
+   Iterations used:   3/3
+   Still failing:     &lt;remaining VALIDATION FAILURES&gt;
+   What was tried:    &lt;one line per iteration&gt;
+   Recommendation:    &lt;revise plan | human decision | blocked on X&gt;</code></pre>
+    <div class="callout warn">Loop rules — non-negotiable: the loop may only fix failures listed by VALIDATE; new work goes to <code>knowledge/retros/</code>. If the same criterion fails twice with the same root cause, escalate early. "stop" / "abort" / "cancel" interrupts immediately.</div>
+
+    <h3 id="validate-md">2. validate.md — harden the verifier</h3>
+    <p><strong>(a) Make verification mechanical, not optional.</strong> The check stack always runs in order:</p>
+    <pre><code>1. Build:        npm run build (or equivalent)   — must exit 0
+2. Tests:        npm test (or equivalent)        — must exit 0;
+                 new behavior needs a covering test
+3. Type check:   tsc --noEmit / mypy, if present
+4. Review:       run /code-review on the diff;
+                 its blockers are [BLOCKER]s
+5. Criteria:     each acceptance criterion — PASS / FAIL / PARTIAL</code></pre>
+    <p><strong>(b) Emit failures in a fixed, machine-readable block</strong> so <code>/apply</code> can consume them next iteration. This block is the loop's feedback signal — what makes a retry targeted instead of a blind re-attempt:</p>
+    <pre><code>VALIDATION FAILURES (iteration N)
+─────────────────────────────────
+- [BLOCKER|FIX NOW] &lt;check that failed&gt;: &lt;exact error / criterion&gt;
+  evidence: &lt;test name, build output line, or review finding&gt;
+  suspected cause: &lt;one line&gt;</code></pre>
+
+    <h3 id="apply-md">3. apply.md — accept retry context</h3>
+    <pre><code>## Retry mode (loop iterations 2+)
+
+If a VALIDATION FAILURES block is provided as context:
+- Scope for this iteration is fixing exactly those failures. The
+  approved plan still bounds all work; failures narrow it further.
+- Do not re-implement steps that already passed validation.
+- A failure that can't be fixed within the plan's scope is a plan
+  problem, not an apply problem — stop and report it.</code></pre>
+
+    <!-- budget -->
+    <h2 id="budget">Choosing the Retry Budget</h2>
+    <table>
+      <thead><tr><th>Budget</th><th>Behavior</th><th>When to use</th></tr></thead>
+      <tbody>
+        <tr><td>1 (no loop)</td><td>Today's behavior</td><td>High-risk changes, migrations</td></tr>
+        <tr><td><strong>3 (default)</strong></td><td>Fixes the common "test failed on first pass" cases</td><td>Normal feature work</td></tr>
+        <tr><td>5</td><td>For flaky / integration-heavy suites</td><td>Only with fast, reliable verifiers</td></tr>
+      </tbody>
+    </table>
+    <p>Two failures of the <em>same</em> criterion with the same root cause should escalate immediately regardless of remaining budget — a loop that isn't converging by iteration 2 almost never converges by iteration 5. Optionally expose the budget as an argument: <code>/epav &lt;task&gt; --max-loops 5</code>.</p>
+
+    <!-- telemetry -->
+    <h2 id="telemetry">Loop Telemetry</h2>
+    <p>Append one line per completed cycle to <code>knowledge/retros/loop-log.md</code>:</p>
+    <pre><code>| date | task | iterations | exit (pass/escalated) | failing stage(s) |</code></pre>
+    <p>After a few sprints this answers the questions that let you tune the loop: How often does iteration 1 pass? Where do failures cluster — tests, review, or criteria? Is the budget too small or wasted?</p>
+
+    <!-- learning -->
+    <h2 id="learning">Closing the Outer Learning Loop <span style="color:var(--muted);font-size:0.7rem;">(optional, phase 2)</span></h2>
+    <p><code>/validate</code> already writes discovered patterns to <code>knowledge/</code>, but nothing forces the next cycle to read them. One-line fix in <code>evaluate.md</code>: make <code>knowledge/patterns/</code> and the loop log a <strong>mandatory</strong> context load (currently "check if present"). That turns EPAV from a loop that self-corrects within a task into one that improves across tasks.</p>
+
+    <!-- unchanged -->
+    <h2 id="unchanged">What Deliberately Does NOT Change</h2>
+    <ul>
+      <li><strong>The plan approval gate stays.</strong> Autonomy applies only <em>after</em> a human approves scope. Plans are never auto-approved.</li>
+      <li><strong>Scope discipline stays.</strong> The loop fixes validation failures; it never adds features or expands the plan.</li>
+      <li><strong>Abort stays.</strong> "stop" interrupts the loop at any point.</li>
+      <li><strong>The knowledge contribution step stays</strong> — it runs on the final, passing iteration.</li>
+    </ul>
+
+    <!-- rollout -->
+    <h2 id="rollout">Rollout</h2>
+    <table>
+      <thead><tr><th>#</th><th>Step</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Edit the three skill files in <code>tools/epav/skills/</code></td></tr>
+        <tr><td>2</td><td>Bump the version and publish to PyPI</td></tr>
+        <tr><td>3</td><td>Consuming projects pick it up with <code>nexus update</code> + <code>nexus sync</code></td></tr>
+        <tr><td>4</td><td>Dogfood on one low-risk task with <code>MAX_ITERATIONS = 3</code> and review the first escalation report before trusting it on real work</td></tr>
+      </tbody>
+    </table>
+
+    <!-- example -->
+    <h2 id="example">What a Loop Run Looks Like</h2>
+    <pre><code><span class="prompt">&gt;</span> <span class="skill">/epav</span> <span class="str">"Add CSV export to the reports page"</span>
+
+EVALUATE SUMMARY ...
+PLAN ... blast radius ...
+Plan ready. Reply <span class="cmd">go</span> to implement.
+
+<span class="prompt">&gt;</span> <span class="cmd">go</span>
+
+<span class="comment">[iteration 1/3]</span> APPLY ... APPLY COMPLETE
+<span class="comment">[iteration 1/3]</span> VALIDATE ... <span class="fail">2 failures:</span>
+  - [BLOCKER] tests: exports_csv_handles_empty_rows FAILED
+  - [FIX NOW] review: unhandled null in formatRow()
+Iteration 2 of 3: re-entering APPLY with 2 failures.
+
+<span class="comment">[iteration 2/3]</span> APPLY (retry mode: fixing 2 listed failures) ... COMPLETE
+<span class="comment">[iteration 2/3]</span> VALIDATE ... <span class="pass">all checks pass.</span>
+
+VALIDATE COMPLETE
+─────────────────
+Criteria passed:  4/4
+Iterations used:  2/3
+Issues fixed:     empty-rows test, null guard in formatRow
+Backlog items:    (none)
+
+Task complete. Ready for the next /evaluate.</code></pre>
+
+    <div style="margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.7rem;">
+      built by <a href="https://coderstudio.co" target="_blank" style="color:var(--cyan-dim);text-decoration:none;">CoderStudio Labs</a>
+    </div>
+  </main>
+
+  <script>
+    function toggleTheme() {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      if (next === 'light') { root.setAttribute('data-theme', 'light'); }
+      else { root.removeAttribute('data-theme'); }
+      localStorage.setItem('nexus-theme', next);
+    }
+  </script>
+</body>
+</html>

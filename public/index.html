@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nexus — Developer Workflow Toolkit</title>
   <meta name="description" content="Developer workflow toolkit for Claude Code and OpenCode. Day 0 scaffold + Day 1 EPAV methodology." />
+  <script>
+    (function () {
+      var t = localStorage.getItem('nexus-theme');
+      if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -19,9 +26,20 @@
       --green: #22c55e;
     }
 
+    :root[data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --border: #d9e2ec;
+      --cyan: #0e7490;
+      --cyan-dim: #0891b2;
+      --white: #0f172a;
+      --green: #15803d;
+    }
+
     body {
       background: var(--bg);
       color: var(--white);
+      transition: background 0.2s, color 0.2s;
       font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
       min-height: 100vh;
       display: flex;
@@ -228,6 +246,21 @@
     }
     .topnav a:hover { color: var(--cyan); border-color: var(--cyan); }
 
+    .theme-btn {
+      background: none;
+      border: 1px solid var(--cyan-dim);
+      color: var(--cyan-dim);
+      border-radius: 4px;
+      padding: 0.2rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    .theme-btn::after { content: "light"; }
+    :root[data-theme="light"] .theme-btn::after { content: "dark"; }
+
     .footer {
       color: var(--muted);
       font-size: 0.7rem;
@@ -243,7 +276,9 @@
   <nav class="topnav">
     <a href="/docs">docs</a>
     <a href="/workflow">workflow</a>
+    <a href="/loop-guide">loop guide</a>
     <a href="https://github.com/rcdelacruz/nexus-dev-toolkit" target="_blank">GitHub</a>
+    <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode"></button>
   </nav>
 
   <pre class="logo">███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
@@ -361,6 +396,14 @@
         btn.classList.add('copied');
         setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
       });
+    }
+
+    function toggleTheme() {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      if (next === 'light') { root.setAttribute('data-theme', 'light'); }
+      else { root.removeAttribute('data-theme'); }
+      localStorage.setItem('nexus-theme', next);
     }
   </script>
 </body>

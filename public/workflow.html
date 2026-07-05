@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nexus Workflow — Developer Workflow Toolkit v3</title>
   <meta name="description" content="Visual workflow diagram for nexus-dev-toolkit — Day 0 scaffold and Day 1 EPAV methodology." />
+  <script>
+    (function () {
+      var t = localStorage.getItem('nexus-theme');
+      if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -25,9 +32,26 @@
       --purple-dim: #6b21a8;
     }
 
+    :root[data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #eef2f6;
+      --border: #d9e2ec;
+      --cyan: #0e7490;
+      --cyan-dim: #0891b2;
+      --white: #0f172a;
+      --green: #15803d;
+      --green-dim: #86c99b;
+      --yellow: #a16207;
+      --yellow-dim: #d9c26a;
+      --purple: #7e22ce;
+      --purple-dim: #c9a3e8;
+    }
+
     body {
       background: var(--bg);
       color: var(--white);
+      transition: background 0.2s, color 0.2s;
       font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
       min-height: 100vh;
       padding: 3rem 1.5rem 5rem;
@@ -38,6 +62,25 @@
 
     a { color: var(--cyan); text-decoration: none; }
     a:hover { text-decoration: underline; }
+
+    .theme-btn {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 20;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    .theme-btn::after { content: "light"; }
+    :root[data-theme="light"] .theme-btn::after { content: "dark"; }
 
     .back {
       align-self: flex-start;
@@ -225,6 +268,8 @@
   </style>
 </head>
 <body>
+
+  <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode"></button>
 
   <a href="/docs" class="back">← back to docs</a>
 
@@ -477,5 +522,14 @@
     <div class="legend-item"><div class="legend-dot green"></div> Outcome</div>
   </div>
 
+  <script>
+    function toggleTheme() {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      if (next === 'light') { root.setAttribute('data-theme', 'light'); }
+      else { root.removeAttribute('data-theme'); }
+      localStorage.setItem('nexus-theme', next);
+    }
+  </script>
 </body>
 </html>
