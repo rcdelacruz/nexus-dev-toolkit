@@ -437,6 +437,7 @@
     <a href="#plan" class="sub">→ /plan</a>
     <a href="#apply" class="sub">→ /apply</a>
     <a href="#validate" class="sub">→ /validate</a>
+    <a href="#code-review-after-validate" class="sub">→ /code-review</a>
 
     <div class="nav-section">MCP Tools</div>
     <a href="#mcp">Setup</a>
@@ -482,16 +483,16 @@
 
     <p style="margin-bottom:0.75rem">Once your project is set up, this is what you'll run every day:</p>
 
-    <pre style="margin-bottom:0.75rem"><code><span class="skill">/evaluate</span> &lt;task&gt;  →  <span class="skill">/plan</span>  →  <span class="skill">/apply</span>  →  <span class="skill">/validate</span></code></pre>
+    <pre style="margin-bottom:0.75rem"><code><span class="skill">/evaluate</span> &lt;task&gt;  →  <span class="skill">/plan</span>  →  <span class="skill">/apply</span>  →  <span class="skill">/validate</span>  →  <span class="skill">/code-review</span></code></pre>
 
-    <p style="margin-bottom:1.25rem">One task from your dev tasks CSV, four steps, repeat forever. <a href="#day1">Full Day 1 walkthrough ↓</a></p>
+    <p style="margin-bottom:1.25rem">One task from your dev tasks CSV, four EPAV steps plus a code review, repeat forever. <a href="#day1">Full Day 1 walkthrough ↓</a></p>
 
     <div class="callout">
-      Beyond the daily loop — both optional, neither is a required step:<br><br>
+      <code>/code-review</code> isn't one of the four EPAV phases — it's a separate reviewer skill — but it's the
+      recommended last step before calling a task done. 4 more reviewer skills (database, deployment, performance,
+      monitoring) are also available any time — see <a href="#skills">built-in skills</a>.<br><br>
       <strong>Autonomous loop</strong> — apply ↔ validate can retry itself without a human cranking every turn. See
-      the <a href="/loop-guide">loop guide</a>.<br>
-      <strong><code>/code-review</code></strong> (plus 4 more reviewer skills — database, deployment, performance,
-      monitoring) runs any time, independent of EPAV. See <a href="#skills">built-in skills</a>.
+      the <a href="/loop-guide">loop guide</a>.
     </div>
 
     <div class="callout milestone">
@@ -913,10 +914,10 @@ opencode.json                <span class="comment">← MCP server config</span><
     <!-- Day 1 -->
     <h2 id="day1">Day 1 — EPAV <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(the daily loop)</span></h2>
 
-    <p>The same four commands from the top of this page, in full, one phase at a time. One task from the dev tasks
-      CSV. Four steps. Repeat forever.</p>
+    <p>The same commands from the top of this page, in full, one phase at a time. One task from the dev tasks
+      CSV. Four EPAV steps plus a code review. Repeat forever.</p>
 
-    <pre><code>/evaluate &lt;task&gt;  →  /plan  →  /apply  →  /validate</code></pre>
+    <pre><code>/evaluate &lt;task&gt;  →  /plan  →  /apply  →  /validate  →  /code-review</code></pre>
 
     <p style="margin-top:0.75rem">Want apply ↔ validate to retry itself automatically instead of waiting on a human
       each turn? See the <a href="/loop-guide">autonomous loop guide</a>.</p>
@@ -1056,6 +1057,12 @@ opencode.json                <span class="comment">← MCP server config</span><
         </div>
       </div>
     </div>
+
+    <h3 id="code-review-after-validate">/code-review</h3>
+
+    <p>Run once VALIDATE passes, before calling the task done. Not one of the four EPAV phases — a separate
+      reviewer skill — but the recommended last step on every task. See <a href="#skills">built-in skills</a> for
+      the full reviewer list (database, deployment, performance, monitoring).</p>
 
     <div class="callout milestone">
       That's the full EPAV methodology — Day 0 and Day 1. Everything from here down is tooling reference: MCP setup,
