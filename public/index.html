@@ -25,6 +25,7 @@
       --white: #f8fafc;
       --muted: #64748b;
       --green: #22c55e;
+      --yellow: #eab308;
     }
 
     :root[data-theme="light"] {
@@ -35,6 +36,7 @@
       --cyan-dim: #0891b2;
       --white: #0f172a;
       --green: #15803d;
+      --yellow: #a16207;
     }
 
     body {
@@ -68,6 +70,23 @@
     }
 
     .subtitle span { color: var(--cyan-dim); }
+
+    #version-banner {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--yellow);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      margin-bottom: 2rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    #version-banner code {
+      color: var(--cyan);
+      font-size: 0.73rem;
+    }
 
     .install-box {
       background: var(--surface);
@@ -289,7 +308,9 @@
 ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
 ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝</pre>
 
-  <p class="subtitle">developer workflow toolkit &nbsp;·&nbsp; <span>v3.1.3</span></p>
+  <p class="subtitle">developer workflow toolkit &nbsp;·&nbsp; <span id="site-version">v3.1.4</span></p>
+
+  <div id="version-banner"></div>
 
   <div class="install-box">
     <div class="install-label">Install</div>
@@ -351,9 +372,11 @@
       <div class="cmd-group-label">Project Setup</div>
       <div class="cmd-row"><span class="c">nexus init .</span><span class="d">Claude Code — sets up .claude/ + knowledge/ + .mcp.json</span></div>
       <div class="cmd-row"><span class="c">nexus init . --tool opencode</span><span class="d">OpenCode — sets up .opencode/ + knowledge/ + opencode.json</span></div>
-      <div class="cmd-row"><span class="c">nexus update</span><span class="d">update to latest version</span></div>
+      <div class="cmd-row"><span class="c">nexus init . -g codegraph</span><span class="d">choose codegraph over graphify (default), skip the interactive prompt</span></div>
+      <div class="cmd-row"><span class="c">nexus update</span><span class="d">update the CLI itself; asks whether to also sync in a real terminal</span></div>
+      <div class="cmd-row"><span class="c">nexus update --sync</span><span class="d">skip the prompt, always sync the current project too</span></div>
       <div class="cmd-row"><span class="c">nexus sync</span><span class="d">sync built-in skills &amp; agents to latest (keeps custom files)</span></div>
-      <div class="cmd-row"><span class="c">nexus doctor</span><span class="d">validate project setup — tools, skills, MCP config, graphify</span></div>
+      <div class="cmd-row"><span class="c">nexus doctor</span><span class="d">validate project setup — tools, skills, MCP config, knowledge graph (graphify/codegraph)</span></div>
       <div class="cmd-row"><span class="c">nexus --version</span><span class="d">show installed version</span></div>
 
       <div class="cmd-group-label">Skills</div>
@@ -406,6 +429,42 @@
       else { root.removeAttribute('data-theme'); }
       localStorage.setItem('nexus-theme', next);
     }
+
+    function versionTuple(v) {
+      return v.split('.').map(function (n) { return parseInt(n, 10) || 0; });
+    }
+
+    function isOutdated(current, latest) {
+      var c = versionTuple(current), l = versionTuple(latest);
+      for (var i = 0; i < Math.max(c.length, l.length); i++) {
+        var cv = c[i] || 0, lv = l[i] || 0;
+        if (lv > cv) return true;
+        if (lv < cv) return false;
+      }
+      return false;
+    }
+
+    function checkForUpdate() {
+      var versionEl = document.getElementById('site-version');
+      if (!versionEl) return;
+      var current = versionEl.textContent.trim().replace(/^v/, '');
+
+      fetch('https://pypi.org/pypi/nexus-dev-toolkit/json')
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          var latest = data.info.version;
+          if (!isOutdated(current, latest)) return;
+          var banner = document.getElementById('version-banner');
+          if (!banner) return;
+          banner.innerHTML = 'Update available: <code>v' + current + '</code> → <code>v' +
+            latest + '</code> — run <code>nexus update</code> (or ' +
+            '<code>uv tool upgrade nexus-dev-toolkit</code>).';
+          banner.style.display = 'block';
+        })
+        .catch(function () { /* offline or PyPI unreachable — fail silently, no banner */ });
+    }
+
+    checkForUpdate();
   </script>
 </body>
 </html>

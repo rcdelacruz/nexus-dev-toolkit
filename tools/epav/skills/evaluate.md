@@ -8,13 +8,16 @@
 
 ## Steps
 
-### 1 — Orient with graphify (if graph exists)
+### 1 — Orient with your knowledge graph (if one exists)
 
-```bash
-graphify query "<task context from args>"
-```
+Check which backend this project has built, and use the matching query:
 
-Note which communities and god nodes are in the blast radius. If no graph exists, suggest `/graphify .` then continue.
+- `graphify-out/graph.json` exists → `graphify query "<task context from args>"`
+- `.codegraph/codegraph.db` exists → `codegraph explore "<task context from args>"`
+- If both exist, graphify is used by default — set `NEXUS_GRAPH_BACKEND=codegraph` to prefer codegraph instead (`nexus doctor` shows which is active).
+- Neither exists → suggest `/graphify .` (or `codegraph init`) then continue without it.
+
+Note which communities/symbols and high-degree nodes are in the blast radius.
 
 ### 2 — Load context in priority order
 
@@ -29,7 +32,7 @@ Note which communities and god nodes are in the blast radius. If no graph exists
 EVALUATE SUMMARY
 ────────────────
 Task:        <what we are building>
-Touches:     <files / modules / graphify communities>
+Touches:     <files / modules / graph communities or symbols>
 Depends on:  <what must already exist>
 Constraints: <from AGENTS.md, arch doc, acceptance criteria>
 Risk:        <god nodes or high-degree nodes in blast radius>

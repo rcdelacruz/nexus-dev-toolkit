@@ -1,10 +1,11 @@
 import csv
 import json
 import logging
-import subprocess
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
+
+from tools.epav import graph_backend
 
 logger = logging.getLogger(__name__)
 
@@ -28,21 +29,6 @@ def _find_csv(hint: str) -> Path | None:
     return None
 
 
-def _run_graphify_query(description: str) -> str | None:
-    """Run graphify query if a graph exists. Returns output or None."""
-    if not Path("graphify-out/graph.json").exists():
-        return None
-    try:
-        result = subprocess.run(
-            ["graphify", "query", description[:200]],
-            capture_output=True, text=True, timeout=30,
-        )
-        return result.stdout.strip() if result.returncode == 0 else None
-    except Exception as e:
-        logger.warning("graphify query failed: %s", e)
-        return None
-
-
 def register_task_loader_tool(mcp: FastMCP) -> None:
 
     @mcp.tool()
@@ -56,7 +42,8 @@ def register_task_loader_tool(mcp: FastMCP) -> None:
 
         Reads a task CSV (one row per task with fields: task_id, user_story,
         description, acceptance_criteria, dependencies). Optionally runs a
-        graphify query on the task description to surface blast radius context.
+        knowledge-graph query (graphify or codegraph, whichever is active) on the
+        task description to surface blast radius context.
 
         Args:
             csv_path: Path to the CSV file, or a name fragment to search in
@@ -67,7 +54,7 @@ def register_task_loader_tool(mcp: FastMCP) -> None:
 
         Returns:
             JSON with structured task context ready for /evaluate, including
-            graphify blast radius if a graph exists.
+            knowledge-graph blast radius if a graph exists.
         """
         try:
             csv_file = _find_csv(csv_path)
@@ -109,9 +96,9 @@ def register_task_loader_tool(mcp: FastMCP) -> None:
             context["_csv_file"] = str(csv_file)
             context["_all_fields"] = dict(task)
 
-            # Graphify blast radius
+            # Knowledge-graph blast radius (graphify or codegraph, whichever is active)
             description = context.get("description") or context.get("user_story", "")
-            blast_radius = _run_graphify_query(description)
+            blast_radius = graph_backend.run_query(description[:200])
             if blast_radius:
                 context["blast_radius"] = blast_radius
 

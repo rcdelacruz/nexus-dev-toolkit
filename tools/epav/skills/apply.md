@@ -14,9 +14,12 @@ A plan must be approved. If `/plan` has not run and been approved, stop and ask.
 - Reference AGENTS.md coding standards for every file written.
 - Do not add features, refactor unrelated code, or expand scope beyond the plan.
 
-### 2 — graphify updates automatically
+### 2 — The knowledge graph stays current automatically
 
-The `PostToolUse` hook runs `graphify update .` after every file edit — no manual step needed. The graph stays current as you write.
+- graphify: the `PostToolUse` hook runs `graphify update .` after every file edit — no manual step needed.
+- codegraph: its own background sync daemon watches the project and updates on every file change — also no manual step needed, and nexus does not scaffold a hook for it.
+
+Either way, the graph stays current as you write.
 
 ### 3 — Stay in scope
 

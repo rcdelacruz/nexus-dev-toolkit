@@ -152,6 +152,16 @@
       margin-bottom: 1rem;
     }
 
+    main a {
+      color: var(--cyan-dim);
+      text-decoration: none;
+    }
+
+    main a:hover {
+      color: var(--cyan);
+      text-decoration: underline;
+    }
+
     .lead {
       color: var(--text2);
       font-size: 0.85rem;
@@ -232,6 +242,35 @@
 
     .callout.warn {
       border-color: var(--yellow);
+    }
+
+    .callout.milestone {
+      background: var(--surface2);
+      border-left-width: 4px;
+      padding: 1rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--white);
+    }
+
+    #version-banner {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--yellow);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--text2);
+    }
+
+    #version-banner code {
+      color: var(--cyan);
+      font-size: 0.78rem;
+    }
+
+    .callout.milestone a {
+      font-weight: 600;
     }
 
     table {
@@ -375,7 +414,7 @@
   <nav>
     <div class="nav-logo">NEXUS</div>
 
-    <div class="nav-version">v3.1.3</div>
+    <div class="nav-version">v3.1.4</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
@@ -388,9 +427,9 @@
     <a href="#day0">Overview</a>
     <a href="#day0-prereqs" class="sub">→ Prerequisites</a>
     <a href="#day0-evaluate" class="sub">→ EVALUATE</a>
-    <a href="#day0-plan" class="sub">→ PLAN</a>
-    <a href="#day0-apply" class="sub">→ APPLY</a>
-    <a href="#day0-validate" class="sub">→ VALIDATE</a>
+    <a href="#day0-plan" class="sub">→ /plan</a>
+    <a href="#day0-apply" class="sub">→ /apply</a>
+    <a href="#day0-validate" class="sub">→ /validate</a>
 
     <div class="nav-section">Day 1 — EPAV</div>
     <a href="#day1">Overview</a>
@@ -425,41 +464,40 @@
   <main>
     <a href="/" class="back">← back to home</a>
 
+    <div id="version-banner"></div>
+
     <h1>Getting Started</h1>
-    <p class="lead">nexus-dev-toolkit gives your team a structured AI-assisted workflow: scaffold a production-grade
-      project on Day 0, then ship every feature with the EPAV cycle on Day 1 — evaluate, plan, apply, validate.</p>
+    <p class="lead">nexus-dev-toolkit gives your team a repeatable AI-assisted workflow in two distinct phases:
+      <strong>Day 0</strong> — a one-time production-grade project boilerplate, run once by one person — and <strong>Day 1</strong> — the
+      daily EPAV loop every developer runs for every feature, for the life of the project.</p>
+
+    <div class="callout milestone">
+      Day 0 is a one-person job. One owner — usually the tech lead — runs <code>/scaffold</code> once, before anyone
+      starts feature work. Individual developers should never run <code>/scaffold</code> during Day 1: doing so
+      re-scaffolds the project. Once Day 0 is done, every developer works exclusively in Day 1, forever.
+    </div>
 
     <!-- Overview -->
     <h2 id="overview">Overview</h2>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Phase</th>
-          <th>When</th>
-          <th>Skill</th>
-          <th>Output</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Day 0</td>
-          <td>Once per project</td>
-          <td><code>/scaffold</code></td>
-          <td>Production scaffold — mock auth, design system, AGENTS.md, zero credentials needed</td>
-        </tr>
-        <tr>
-          <td>Day 1</td>
-          <td>Every feature, every sprint</td>
-          <td><code>/evaluate → /plan → /apply → /validate</code></td>
-          <td>Shipped feature, acceptance criteria verified</td>
-        </tr>
-      </tbody>
-    </table>
+    <p style="margin-bottom:0.75rem">Once your project is set up, this is what you'll run every day:</p>
 
-    <p>Everything the AI needs — skills, rules, knowledge — lives in your repo under <code>.claude/commands/</code> and
-      <code>knowledge/</code>. Versioned, shared, enforced across the team.
-    </p>
+    <pre style="margin-bottom:0.75rem"><code><span class="skill">/evaluate</span> &lt;task&gt;  →  <span class="skill">/plan</span>  →  <span class="skill">/apply</span>  →  <span class="skill">/validate</span></code></pre>
+
+    <p style="margin-bottom:1.25rem">One task from your dev tasks CSV, four steps, repeat forever. <a href="#day1">Full Day 1 walkthrough ↓</a></p>
+
+    <div class="callout">
+      Beyond the daily loop — both optional, neither is a required step:<br><br>
+      <strong>Autonomous loop</strong> — apply ↔ validate can retry itself without a human cranking every turn. See
+      the <a href="/loop-guide">loop guide</a>.<br>
+      <strong><code>/code-review</code></strong> (plus 4 more reviewer skills — database, deployment, performance,
+      monitoring) runs any time, independent of EPAV. See <a href="#skills">built-in skills</a>.
+    </div>
+
+    <div class="callout milestone">
+      First time in this project? You need install and a one-time Day 0 scaffold before Day 1 applies — both
+      covered next, in order: <a href="#install">Setup</a> → <a href="#day0">Day 0</a> → <a href="#day1">Day 1</a>.
+    </div>
 
     <!-- Install -->
     <h2 id="install">Setup</h2>
@@ -498,6 +536,12 @@
           <pre
             style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> graphifyy
 <span class="prompt">$</span> <span class="cmd">graphify install</span>    <span class="comment"># registers /graphify skill into Claude Code</span></code><button class="copy-btn" onclick="copy(this, 'uv tool install graphifyy && graphify install')">copy</button></pre>
+          <div class="step-desc" style="margin-top:0.75rem"><strong>Alternative: codegraph</strong> — a different knowledge-graph
+            tool EPAV skills can use instead of graphify. Pick one, not both; <code>nexus doctor</code> warns if it
+            finds graphs from both built in the same project.</div>
+          <pre
+            style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">npm i -g</span> @colbymchenry/codegraph
+<span class="prompt">$</span> <span class="cmd">codegraph install</span>    <span class="comment"># wires codegraph into Claude Code / OpenCode / etc.</span></code><button class="copy-btn" onclick="copy(this, 'npm i -g @colbymchenry/codegraph && codegraph install')">copy</button></pre>
         </div>
       </div>
       <div class="step">
@@ -546,7 +590,7 @@
 │   ├── deployment-reviewer.md
 │   ├── performance-reviewer.md
 │   └── monitoring-reviewer.md
-└── settings.json            <span class="comment">← PostToolUse: graphify auto-update hook</span>
+└── settings.json            <span class="comment">← PostToolUse: graphify auto-update hook (graphify backend only)</span>
 knowledge/
 ├── rules/                   <span class="comment">← coding standards, arch decisions</span>
 ├── patterns/                <span class="comment">← reusable implementation patterns</span>
@@ -559,7 +603,9 @@ knowledge/
     <div class="callout">
       Agents are automatically adapted for OpenCode compatibility — Claude Code-specific frontmatter fields
       (<code>tools</code>, <code>model</code>) are stripped on copy. The graphify plugin fires on every tool execution
-      via <code>tool.execute.after</code>.
+      via <code>tool.execute.after</code> — only scaffolded if you picked graphify at <code>nexus init</code>'s
+      <code>--graph-backend</code> prompt. Pick codegraph instead and nothing is scaffolded here; codegraph wires
+      and syncs itself via <code>codegraph install &amp;&amp; codegraph init</code>.
     </div>
 
     <pre><code>.opencode/
@@ -582,7 +628,7 @@ knowledge/
 │   ├── performance-reviewer.md
 │   └── monitoring-reviewer.md
 └── plugins/
-│   └── graphify.js          <span class="comment">← tool.execute.after: graphify auto-update</span>
+│   └── graphify.js          <span class="comment">← tool.execute.after: graphify auto-update (graphify backend only)</span>
 knowledge/
 ├── rules/
 ├── patterns/
@@ -591,13 +637,16 @@ knowledge/
 opencode.json                <span class="comment">← MCP server config</span></code></pre>
 
     <!-- Day 0 -->
-    <h2 id="day0">Day 0 — /scaffold</h2>
+    <h2 id="day0">Day 0 — /scaffold <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(one-time, reference)</span></h2>
 
-    <p>Run once per project. Produces a production-grade scaffold from your architecture document and Figma design. No
+    <p>Run once per project, by one person — usually the tech lead — before anyone starts feature work. Never re-run
+      during Day 1. Produces a production-grade scaffold from your architecture document and Figma design. No
       business logic, no live integrations — mock auth, mock data, zero external dependencies.</p>
 
     <div class="callout">
-      Day 0 uses <code>/scaffold</code> — not EPAV. EPAV is only for Day 1 feature tasks.
+      Day 0's entry point is <code>/scaffold</code>, not <code>/evaluate</code> — it runs the same
+      Evaluate → Plan → Apply → Validate shape as Day 1, just once, kicked off from your architecture doc instead of
+      a task description.
     </div>
 
     <h3 id="day0-prereqs">Prerequisites</h3>
@@ -639,9 +688,11 @@ opencode.json                <span class="comment">← MCP server config</span><
         <div class="step-num">4</div>
         <div class="step-content">
           <div class="step-title">Build the knowledge graph</div>
-          <pre style="margin-top:0.5rem"><code><span class="skill">/graphify .</span></code></pre>
-          <div class="step-desc">Run after scaffold completes — now there's real code to graph. Required before starting
-            Day 1 EPAV.</div>
+          <pre style="margin-top:0.5rem"><code><span class="skill">/graphify .</span>              <span class="comment"># if you chose graphify at init</span>
+<span class="prompt">$</span> <span class="cmd">codegraph install &amp;&amp; codegraph init</span>  <span class="comment"># if you chose codegraph, run in your terminal</span></code></pre>
+          <div class="step-desc">Run after scaffold completes — now there's real code to graph. EPAV skills use
+            whichever backend is present, or fall back to full file reads if neither is built yet. Run
+            <code>nexus doctor</code> any time to check which backend is active.</div>
         </div>
       </div>
     </div>
@@ -653,9 +704,9 @@ opencode.json                <span class="comment">← MCP server config</span><
       <code>/validate</code>
     </div>
 
-    <p>Here is what happens at each step:</p>
+    <p>What happens inside each of those four phases — EVALUATE, PLAN, APPLY, VALIDATE:</p>
 
-    <h3 id="day0-evaluate">EVALUATE</h3>
+    <h3 id="day0-evaluate">EVALUATE <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(via <code>/scaffold</code>, not typed separately)</span></h3>
 
     <p>Claude summarises 10 key decisions from your arch doc and Figma before writing a single line of code:</p>
 
@@ -712,7 +763,7 @@ opencode.json                <span class="comment">← MCP server config</span><
 
     <p>Claude stops. Review the summary, then type <code>/plan</code> to continue.</p>
 
-    <h3 id="day0-plan">PLAN</h3>
+    <h3 id="day0-plan">PLAN <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(type <code>/plan</code>)</span></h3>
 
     <p>Blueprint only — no code. Four outputs:</p>
 
@@ -745,7 +796,7 @@ opencode.json                <span class="comment">← MCP server config</span><
 
     <p>Claude stops. Review the blueprint, then type <code>/apply</code> to generate code.</p>
 
-    <h3 id="day0-apply">APPLY</h3>
+    <h3 id="day0-apply">APPLY <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(type <code>/apply</code>)</span></h3>
 
     <p><strong>First step — always:</strong> Claude calls <code>resolve_package_versions</code> before writing any file.
       Exact versions from the real package manager lock file — never from AI memory.</p>
@@ -812,9 +863,9 @@ opencode.json                <span class="comment">← MCP server config</span><
       <code>resolve_package_versions</code>. Never use <code>npx create-next-app</code> or any scaffold CLI.
     </div>
 
-    <h3 id="day0-validate">VALIDATE</h3>
+    <h3 id="day0-validate">VALIDATE <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(type <code>/validate</code>)</span></h3>
 
-    <p>Type <code>/validate</code> after APPLY completes. Build must pass first, then Claude runs a 19-point checklist:
+    <p>Build must pass first, then Claude runs a 19-point checklist:
     </p>
 
     <table>
@@ -854,12 +905,21 @@ opencode.json                <span class="comment">← MCP server config</span><
 
     <p><strong>Success:</strong> <code>npm install &amp;&amp; npm run dev</code> works. Zero credentials needed.</p>
 
-    <!-- Day 1 -->
-    <h2 id="day1">Day 1 — EPAV</h2>
+    <div class="callout milestone">
+      Day 0 is done — that scaffold happens once. Everything below is Day 1: the loop you'll run for the rest of the
+      project.
+    </div>
 
-    <p>One task from the dev tasks CSV. Four steps. Repeat forever.</p>
+    <!-- Day 1 -->
+    <h2 id="day1">Day 1 — EPAV <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(the daily loop)</span></h2>
+
+    <p>The same four commands from the top of this page, in full, one phase at a time. One task from the dev tasks
+      CSV. Four steps. Repeat forever.</p>
 
     <pre><code>/evaluate &lt;task&gt;  →  /plan  →  /apply  →  /validate</code></pre>
+
+    <p style="margin-top:0.75rem">Want apply ↔ validate to retry itself automatically instead of waiting on a human
+      each turn? See the <a href="/loop-guide">autonomous loop guide</a>.</p>
 
     <h3 id="evaluate">/evaluate</h3>
 
@@ -869,8 +929,9 @@ opencode.json                <span class="comment">← MCP server config</span><
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <div class="step-title">graphify query</div>
-          <div class="step-desc">Find all files the task touches. Map the blast radius — what else references those
+          <div class="step-title">Knowledge graph query</div>
+          <div class="step-desc"><code>graphify query</code> or <code>codegraph explore</code>, whichever backend is
+            active. Find all files the task touches. Map the blast radius — what else references those
             files.</div>
         </div>
       </div>
@@ -899,8 +960,10 @@ opencode.json                <span class="comment">← MCP server config</span><
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <div class="step-title">graphify path check</div>
-          <div class="step-desc">Confirm relationships between primary files. State what else will be affected.</div>
+          <div class="step-title">Blast radius check</div>
+          <div class="step-desc"><code>graphify path</code>, or <code>codegraph impact</code> as the closest available
+            check (it takes one symbol, not a file pair). Confirm relationships between primary files. State what else
+            will be affected.</div>
         </div>
       </div>
       <div class="step">
@@ -953,7 +1016,8 @@ opencode.json                <span class="comment">← MCP server config</span><
 
     <p>graphify auto-updates after every file edit — via the PostToolUse hook in <code>.claude/settings.json</code>
       (Claude Code) or the <code>tool.execute.after</code> plugin in <code>.opencode/plugins/graphify.js</code>
-      (OpenCode). Both are installed automatically by <code>nexus init</code>.</p>
+      (OpenCode). Both are installed automatically by <code>nexus init</code> if you picked graphify. codegraph
+      updates itself via its own background sync daemon — no hook needed, and none is scaffolded.</p>
 
     <h3 id="validate">/validate</h3>
 
@@ -993,10 +1057,17 @@ opencode.json                <span class="comment">← MCP server config</span><
       </div>
     </div>
 
+    <div class="callout milestone">
+      That's the full EPAV methodology — Day 0 and Day 1. Everything from here down is tooling reference: MCP setup,
+      built-in skills &amp; agents, custom skills, rules, and file layout. Read once, come back as needed.
+    </div>
+
     <!-- MCP -->
     <h2 id="mcp">MCP Server Setup</h2>
 
-    <p><code>nexus init</code> writes <code>.mcp.json</code> automatically. For Claude Desktop, add manually:</p>
+    <p>MCP tools power the graph queries and task-loading calls used throughout /evaluate and /apply above — set this
+      up once, alongside install. <code>nexus init</code> writes <code>.mcp.json</code> automatically. For Claude
+      Desktop, add manually:</p>
 
     <h3>Claude Code (project-level)</h3>
     <pre><code><span class="comment">// .mcp.json</span>
@@ -1051,7 +1122,7 @@ opencode.json                <span class="comment">← MCP server config</span><
         </tr>
         <tr>
           <td><code>load_task</code></td>
-          <td>Load a CSV task row + graphify blast radius into context</td>
+          <td>Load a CSV task row + knowledge-graph blast radius into context</td>
           <td>Day 1, start of /evaluate</td>
         </tr>
         <tr>
@@ -1069,6 +1140,9 @@ opencode.json                <span class="comment">← MCP server config</span><
 
     <!-- Skills -->
     <h2 id="skills">Built-in Skills</h2>
+
+    <p>The full list behind every command used so far — plus the reviewer skills, which aren't part of any EPAV
+      phase and run on their own.</p>
 
     <table>
       <thead>
@@ -1248,7 +1322,11 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
         </tr>
         <tr>
           <td><code>nexus update</code></td>
-          <td>Update nexus-dev-toolkit to latest</td>
+          <td>Update the nexus CLI itself to latest — does not touch any project's .claude/.opencode files. In a real terminal, asks whether to also sync the current directory; scripted/CI runs skip the prompt automatically</td>
+        </tr>
+        <tr>
+          <td><code>nexus update --sync</code></td>
+          <td>Same as above, but skips the prompt and always syncs the current directory's skills/agents (skipped if it isn't a nexus project)</td>
         </tr>
         <tr>
           <td><code>nexus sync [dir]</code></td>
@@ -1256,7 +1334,7 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
         </tr>
         <tr>
           <td><code>nexus doctor [dir]</code></td>
-          <td>Validate project setup — checks tools, skills, agents, MCP config, graphify</td>
+          <td>Validate project setup — checks tools, skills, agents, MCP config, knowledge graph (graphify/codegraph)</td>
         </tr>
         <tr>
           <td><code>nexus --version</code></td>
@@ -1339,6 +1417,42 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
       else { root.removeAttribute('data-theme'); }
       localStorage.setItem('nexus-theme', next);
     }
+
+    function versionTuple(v) {
+      return v.split('.').map(function (n) { return parseInt(n, 10) || 0; });
+    }
+
+    function isOutdated(current, latest) {
+      var c = versionTuple(current), l = versionTuple(latest);
+      for (var i = 0; i < Math.max(c.length, l.length); i++) {
+        var cv = c[i] || 0, lv = l[i] || 0;
+        if (lv > cv) return true;
+        if (lv < cv) return false;
+      }
+      return false;
+    }
+
+    function checkForUpdate() {
+      var versionEl = document.querySelector('.nav-version');
+      if (!versionEl) return;
+      var current = versionEl.textContent.trim().replace(/^v/, '');
+
+      fetch('https://pypi.org/pypi/nexus-dev-toolkit/json')
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          var latest = data.info.version;
+          if (!isOutdated(current, latest)) return;
+          var banner = document.getElementById('version-banner');
+          if (!banner) return;
+          banner.innerHTML = 'Update available: <code>v' + current + '</code> → <code>v' +
+            latest + '</code> — run <code>nexus update</code> (or ' +
+            '<code>uv tool upgrade nexus-dev-toolkit</code>).';
+          banner.style.display = 'block';
+        })
+        .catch(function () { /* offline or PyPI unreachable — fail silently, no banner */ });
+    }
+
+    checkForUpdate();
   </script>
 </body>
 

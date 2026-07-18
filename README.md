@@ -1,7 +1,7 @@
 # nexus-dev-toolkit
 
 
-Developer workflow toolkit for Claude Code. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
+Developer workflow toolkit for Claude Code and OpenCode. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
 
 **[Documentation](https://nexus.coderstudio.co/docs)**
 
@@ -49,6 +49,13 @@ uv tool install graphifyy   # PyPI package name has double y; command is "graphi
 graphify install             # registers /graphify skill into Claude Code
 ```
 
+**codegraph** _(alternative to graphify)_ — a different knowledge-graph tool EPAV skills can use instead. Pick one, not both; `nexus doctor` warns if it finds graphs from both built in the same project.
+
+```bash
+npm i -g @colbymchenry/codegraph
+codegraph install   # wires codegraph into Claude Code / OpenCode / etc.
+```
+
 ### 2. Install nexus-dev-toolkit
 
 ```bash
@@ -59,8 +66,9 @@ uv tool install nexus-dev-toolkit
 
 ```bash
 cd my-project
-nexus init .                    # Claude Code (default)
-nexus init . --tool opencode    # OpenCode
+nexus init .                                        # Claude Code (default), prompts for graphify/codegraph/none
+nexus init . --tool opencode                        # OpenCode
+nexus init . --graph-backend codegraph              # skip the prompt, use codegraph
 ```
 
 ### 4. Place your reference docs
@@ -90,12 +98,13 @@ Open the project in Claude Code and run:
 
 ### 6. Build the knowledge graph
 
-After `/scaffold` completes, run in Claude Code:
+After `/scaffold` completes, build whichever backend you chose at init:
 ```
-/graphify .
+/graphify .                              # if you chose graphify
+codegraph install && codegraph init      # if you chose codegraph, run in your terminal
 ```
 
-This generates `graphify-out/graph.json` — required by all EPAV skills before starting Day 1.
+This generates `graphify-out/graph.json` or `.codegraph/codegraph.db` — EPAV skills use whichever is present, or fall back to full file reads if neither is built yet. Run `nexus doctor` any time to check which backend is active.
 
 ---
 
@@ -117,12 +126,14 @@ Each step is a built-in skill in `.claude/commands/`. Every task starts from the
 
 ## What `nexus init` Creates
 
+`settings.json`/`graphify.js` below are only created if you pick graphify (the default) at the `--graph-backend` prompt. Pick codegraph instead and neither is scaffolded — codegraph wires and syncs itself via `codegraph install && codegraph init`.
+
 **Claude Code** (`nexus init .`):
 ```
 .claude/
 ├── commands/          ← EPAV skills + 5 reviewer skills (/code-review, etc.)
 ├── agents/            ← 5 reviewer subagents (code-reviewer, database-reviewer, etc.)
-└── settings.json      ← PostToolUse: graphify auto-updates after every file edit
+└── settings.json      ← PostToolUse: graphify auto-updates after every file edit (graphify backend only)
 knowledge/
 ├── rules/             ← coding standards, arch decisions
 ├── patterns/          ← reusable implementation patterns
@@ -137,7 +148,7 @@ knowledge/
 ├── commands/          ← same EPAV skills + reviewer skills
 ├── agents/            ← same reviewer subagents (adapted for OpenCode)
 └── plugins/
-    └── graphify.js    ← tool.execute.after: graphify auto-update
+    └── graphify.js    ← tool.execute.after: graphify auto-update (graphify backend only)
 knowledge/             ← same structure
 opencode.json          ← MCP server config
 ```
@@ -150,7 +161,8 @@ opencode.json          ← MCP server config
 nexus init .                      # Claude Code — set up .claude/ + knowledge/ + .mcp.json
 nexus init . --tool opencode      # OpenCode — set up .opencode/ + knowledge/ + opencode.json
 nexus --version                   # show installed version
-nexus update                      # update to latest version
+nexus update                      # update the CLI itself; asks whether to also sync in a real terminal
+nexus update --sync               # skip the prompt, always sync the current project's skills/agents too
 nexus sync                        # sync built-in skills & agents to latest (custom files untouched)
 nexus doctor                      # validate project setup
 

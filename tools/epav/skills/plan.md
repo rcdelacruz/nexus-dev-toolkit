@@ -10,9 +10,9 @@ EVALUATE must have run first. If it hasn't, run `/evaluate <task>` before contin
 
 ### 1 — Blast radius check
 
-```bash
-graphify path "<primary file/module>" "<secondary file/module>"
-```
+- `graphify-out/graph.json` exists → `graphify path "<primary file/module>" "<secondary file/module>"`
+- `.codegraph/codegraph.db` exists → `codegraph impact <primary symbol>` — codegraph's `impact` takes one symbol, not a file pair, so treat it as the closest available check, not an exact equivalent to `graphify path`.
+- Neither exists → note in the plan that this check was unavailable and proceed on a best-effort review.
 
 Run for every significant file the plan will touch. State what else will be affected.
 
@@ -31,7 +31,7 @@ Files created:   <list>
 Files modified:  <list>
 Files deleted:   <list>
 
-Blast radius:    <from graphify — what else references these>
+Blast radius:    <from the active knowledge graph — what else references these>
 God nodes touched: <list any with degree > 10>
 ```
 

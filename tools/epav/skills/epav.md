@@ -31,7 +31,7 @@ Say:
 
 Follow the `/apply` skill exactly. Implement the plan step by step.
 
-graphify updates automatically after every file edit via the PostToolUse hook.
+The active knowledge graph backend (graphify or codegraph) stays current automatically — via the PostToolUse hook for graphify, or codegraph's own sync daemon.
 
 ### Step 4 — VALIDATE
 

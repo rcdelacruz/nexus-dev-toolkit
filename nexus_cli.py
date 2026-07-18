@@ -2,13 +2,17 @@ import json
 import shutil
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
-app = typer.Typer(name="nexus", no_args_is_help=False, help="nexus-dev-toolkit — Day 0 scaffold + Day 1 EPAV workflow for Claude Code")
+from tools.epav import graph_backend
+
+app = typer.Typer(name="nexus", no_args_is_help=False, help="nexus-dev-toolkit — Day 0 scaffold + Day 1 EPAV workflow for Claude Code and OpenCode")
 skill_app = typer.Typer(name="skill", no_args_is_help=True, help="Manage skills in .claude/commands/")
 rule_app = typer.Typer(name="rule", no_args_is_help=True, help="Manage rules in knowledge/rules/")
 agent_app = typer.Typer(name="agent", no_args_is_help=True, help="Manage subagents in .claude/agents/")
@@ -18,7 +22,31 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.3"
+_VERSION = "3.1.4"
+
+
+def _fetch_latest_pypi_version() -> str | None:
+    """Fetch the latest published version from PyPI. None on any failure — offline, timeout,
+    bad response — never raises."""
+    try:
+        with urllib.request.urlopen(
+            "https://pypi.org/pypi/nexus-dev-toolkit/json", timeout=3
+        ) as resp:
+            return json.loads(resp.read())["info"]["version"]
+    except Exception:
+        return None
+
+
+def _version_tuple(v: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in v.split("."))
+
+
+def _is_outdated(installed: str, latest: str) -> bool:
+    try:
+        return _version_tuple(latest) > _version_tuple(installed)
+    except Exception:
+        return False  # malformed version string from PyPI — don't false-alarm
+
 
 _LOGO = """\
 [cyan]███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗[/cyan]
@@ -141,12 +169,12 @@ export const GraphifyPlugin = async ({ directory }) => {
 """
 
 
-def _init_project(project_dir: Path) -> list[str]:
+def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
     """
     nexus init — sets up:
       .claude/commands/     ← built-in skills
       .claude/agents/       ← built-in subagents
-      .claude/settings.json ← PostToolUse graphify hook
+      .claude/settings.json ← PostToolUse graphify hook (only when backend == "graphify")
       knowledge/            ← empty scaffold
     """
     created = []
@@ -173,11 +201,12 @@ def _init_project(project_dir: Path) -> list[str]:
             shutil.copy2(src, dest)
             created.append(f".claude/agents/{agent_name}")
 
-    # .claude/settings.json — PostToolUse graphify hook
-    settings_path = project_dir / ".claude" / "settings.json"
-    if not settings_path.exists():
-        settings_path.write_text(json.dumps(_CLAUDE_SETTINGS, indent=2))
-        created.append(".claude/settings.json")
+    # .claude/settings.json — PostToolUse graphify hook (codegraph syncs itself, no hook needed)
+    if backend == "graphify":
+        settings_path = project_dir / ".claude" / "settings.json"
+        if not settings_path.exists():
+            settings_path.write_text(json.dumps(_CLAUDE_SETTINGS, indent=2))
+            created.append(".claude/settings.json")
 
     # knowledge/ scaffold
     for d in _KNOWLEDGE_DIRS:
@@ -201,12 +230,12 @@ def _strip_claude_frontmatter(content: str) -> str:
     return "---" + "\n".join(lines) + "---" + parts[2]
 
 
-def _init_opencode(project_dir: Path) -> list[str]:
+def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
     """
     nexus init --tool opencode — sets up:
       .opencode/commands/   ← built-in skills
       .opencode/agents/     ← built-in subagents
-      .opencode/plugins/    ← graphify PostToolUse hook
+      .opencode/plugins/    ← graphify PostToolUse hook (only when backend == "graphify")
       opencode.json         ← MCP server config
       knowledge/            ← empty scaffold
     """
@@ -232,13 +261,14 @@ def _init_opencode(project_dir: Path) -> list[str]:
             dest.write_text(_strip_claude_frontmatter(src.read_text()), encoding="utf-8")
             created.append(f".opencode/agents/{agent_name}")
 
-    # .opencode/plugins/graphify.js — PostToolUse hook
-    plugins_dir = project_dir / ".opencode" / "plugins"
-    plugins_dir.mkdir(parents=True, exist_ok=True)
-    plugin_path = plugins_dir / "graphify.js"
-    if not plugin_path.exists():
-        plugin_path.write_text(_OPENCODE_GRAPHIFY_PLUGIN, encoding="utf-8")
-        created.append(".opencode/plugins/graphify.js")
+    # .opencode/plugins/graphify.js — PostToolUse hook (codegraph syncs itself, no hook needed)
+    if backend == "graphify":
+        plugins_dir = project_dir / ".opencode" / "plugins"
+        plugins_dir.mkdir(parents=True, exist_ok=True)
+        plugin_path = plugins_dir / "graphify.js"
+        if not plugin_path.exists():
+            plugin_path.write_text(_OPENCODE_GRAPHIFY_PLUGIN, encoding="utf-8")
+            created.append(".opencode/plugins/graphify.js")
 
     # opencode.json — MCP server config
     opencode_json = project_dir / "opencode.json"
@@ -306,7 +336,7 @@ def _check_and_offer_install(tool: str) -> None:
         console.print(f"  [dim]Install manually: {info['install']}[/dim]\n")
         return
 
-    answer = console.input(f"  Install {info['name']} now? [y/N] ").strip().lower()
+    answer = console.input(f"  Install {info['name']} now? {escape('[y/N]')} ").strip().lower()
     if answer != "y":
         console.print(f"  [dim]Skipping. Install manually: {info['install']}[/dim]\n")
         return
@@ -323,10 +353,36 @@ def _check_and_offer_install(tool: str) -> None:
         console.print(f"  [red]✗[/red]  Install failed. Run manually: {info['install']}\n")
 
 
+_GRAPH_BACKENDS = {
+    "graphify": "existing default — this scaffolds the PostToolUse hook that auto-updates it",
+    "codegraph": "you run `codegraph install && codegraph init` yourself — it syncs itself, no hook needed",
+    "none": "skip for now — set either up later, `nexus doctor` will detect it",
+}
+
+
+def _resolve_graph_backend(explicit: str | None) -> str:
+    if explicit:
+        if explicit not in _GRAPH_BACKENDS:
+            console.print(f"  [red]✗[/red]  Unknown --graph-backend '{explicit}'. Choose from: {', '.join(_GRAPH_BACKENDS)}")
+            raise typer.Exit(1)
+        return explicit
+
+    if not sys.stdin.isatty():
+        return "graphify"  # unchanged behavior for CI/scripted `nexus init`
+
+    console.print("  Which knowledge graph do you want nexus to wire up?")
+    console.print("    [cyan]1[/cyan] graphify   (default)")
+    console.print("    [cyan]2[/cyan] codegraph")
+    console.print("    [cyan]3[/cyan] skip for now")
+    answer = console.input(f"  Choice {escape('[1]')}: ").strip()
+    return {"2": "codegraph", "3": "none"}.get(answer, "graphify")
+
+
 @app.command()
 def init(
     project_dir: str = typer.Argument(".", help="Project directory to initialize"),
     tool: str = typer.Option("claude", "--tool", "-t", help=f"AI coding tool to set up for ({', '.join(_SUPPORTED_TOOLS)})"),
+    graph_backend: str = typer.Option(None, "--graph-backend", "-g", help=f"Knowledge graph tool to wire up ({', '.join(_GRAPH_BACKENDS)}). Prompts interactively if omitted."),
 ) -> None:
     """Initialize nexus in a project directory. Defaults to Claude Code."""
     if tool not in _SUPPORTED_TOOLS:
@@ -335,11 +391,13 @@ def init(
 
     _check_and_offer_install(tool)
 
+    backend = _resolve_graph_backend(graph_backend)
+
     root = Path(project_dir).resolve()
     console.print(f"  [cyan]▶[/cyan]  Initializing nexus for [bold]{tool}[/bold] in [bold]{root}[/bold]\n")
 
     if tool == "opencode":
-        created = _init_opencode(root)
+        created = _init_opencode(root, backend)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
         if not created:
@@ -347,7 +405,7 @@ def init(
             return
         console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in OpenCode and type [cyan]/scaffold[/cyan]\n")
     else:
-        created = _init_project(root)
+        created = _init_project(root, backend)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
         if not created:
@@ -357,32 +415,58 @@ def init(
         console.print(f"  [green]✓[/green]  {mcp}")
         console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in Claude Code and type [cyan]/scaffold[/cyan]\n")
 
-
-@app.command()
-def update() -> None:
-    """Update nexus-dev-toolkit to the latest version."""
-    console.print("\n  [cyan]▶[/cyan]  Updating nexus-dev-toolkit…\n")
-    if shutil.which("uv"):
-        subprocess.run(["uv", "tool", "upgrade", "nexus-dev-toolkit"])
-    else:
-        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "nexus-dev-toolkit"])
-    console.print("\n  [green]✓[/green]  Done.\n")
+    if backend == "codegraph":
+        console.print("  [cyan]→[/cyan]  Next: run [bold]codegraph install && codegraph init[/bold] to wire codegraph into this project (it manages its own auto-sync — no hook needed).\n")
 
 
 @app.command()
-def sync(
-    project_dir: str = typer.Argument(".", help="Project directory to sync"),
+def update(
+    also_sync: bool = typer.Option(False, "--sync", "-s", help="Also sync built-in skills/agents in the current directory after upgrading."),
 ) -> None:
-    """Sync built-in skills and agents to their latest versions (custom files untouched)."""
-    root = Path(project_dir).resolve()
+    """Update nexus-dev-toolkit to the latest version."""
+    latest_version = _fetch_latest_pypi_version()
+    if latest_version and not _is_outdated(_VERSION, latest_version):
+        console.print(f"\n  [green]✓[/green]  Already up to date (v{_VERSION}).\n")
+    else:
+        console.print("\n  [cyan]▶[/cyan]  Updating nexus-dev-toolkit…\n")
+        if shutil.which("uv"):
+            subprocess.run(["uv", "tool", "upgrade", "nexus-dev-toolkit"])
+        else:
+            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "nexus-dev-toolkit"])
+        console.print("\n  [green]✓[/green]  Done.\n")
+
+    if not also_sync:
+        if sys.stdin.isatty():
+            answer = console.input(f"  Also sync built-in skills/agents in the current directory? {escape('[y/N]')} ").strip().lower()
+            also_sync = answer == "y"
+
+        if not also_sync:
+            console.print(
+                "  [dim]This only updated the nexus CLI itself. Run [/dim][cyan]nexus sync[/cyan][dim] in each "
+                "project to pull the updated skills/agents into .claude/ or .opencode/ — or pass "
+                "[/dim][cyan]--sync[/cyan][dim] next time to do both at once.[/dim]\n"
+            )
+            return
+
+    root = Path(".").resolve()
+    table = _sync_project(root)
+    if table is None:
+        console.print("  [yellow]⚠[/yellow]  Current directory isn't a nexus project — skipping sync.\n")
+        return
+
+    console.print(f"  [cyan]▶[/cyan]  Syncing built-ins in [bold]{root}[/bold]\n")
+    console.print(table)
+    console.print()
+
+
+def _sync_project(root: Path) -> Table | None:
+    """Sync built-in skills/agents into root. None if root isn't a nexus project (neither
+    .claude/ nor .opencode/ present) — callers decide how to handle that case."""
     has_claude = (root / ".claude").is_dir()
     has_opencode = (root / ".opencode").is_dir()
 
     if not has_claude and not has_opencode:
-        console.print("  [red]✗[/red]  Not a nexus project. Run [cyan]nexus init[/cyan] first.\n")
-        raise typer.Exit(1)
-
-    console.print(f"\n  [cyan]▶[/cyan]  Syncing built-ins in [bold]{root}[/bold]\n")
+        return None
 
     table = Table(show_header=True, header_style="dim")
     table.add_column("File")
@@ -452,6 +536,21 @@ def sync(
             plugin_dst.write_text(_OPENCODE_GRAPHIFY_PLUGIN, encoding="utf-8")
             table.add_row(".opencode/plugins/graphify.js", "[cyan]updated[/cyan]")
 
+    return table
+
+
+@app.command()
+def sync(
+    project_dir: str = typer.Argument(".", help="Project directory to sync"),
+) -> None:
+    """Sync built-in skills and agents to their latest versions (custom files untouched)."""
+    root = Path(project_dir).resolve()
+    table = _sync_project(root)
+    if table is None:
+        console.print("  [red]✗[/red]  Not a nexus project. Run [cyan]nexus init[/cyan] first.\n")
+        raise typer.Exit(1)
+
+    console.print(f"\n  [cyan]▶[/cyan]  Syncing built-ins in [bold]{root}[/bold]\n")
     console.print(table)
     console.print()
 
@@ -479,6 +578,14 @@ def doctor(
         nonlocal has_failure
         has_failure = True
         return f"[red]✗[/red]  {msg}"
+
+    # ── nexus ────────────────────────────────────────────────────────────────
+    latest_version = _fetch_latest_pypi_version()
+    if latest_version:
+        if _is_outdated(_VERSION, latest_version):
+            table.add_row("nexus-dev-toolkit", warn(f"update available: v{_VERSION} → v{latest_version} (run: nexus update)"))
+        else:
+            table.add_row("nexus-dev-toolkit", ok(f"up to date (v{_VERSION})"))
 
     # ── Tool ─────────────────────────────────────────────────────────────────
     has_claude_bin = bool(shutil.which("claude"))
@@ -568,16 +675,42 @@ def doctor(
     else:
         table.add_row("Knowledge dirs", warn(f"missing: {', '.join(missing_dirs)}"))
 
-    # ── graphify ─────────────────────────────────────────────────────────────
-    has_graphify = bool(shutil.which("graphify"))
+    # ── Knowledge graph backends ────────────────────────────────────────────
+    has_graphify = graph_backend.backend_installed("graphify")
     table.add_row("graphify", ok("installed") if has_graphify else warn("not installed — uv tool install graphifyy"))
 
-    graph_path = root / "graphify-out" / "graph.json"
-    if graph_path.exists():
-        table.add_row("Knowledge graph", ok("graphify-out/graph.json exists"))
-    else:
-        table.add_row("Knowledge graph", warn("not built — run: graphify ."))
+    has_codegraph = graph_backend.backend_installed("codegraph")
+    table.add_row("codegraph", ok("installed") if has_codegraph else warn("not installed — npm i -g @colbymchenry/codegraph"))
 
+    graphify_built = graph_backend.graph_exists("graphify", root)
+    codegraph_built = graph_backend.graph_exists("codegraph", root)
+    override = graph_backend.get_override()
+    active = graph_backend.detect_backend(root)
+
+    if graphify_built and codegraph_built:
+        if override in graph_backend.BACKEND_NAMES and graph_backend.graph_exists(override, root):
+            reason = f"forced via {graph_backend.ENV_VAR}={override}"
+        else:
+            reason = "graphify wins ties by default"
+        table.add_row("Knowledge graph", warn(f"both graphify and codegraph graphs present — using {active} ({reason})"))
+    elif graphify_built or codegraph_built:
+        built = "graphify" if graphify_built else "codegraph"
+        output = "graphify-out/graph.json" if built == "graphify" else ".codegraph/codegraph.db"
+        table.add_row("Knowledge graph", ok(f"{output} exists ({built})"))
+    else:
+        table.add_row("Knowledge graph", warn("not built — run: graphify . (or codegraph init)"))
+
+    if override and (override not in graph_backend.BACKEND_NAMES or not graph_backend.graph_exists(override, root)):
+        table.add_row(
+            graph_backend.ENV_VAR,
+            warn(f"set to '{override}' but its graph isn't built — ignoring override, run the matching init/build command"),
+        )
+
+    if graph_backend.has_graphify_hook(root) and codegraph_built and active == "codegraph":
+        table.add_row("Stale hook", warn("graphify PostToolUse hook present but codegraph is the active backend — harmless no-op, remove manually if unwanted"))
+
+    console.print()
+    console.print("  [dim]Some tools below are alternatives, not companions (e.g. graphify vs codegraph) — nexus flags conflicts here when both are present.[/dim]")
     console.print()
     console.print(table)
     console.print()

@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.1.4] - 2026-07-18
+
+### Added
+- **codegraph support** — nexus now supports [codegraph](https://github.com/colbymchenry/codegraph) as an alternative to graphify for EPAV's knowledge-graph blast-radius checks. Pick one at `nexus init`'s interactive `--graph-backend` prompt (or pass `--graph-backend graphify|codegraph|none` to skip it); `nexus doctor` detects and reports which is active, and warns if both are installed/built in the same project (graphify wins ties by default; override with `NEXUS_GRAPH_BACKEND=codegraph`).
+- `tools/epav/graph_backend.py` — shared detection/query-dispatch module used by `nexus doctor`, `load_task`, and the EPAV skill instructions.
+- EPAV skills (`/evaluate`, `/plan`, `/apply`, `/validate`, `/epav`) now branch their knowledge-graph instructions between graphify and codegraph depending on which is active.
+- `nexus doctor` and `nexus update` now check PyPI for the latest published version and flag when you're outdated; `public/index.html` and `public/docs.html` show the same reminder as a banner, checked client-side against PyPI directly.
+- `nexus update --sync` / `-s` — also syncs the current directory's built-in skills/agents right after upgrading the CLI (skipped gracefully if the current directory isn't a nexus project). Without the flag, `nexus update` asks interactively whether to sync too (in a real terminal — scripted/CI runs skip the prompt and just print the reminder, same as `nexus init`'s existing prompts).
+
+### Changed
+- `nexus init` no longer unconditionally scaffolds the graphify `PostToolUse` hook — only when graphify is the chosen backend. codegraph manages its own sync daemon, so nothing is scaffolded for it.
+
 ## [3.1.3] - 2026-07-01
 
 ### Added

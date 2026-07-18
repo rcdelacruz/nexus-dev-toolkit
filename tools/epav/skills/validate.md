@@ -8,13 +8,13 @@ APPLY must be complete.
 
 ## Steps
 
-### 1 — graphify blast radius check
+### 1 — Knowledge graph blast radius check
 
-```bash
-graphify query "<what we just built>"
-```
+- `graphify-out/graph.json` exists → `graphify query "<what we just built>"`
+- `.codegraph/codegraph.db` exists → `codegraph explore "<what we just built>"`
+- Neither exists → skip, and note in VALIDATE COMPLETE that this check was unavailable.
 
-Check: does anything that references the changed files now behave unexpectedly? Flag any community boundary crossings that weren't in the plan.
+Check: does anything that references the changed files now behave unexpectedly? Flag any community/symbol boundary crossings that weren't in the plan.
 
 ### 2 — Check against acceptance criteria
 

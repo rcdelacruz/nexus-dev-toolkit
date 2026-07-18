@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,19 @@ from typer.testing import CliRunner
 from nexus_cli import app, _BUILTIN_SKILLS, _BUILTIN_AGENTS, _KNOWLEDGE_DIRS
 
 runner = CliRunner()
+
+
+def _flat(output: str) -> str:
+    """Collapse Rich's table borders/line-wrapping so substring checks survive wrapped cells."""
+    cleaned = re.sub(r"[─-╿]", " ", output)
+    return re.sub(r"\s+", " ", cleaned)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_pypi_calls(monkeypatch):
+    """doctor()/update() check PyPI for the latest version — never let tests hit the real
+    network; tests that care about the version-check behavior override this locally."""
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: None)
 
 
 @pytest.fixture()
@@ -152,6 +166,39 @@ def test_init_unknown_tool(tmp_project):
     assert result.exit_code == 1
 
 
+# ── init: --graph-backend ────────────────────────────────────────────────────
+
+def test_init_defaults_to_graphify_hook_noninteractive(tmp_project):
+    """CliRunner has no tty, so omitting --graph-backend must match pre-existing behavior."""
+    result = runner.invoke(app, ["init", str(tmp_project)])
+    assert result.exit_code == 0
+    assert (tmp_project / ".claude" / "settings.json").exists()
+
+
+def test_init_codegraph_backend_skips_graphify_hook(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "codegraph"])
+    assert result.exit_code == 0
+    assert not (tmp_project / ".claude" / "settings.json").exists()
+    assert "codegraph install && codegraph init" in result.output
+
+
+def test_init_none_backend_skips_graphify_hook(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "none"])
+    assert result.exit_code == 0
+    assert not (tmp_project / ".claude" / "settings.json").exists()
+
+
+def test_init_opencode_codegraph_backend_skips_plugin(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode", "--graph-backend", "codegraph"])
+    assert result.exit_code == 0
+    assert not (tmp_project / ".opencode" / "plugins" / "graphify.js").exists()
+
+
+def test_init_unknown_graph_backend(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "bogus"])
+    assert result.exit_code == 1
+
+
 # ── sync ──────────────────────────────────────────────────────────────────────
 
 def test_sync_not_nexus_project(tmp_project):
@@ -223,3 +270,220 @@ def test_doctor_missing_graph(tmp_project):
     result = runner.invoke(app, ["doctor", str(tmp_project)])
     assert result.exit_code == 0
     assert "not built" in result.output
+
+
+def test_doctor_shows_backend_conflict_note(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert result.exit_code == 0
+    assert "alternatives, not companions" in output
+
+
+# ── doctor: version check ────────────────────────────────────────────────────
+
+def test_doctor_shows_update_available(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: "99.0.0")
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert result.exit_code == 0
+    assert "update available" in output
+    assert "99.0.0" in output
+
+
+def test_doctor_shows_up_to_date(tmp_project, monkeypatch):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: nexus_cli._VERSION)
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert result.exit_code == 0
+    assert "up to date" in output
+
+
+def test_doctor_skips_version_row_when_pypi_unreachable(tmp_project):
+    # the autouse _no_real_pypi_calls fixture already mocks the fetch to None
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "nexus-dev-toolkit" not in result.output
+
+
+# ── update ────────────────────────────────────────────────────────────────────
+
+def test_update_already_up_to_date_skips_upgrade(monkeypatch):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: nexus_cli._VERSION)
+    called = {}
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: called.setdefault("ran", True))
+    result = runner.invoke(app, ["update"])
+    assert result.exit_code == 0
+    assert "Already up to date" in result.output
+    assert "ran" not in called
+
+
+def test_update_runs_upgrade_when_outdated(monkeypatch):
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: "99.0.0")
+    called = {}
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: called.setdefault("ran", True))
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: "/usr/bin/uv" if name == "uv" else None)
+    result = runner.invoke(app, ["update"])
+    assert result.exit_code == 0
+    assert called.get("ran") is True
+    assert "nexus sync" in _flat(result.output)
+
+
+def test_update_shows_sync_reminder_even_when_already_up_to_date(monkeypatch):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: nexus_cli._VERSION)
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    result = runner.invoke(app, ["update"])
+    assert result.exit_code == 0
+    assert "nexus sync" in _flat(result.output)
+
+
+def test_update_with_sync_flag_skips_reminder(monkeypatch, tmp_project):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: nexus_cli._VERSION)
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    monkeypatch.chdir(tmp_project)
+    result = runner.invoke(app, ["update", "--sync"])
+    assert result.exit_code == 0
+    assert "Run nexus sync" not in result.output
+    assert "isn't a nexus project" in result.output
+
+
+def test_update_with_sync_flag_syncs_current_project(monkeypatch, tmp_project):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: nexus_cli._VERSION)
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    runner.invoke(app, ["init", str(tmp_project)])
+    monkeypatch.chdir(tmp_project)
+    result = runner.invoke(app, ["update", "-s"])
+    assert result.exit_code == 0
+    output = _flat(result.output)
+    assert "Syncing built-ins" in output
+    assert "scaffold.md" in output
+
+
+class _FakeTTY:
+    def isatty(self):
+        return True
+
+
+def test_update_interactive_prompt_yes_runs_sync(monkeypatch, tmp_project, capsys):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: nexus_cli._VERSION)
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    monkeypatch.setattr("sys.stdin", _FakeTTY())
+    monkeypatch.setattr("nexus_cli.console.input", lambda prompt: "y")
+    runner.invoke(app, ["init", str(tmp_project)])
+    monkeypatch.chdir(tmp_project)
+
+    nexus_cli.update(also_sync=False)
+
+    output = _flat(capsys.readouterr().out)
+    assert "Syncing built-ins" in output
+    assert "Run nexus sync" not in output
+
+
+def test_update_interactive_prompt_no_shows_reminder(monkeypatch, tmp_project, capsys):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: nexus_cli._VERSION)
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    monkeypatch.setattr("sys.stdin", _FakeTTY())
+    monkeypatch.setattr("nexus_cli.console.input", lambda prompt: "n")
+    runner.invoke(app, ["init", str(tmp_project)])
+    monkeypatch.chdir(tmp_project)
+
+    nexus_cli.update(also_sync=False)
+
+    output = _flat(capsys.readouterr().out)
+    assert "Syncing built-ins" not in output
+    assert "nexus sync" in output
+
+
+def test_update_interactive_prompt_empty_answer_defaults_no(monkeypatch, tmp_project, capsys):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: nexus_cli._VERSION)
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    monkeypatch.setattr("sys.stdin", _FakeTTY())
+    monkeypatch.setattr("nexus_cli.console.input", lambda prompt: "")
+    runner.invoke(app, ["init", str(tmp_project)])
+    monkeypatch.chdir(tmp_project)
+
+    nexus_cli.update(also_sync=False)
+
+    output = _flat(capsys.readouterr().out)
+    assert "Syncing built-ins" not in output
+
+
+# ── doctor: graph backend detection ─────────────────────────────────────────
+
+def _write_graphify_graph(project: Path) -> None:
+    d = project / "graphify-out"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "graph.json").write_text("{}")
+
+
+def _write_codegraph_graph(project: Path) -> None:
+    d = project / ".codegraph"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "codegraph.db").write_text("")
+
+
+def test_doctor_shows_codegraph_row(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "codegraph" in result.output
+
+
+def test_doctor_both_graphs_present_defaults_to_graphify(tmp_project, monkeypatch):
+    monkeypatch.delenv("NEXUS_GRAPH_BACKEND", raising=False)
+    runner.invoke(app, ["init", str(tmp_project)])
+    _write_graphify_graph(tmp_project)
+    _write_codegraph_graph(tmp_project)
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert result.exit_code == 0
+    assert "both graphify and codegraph graphs present" in output
+    assert "using graphify" in output
+    assert "graphify wins ties by default" in output
+
+
+def test_doctor_override_forces_codegraph(tmp_project, monkeypatch):
+    monkeypatch.setenv("NEXUS_GRAPH_BACKEND", "codegraph")
+    runner.invoke(app, ["init", str(tmp_project)])
+    _write_graphify_graph(tmp_project)
+    _write_codegraph_graph(tmp_project)
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert result.exit_code == 0
+    assert "using codegraph" in output
+    assert "forced via NEXUS_GRAPH_BACKEND=codegraph" in output
+
+
+def test_doctor_override_pointing_at_unbuilt_graph_warns(tmp_project, monkeypatch):
+    monkeypatch.setenv("NEXUS_GRAPH_BACKEND", "codegraph")
+    runner.invoke(app, ["init", str(tmp_project)])
+    _write_graphify_graph(tmp_project)  # only graphify built — codegraph override has nothing to use
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert result.exit_code == 0
+    assert "NEXUS_GRAPH_BACKEND" in output
+    assert "ignoring override" in output
+    # falls back to graphify since the override can't be honored
+    assert "graphify-out/graph.json exists (graphify)" in output
+
+
+def test_doctor_stale_graphify_hook_warns(tmp_project, monkeypatch):
+    monkeypatch.delenv("NEXUS_GRAPH_BACKEND", raising=False)
+    runner.invoke(app, ["init", str(tmp_project)])  # scaffolds the graphify PostToolUse hook
+    _write_codegraph_graph(tmp_project)  # only codegraph is actually built
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert result.exit_code == 0
+    assert "Stale hook" in output
+    assert "codegraph is the active backend" in output
