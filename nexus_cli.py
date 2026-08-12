@@ -22,7 +22,7 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.4"
+_VERSION = "3.1.5"
 
 
 def _fetch_latest_pypi_version() -> str | None:

@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.5] - 2026-08-12
+
+### Added
+- `/commit` and `/create-pr` skills (`tools/epav/skills/commit.md`, `create-pr.md`) — staged, well-formed commit creation and PR opening (with a mandatory `/code-review` gate before opening the PR). Documented in `public/docs.html` under Built-in Skills → Git.
+
+### Changed
+- `code-reviewer` agent and `/code-review` skill are now read-only: the agent reports findings via `ReportFindings` instead of editing files, defaults to scoping the review to what actually changed (git diff / commits ahead of base) instead of the whole repo, and verifies each finding against a concrete failure scenario before reporting it.
+
 ## [3.1.4] - 2026-07-18
 
 ### Added
