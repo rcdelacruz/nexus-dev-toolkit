@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.1.6] - 2026-08-13
+
+### Fixed
+- **Critical:** pin `mcp[cli]` to `<2.0.0`. `mcp` 2.0.0 (published 2026-07-28) removed/relocated `mcp.server.fastmcp`, which `tools/epav/__init__.py` imports — this broke `nexus` for anyone doing a fresh install or running `nexus update`/`uvx --refresh` on or after that date, with `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`. v3.1.5 shipped with this dependency unpinned; upgrade to v3.1.6 to fix. Migrating to the `mcp` 2.0.0 API is tracked as follow-up work.
+
 ## [3.1.5] - 2026-08-12
 
 ### Added
