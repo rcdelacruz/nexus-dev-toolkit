@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.1.7] - 2026-08-20
+
+### Fixed
+- `nexus install`/`nexus update --sync`/`nexus sync`/`nexus doctor` now recognize `commit.md` and `create-pr.md` as built-in skills. They were added to `tools/epav/skills/` in v3.1.5 but never added to `nexus_cli.py`'s `_BUILTIN_SKILLS` list, so they were silently skipped during install/sync and not detected by `nexus doctor`.
+
 ## [3.1.6] - 2026-08-13
 
 ### Fixed

@@ -22,7 +22,7 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.6"
+_VERSION = "3.1.7"
 
 
 def _fetch_latest_pypi_version() -> str | None:
@@ -96,6 +96,8 @@ _BUILTIN_SKILLS = [
     "deployment-review.md",
     "performance-review.md",
     "monitoring-review.md",
+    "commit.md",
+    "create-pr.md",
 ]
 
 _AGENTS_SRC = Path(__file__).parent / "tools" / "agents"
