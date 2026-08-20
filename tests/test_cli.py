@@ -253,7 +253,7 @@ def test_doctor_healthy_project(tmp_project):
     result = runner.invoke(app, ["doctor", str(tmp_project)])
     assert result.exit_code == 0
     assert "✓" in result.output
-    assert "all 11 present" in result.output
+    assert "all 13 present" in result.output
     assert "all 5 present" in result.output
 
 
