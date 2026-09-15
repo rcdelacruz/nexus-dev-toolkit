@@ -253,8 +253,8 @@ def test_doctor_healthy_project(tmp_project):
     result = runner.invoke(app, ["doctor", str(tmp_project)])
     assert result.exit_code == 0
     assert "✓" in result.output
-    assert "all 13 present" in result.output
-    assert "all 5 present" in result.output
+    assert f"all {len(_BUILTIN_SKILLS)} present" in result.output
+    assert f"all {len(_BUILTIN_AGENTS)} present" in result.output
 
 
 def test_doctor_missing_skills(tmp_project):
