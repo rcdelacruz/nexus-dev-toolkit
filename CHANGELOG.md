@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.1.8] - 2026-09-15
+
+### Added
+- `pr-review` skill and `pr-verifier` agent — deep-verify a specific commit/PR by SHA or GitHub URL against its own claims: reads every changed file's real diff, cross-references project specs/docs, and actually builds/tests the code in an isolated git worktree instead of trusting the commit message or a green CI badge.
+- `dev-tasks-planner` skill — generates or reconciles `docs/dev-tasks/*.csv` files for a module/epic from its architecture doc + ADRs, following the same EVALUATE → PLAN → APPLY → VALIDATE cycle as `/scaffold`, with STATUS values reconciled against real repo state rather than the ARCH doc in the abstract.
+
+### Fixed
+- `tests/test_cli.py::test_doctor_healthy_project` asserted a hardcoded built-in skill/agent count; now derives the expected counts from `_BUILTIN_SKILLS`/`_BUILTIN_AGENTS` so it can't drift again.
+
 ## [3.1.7] - 2026-08-20
 
 ### Fixed
