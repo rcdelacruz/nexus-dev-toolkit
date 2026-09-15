@@ -310,6 +310,31 @@ def test_doctor_skips_version_row_when_pypi_unreachable(tmp_project):
     assert "nexus-dev-toolkit" not in result.output
 
 
+# ── built-in registration ────────────────────────────────────────────────────
+# A skill/agent .md file living under tools/epav/skills/ or tools/agents/ but
+# missing from _BUILTIN_SKILLS/_BUILTIN_AGENTS is exactly the bug that shipped
+# in v3.1.5 (fixed in v3.1.7) and that update --sync's stale-process bug (fixed
+# in v3.1.9) piggybacked on. These tests make "added the file, forgot the list
+# entry" fail CI instead of silently shipping.
+
+def test_all_skill_files_are_registered_as_builtin():
+    on_disk = {p.name for p in Path("tools/epav/skills").glob("*.md")}
+    assert on_disk == set(_BUILTIN_SKILLS), (
+        f"tools/epav/skills/*.md and _BUILTIN_SKILLS disagree — "
+        f"on disk but not registered: {on_disk - set(_BUILTIN_SKILLS)}; "
+        f"registered but missing from disk: {set(_BUILTIN_SKILLS) - on_disk}"
+    )
+
+
+def test_all_agent_files_are_registered_as_builtin():
+    on_disk = {p.name for p in Path("tools/agents").glob("*.md")}
+    assert on_disk == set(_BUILTIN_AGENTS), (
+        f"tools/agents/*.md and _BUILTIN_AGENTS disagree — "
+        f"on disk but not registered: {on_disk - set(_BUILTIN_AGENTS)}; "
+        f"registered but missing from disk: {set(_BUILTIN_AGENTS) - on_disk}"
+    )
+
+
 # ── update ────────────────────────────────────────────────────────────────────
 
 def test_update_already_up_to_date_skips_upgrade(monkeypatch):
