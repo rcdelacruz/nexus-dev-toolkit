@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.1.9] - 2026-09-15
+
+### Fixed
+- `nexus update --sync` (and the interactive "also sync?" prompt) silently missed any skill/agent added in the exact version just installed. Root cause: after the upgrade subprocess completed, sync ran in the same process using `_BUILTIN_SKILLS`/`_BUILTIN_AGENTS` as they were imported at process start — i.e. the pre-upgrade list — so a just-added built-in never got copied even though the on-disk package was already correct. `update` now re-execs `nexus sync` as a fresh process after a real upgrade, so it always reflects the version actually installed. A plain `nexus sync` (no preceding upgrade) was never affected.
+
 ## [3.1.8] - 2026-09-15
 
 ### Added

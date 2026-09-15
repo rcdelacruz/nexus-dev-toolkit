@@ -367,6 +367,43 @@ def test_update_with_sync_flag_syncs_current_project(monkeypatch, tmp_project):
     assert "scaffold.md" in output
 
 
+def test_update_with_sync_flag_reexecs_sync_after_real_upgrade(monkeypatch, tmp_project):
+    """After an actual upgrade, sync must run as a fresh `nexus sync` process, not in-process —
+    this process's own _BUILTIN_SKILLS/_BUILTIN_AGENTS were imported before the upgrade ran, so
+    calling _sync_project() directly here would silently miss anything the upgrade just added."""
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: "99.0.0")
+    calls = []
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda cmd, *a, **k: calls.append(cmd))
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: f"/usr/bin/{name}")
+
+    def _boom(root):
+        raise AssertionError("_sync_project must not run in-process after a real upgrade")
+    monkeypatch.setattr("nexus_cli._sync_project", _boom)
+
+    runner.invoke(app, ["init", str(tmp_project)])
+    monkeypatch.chdir(tmp_project)
+    result = runner.invoke(app, ["update", "--sync"])
+
+    assert result.exit_code == 0
+    assert calls[0] == ["uv", "tool", "upgrade", "nexus-dev-toolkit"]
+    assert calls[1] == ["/usr/bin/nexus", "sync", str(tmp_project.resolve())]
+
+
+def test_update_sync_falls_back_in_process_when_nexus_not_on_path(monkeypatch, tmp_project):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: "99.0.0")
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: "/usr/bin/uv" if name == "uv" else None)
+    runner.invoke(app, ["init", str(tmp_project)])
+    monkeypatch.chdir(tmp_project)
+    result = runner.invoke(app, ["update", "--sync"])
+    assert result.exit_code == 0
+    output = _flat(result.output)
+    assert "Syncing built-ins" in output
+    assert "scaffold.md" in output
+
+
 class _FakeTTY:
     def isatty(self):
         return True

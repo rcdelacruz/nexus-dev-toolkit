@@ -22,7 +22,7 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.8"
+_VERSION = "3.1.9"
 
 
 def _fetch_latest_pypi_version() -> str | None:
@@ -430,6 +430,7 @@ def update(
 ) -> None:
     """Update nexus-dev-toolkit to the latest version."""
     latest_version = _fetch_latest_pypi_version()
+    upgraded = False
     if latest_version and not _is_outdated(_VERSION, latest_version):
         console.print(f"\n  [green]✓[/green]  Already up to date (v{_VERSION}).\n")
     else:
@@ -439,6 +440,7 @@ def update(
         else:
             subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "nexus-dev-toolkit"])
         console.print("\n  [green]✓[/green]  Done.\n")
+        upgraded = True
 
     if not also_sync:
         if sys.stdin.isatty():
@@ -454,6 +456,21 @@ def update(
             return
 
     root = Path(".").resolve()
+
+    if upgraded:
+        # This process's own _BUILTIN_SKILLS/_BUILTIN_AGENTS were imported before the upgrade
+        # subprocess above ran, so syncing in-process here would silently miss anything newly
+        # added in the version just installed. Re-exec `nexus sync` as a fresh process instead.
+        nexus_bin = shutil.which("nexus")
+        if nexus_bin:
+            subprocess.run([nexus_bin, "sync", str(root)])
+            return
+        console.print(
+            "  [yellow]⚠[/yellow]  Couldn't find [bold]nexus[/bold] on PATH to re-run sync in a fresh "
+            "process — syncing in-process instead, which may miss anything added in this exact "
+            "upgrade. Run [cyan]nexus sync[/cyan] again afterward to be sure.\n"
+        )
+
     table = _sync_project(root)
     if table is None:
         console.print("  [yellow]⚠[/yellow]  Current directory isn't a nexus project — skipping sync.\n")
