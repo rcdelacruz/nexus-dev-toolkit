@@ -45,6 +45,29 @@ Load `docs/arch-docs/` (ARCH doc + ADRs) and the Figma export. Then walk through
 9. Layout patterns (grid, breakpoints, responsive behavior)
 10. Iconography (style, sizes, library)
 
+**Read the design-system reference file itself, in full — not a summary of
+it.** If a `knowledge/*.md` design-system doc already exists from a prior
+pass, treat it as a lead, not a substitute: it can go stale or compress away
+detail. Read the actual `Design System.dc.html` (or equivalent) export
+directly before relying on any derived summary.
+
+**These generated design-system pages often restate the same fact in
+multiple places, and the restatements can disagree** — an early illustrative
+example may show one value while the file's own underlying data (the
+JS/script section actually driving the page's swatches, e.g. a `TYPE_SCALE`
+or `COLORS` array) declares another. Don't stop at the first section that
+seems to answer the question — read the whole file. When two statements in
+the same file conflict, prefer whichever one is more specific or names an
+actual file path in the codebase (e.g. "`lib/icons.jsx` now imports from
+lucide-react") over a generic illustrative swatch — the specific one is
+usually the more recently updated, authoritative one.
+
+**Also check for sibling token files in the same export folder** (e.g.
+`tokens.css`, `design-tokens.css`, `tailwind.config.js` alongside the `.dc.html`
+files) — these can be more authoritative than the HTML page, or in rare cases
+be misplaced/leftover from a different sibling app's export (verify the
+palette and page names inside actually match this app before trusting one).
+
 **Design token conversion (before writing any design file):**
 Figma exports colors in oklch or hex — never copy them raw. Convert to the target stack's native format:
 - Web (Tailwind v4): `hsl()` — never oklch, hex, or rgb
@@ -143,6 +166,20 @@ NEVER write patch versions from AI memory — training data is always stale.
 
 **2. UI shell (matching Figma exactly):**
 - Design system config (tailwind.config.ts, globals.css — tokens from Figma)
+- **Any hand-written base selector in globals.css (`a`, `body`, `input:focus`,
+  `thead th`, etc.) MUST be wrapped in `@layer base { ... }`.** Tailwind v4
+  emits its own utilities into a cascade layer; an unlayered rule beats a
+  layered one regardless of specificity — so a plain `a { color: ... }` will
+  silently override every `text-*` utility ever applied to a link, app-wide,
+  not just on hover. This is invisible when diffing declared values against
+  the Figma export (which sets colors via inline `style`, immune to this),
+  and only shows up once rendered — verify by checking the generated
+  `globals.css` has no selector outside `@layer base`/`@theme`/`@import`.
+- Icons ported from a Figma export's raw `<svg>` relying on a parent's
+  `text-align: center` for centering will NOT center once run through
+  Tailwind: preflight sets `svg { display: block }`, and block elements
+  ignore `text-align`. Give such icons `mx-auto` (or center via flex)
+  instead — don't assume `text-align: center` survives the port.
 - All components with TypeScript props and ALL visual states:
   (default, hover, focus, disabled, loading, empty, error)
 - All page layouts responsive to Figma breakpoints
@@ -237,6 +274,16 @@ Review everything against the architecture doc AND Figma.
 14. Accessibility — keyboard nav, WCAG AA contrast?
 15. Prop interfaces typed for Day 1 wiring?
 16. No business logic or API calls in components?
+17. `grep` `globals.css` for any selector outside `@layer base { }` /
+    `@theme { }` / `@import` — an unlayered rule there silently overrides
+    every matching Tailwind utility app-wide (not just on hover; see
+    "UI shell" above). Matching declared hex/px values against the Figma
+    export is NOT sufficient proof of correctness — that only confirms the
+    *value* is present somewhere, not that the cascade actually resolves to
+    it once rendered.
+18. Any icon centered via a parent's `text-align: center` — confirm it
+    carries `mx-auto` (or sits in a flex-centered parent), since Tailwind's
+    preflight makes `<svg>` block-level and text-align won't center it.
 
 **AGENTS.md + knowledge directory:**
 17. Coding standards match the architecture?

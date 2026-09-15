@@ -586,13 +586,16 @@
 │   ├── performance-review.md<span class="comment">← /performance-review</span>
 │   ├── monitoring-review.md <span class="comment">← /monitoring-review</span>
 │   ├── commit.md             <span class="comment">← /commit           — stage &amp; commit</span>
-│   └── create-pr.md          <span class="comment">← /create-pr        — open a PR</span>
+│   ├── create-pr.md          <span class="comment">← /create-pr        — open a PR</span>
+│   ├── pr-review.md          <span class="comment">← /pr-review        — deep-verify a commit/PR</span>
+│   └── dev-tasks-planner.md  <span class="comment">← /dev-tasks-planner — generate dev-tasks CSVs</span>
 ├── agents/
 │   ├── code-reviewer.md
 │   ├── database-reviewer.md
 │   ├── deployment-reviewer.md
 │   ├── performance-reviewer.md
-│   └── monitoring-reviewer.md
+│   ├── monitoring-reviewer.md
+│   └── pr-verifier.md
 └── settings.json            <span class="comment">← PostToolUse: graphify auto-update hook (graphify backend only)</span>
 knowledge/
 ├── rules/                   <span class="comment">← coding standards, arch decisions</span>
@@ -625,13 +628,16 @@ knowledge/
 │   ├── performance-review.md<span class="comment">← /performance-review</span>
 │   ├── monitoring-review.md <span class="comment">← /monitoring-review</span>
 │   ├── commit.md             <span class="comment">← /commit           — stage &amp; commit</span>
-│   └── create-pr.md          <span class="comment">← /create-pr        — open a PR</span>
+│   ├── create-pr.md          <span class="comment">← /create-pr        — open a PR</span>
+│   ├── pr-review.md          <span class="comment">← /pr-review        — deep-verify a commit/PR</span>
+│   └── dev-tasks-planner.md  <span class="comment">← /dev-tasks-planner — generate dev-tasks CSVs</span>
 ├── agents/
 │   ├── code-reviewer.md
 │   ├── database-reviewer.md
 │   ├── deployment-reviewer.md
 │   ├── performance-reviewer.md
-│   └── monitoring-reviewer.md
+│   ├── monitoring-reviewer.md
+│   └── pr-verifier.md
 └── plugins/
 │   └── graphify.js          <span class="comment">← tool.execute.after: graphify auto-update (graphify backend only)</span>
 knowledge/
@@ -1244,6 +1250,21 @@ opencode.json                <span class="comment">← MCP server config</span><
           <td><code>/create-pr</code></td>
           <td>Run /code-review, then open a well-structured pull request</td>
         </tr>
+        <tr>
+          <td><code>pr-review.md</code></td>
+          <td><code>/pr-review</code></td>
+          <td>Deep-verify a specific commit/PR by SHA or URL against its own claims</td>
+        </tr>
+        <tr>
+          <td colspan="3"
+            style="background:var(--surface2);color:var(--cyan);font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0.75rem;">
+            Planning</td>
+        </tr>
+        <tr>
+          <td><code>dev-tasks-planner.md</code></td>
+          <td><code>/dev-tasks-planner</code></td>
+          <td>Generate or reconcile <code>docs/dev-tasks/*.csv</code> files from an architecture doc + real repo state</td>
+        </tr>
       </tbody>
     </table>
 
@@ -1280,6 +1301,10 @@ opencode.json                <span class="comment">← MCP server config</span><
         <tr>
           <td><code>monitoring-reviewer</code></td>
           <td>Observability gaps, logging, metrics, alerting</td>
+        </tr>
+        <tr>
+          <td><code>pr-verifier</code></td>
+          <td>Deep-verifying a specific commit/PR by SHA or URL against its own claims, with a real build/test run</td>
         </tr>
       </tbody>
     </table>

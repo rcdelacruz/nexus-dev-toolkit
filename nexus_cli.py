@@ -98,6 +98,8 @@ _BUILTIN_SKILLS = [
     "monitoring-review.md",
     "commit.md",
     "create-pr.md",
+    "pr-review.md",
+    "dev-tasks-planner.md",
 ]
 
 _AGENTS_SRC = Path(__file__).parent / "tools" / "agents"
@@ -108,6 +110,7 @@ _BUILTIN_AGENTS = [
     "performance-reviewer.md",
     "monitoring-reviewer.md",
     "database-reviewer.md",
+    "pr-verifier.md",
 ]
 
 
