@@ -4,6 +4,8 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from tools.epav import judgment
+
 logger = logging.getLogger(__name__)
 
 _KNOWLEDGE_DIRS = [
@@ -79,7 +81,58 @@ def _load_arch_summary() -> dict:
     return {}
 
 
-def _infer_stack(arch_text: str) -> str:
+_STACK_TAGS = {
+    "Next.js": "The Next.js React framework",
+    "React Native": "React Native for mobile",
+    "Flutter": "Flutter/Dart for mobile",
+    "tRPC / T3": "tRPC or the T3 stack",
+    "Prisma": "Prisma ORM",
+    "PostgreSQL": "PostgreSQL database",
+    "Tailwind CSS": "Tailwind CSS",
+    "Supabase": "Supabase (auth/db/storage backend)",
+    "Django": "Django Python framework",
+    "FastAPI": "FastAPI Python framework",
+    "Ruby on Rails": "Ruby on Rails",
+    "NestJS": "NestJS Node.js framework",
+    "Express": "Express.js Node.js framework",
+    "Vue.js": "Vue.js frontend framework",
+    "Angular": "Angular frontend framework",
+    "Swift / iOS native": "Native iOS development with Swift",
+    "Kotlin / Android native": "Native Android development with Kotlin",
+    "MongoDB": "MongoDB database",
+    "MySQL": "MySQL or MariaDB database",
+    "Redis": "Redis cache or in-memory store",
+    "GraphQL": "GraphQL API layer",
+    "Docker": "Docker/container-based deployment",
+    "AWS": "AWS cloud infrastructure",
+}
+
+
+async def _infer_stack(arch_text: str) -> str:
+    if judgment.Noul is None:
+        return _infer_stack_fallback(arch_text)
+
+    result = await judgment.system_one_async(
+        state={"architecture_document": arch_text},
+        questions={
+            tag: judgment.Noul(
+                instructions=(
+                    f"Does `architecture_document` state that the project currently uses "
+                    f"{tag} ({desc}), as opposed to merely mentioning, evaluating, or "
+                    f"having rejected it?"
+                ),
+            )
+            for tag, desc in _STACK_TAGS.items()
+        },
+    )
+    if result is not None:
+        parts = [tag for tag in _STACK_TAGS if result.nouls[tag].noul >= 0.5]
+        return ", ".join(parts) if parts else "(update with your stack)"
+
+    return _infer_stack_fallback(arch_text)
+
+
+def _infer_stack_fallback(arch_text: str) -> str:
     text_lower = arch_text.lower()
     parts = []
     if "next.js" in text_lower or "nextjs" in text_lower:
@@ -149,7 +202,7 @@ def register_project_rules_tool(mcp: FastMCP) -> None:
                 })
 
             repo = project_name or Path(".").resolve().name
-            stack = _infer_stack(arch_text)
+            stack = await _infer_stack(arch_text)
             rules = (
                 "- Follow the conventions in the architecture document\n"
                 "- No console.log in production code — use the project logger\n"

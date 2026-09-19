@@ -29,6 +29,9 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
 ]
+typesafe = [
+    "typesafe-sdk>=0.7.0,<1.0.0",
+]
 
 [build-system]
 requires = ["setuptools>=68.0.0", "wheel"]

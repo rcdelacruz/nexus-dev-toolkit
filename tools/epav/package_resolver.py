@@ -10,11 +10,16 @@ is needed to dispatch the right CLI.
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
+
+from tools.epav import judgment
+
+_WORD_RE = re.compile(r"[a-z0-9]+")
 
 _PM_REGISTRY: dict[str, dict] = {
     "npm": {
@@ -74,13 +79,59 @@ _PM_REGISTRY: dict[str, dict] = {
 }
 
 
+_PM_CRITERIA = {
+    "npm": "Node.js/JavaScript or TypeScript projects (React, Next.js, Vite, Express, plain Node) using package.json, when no more specific JS package manager is named",
+    "pnpm": "Node.js/JavaScript projects that explicitly name pnpm as their package manager",
+    "yarn": "Node.js/JavaScript projects that explicitly name Yarn as their package manager",
+    "maven": "Java or Kotlin projects built with Maven (pom.xml)",
+    "gradle": "Java, Kotlin, or Android projects built with Gradle",
+    "pub": "Dart or Flutter projects (pubspec.yaml)",
+    "go": "Go projects (go.mod)",
+    "cargo": "Rust projects (Cargo.toml)",
+    "pip": "Python projects (requirements.txt, pyproject.toml) not using a Python tool with its own distinct lockfile format",
+}
+
+# Below this, the Choice's own probability distribution was too flat to trust
+# (observed empirically on an out-of-registry stack: confidence sat at 0.50).
+_PM_CONFIDENCE_THRESHOLD = 0.6
+
+
 def _detect_package_manager(hint: str | None) -> str:
     if not hint:
         return "npm"
     hint_lower = hint.lower()
+    # Word-boundary match, not raw substring: "go" is a substring of "django"
+    # and "npm" is a substring of "pnpm", so a naive `pm in hint_lower` check
+    # misfires on those before TypeSafe or the keyword fallback ever run.
+    hint_tokens = set(_WORD_RE.findall(hint_lower))
     for pm in _PM_REGISTRY:
-        if pm in hint_lower:
+        if pm in hint_tokens:
             return pm
+
+    if judgment.Choice is None:
+        return _detect_package_manager_fallback(hint_lower)
+
+    result = judgment.system_one(
+        state={},
+        questions={
+            "package_manager": judgment.Choice(
+                instructions=(
+                    f'Given the project description "{hint}", which package manager '
+                    "should be used to resolve and pin its dependency versions?"
+                ),
+                criteria=_PM_CRITERIA,
+            )
+        },
+    )
+    if result is not None:
+        choice = result.choices["package_manager"]
+        if choice.confidence >= _PM_CONFIDENCE_THRESHOLD:
+            return choice.choice
+
+    return _detect_package_manager_fallback(hint_lower)
+
+
+def _detect_package_manager_fallback(hint_lower: str) -> str:
     if any(k in hint_lower for k in ["node", "next", "react", "vite", "typescript"]):
         return "npm"
     if any(k in hint_lower for k in ["flutter", "dart"]):

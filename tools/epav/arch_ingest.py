@@ -4,9 +4,26 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from tools.epav import judgment
+
 logger = logging.getLogger(__name__)
 
-_ARCH_SECTIONS = [
+_ARCH_CATEGORIES = {
+    "stack": "Technology stack, frameworks, languages, or runtime/platform choices",
+    "data_model": "Data model, database schema, or entity/table design",
+    "auth": "Authentication or authorization strategy (login, sessions, tokens, permissions)",
+    "error_handling": "Error handling conventions or the error response format",
+    "security": "Security rules, CORS policy, headers, or other security constraints not specific to login/auth",
+    "adr": "An architecture decision record or a specific named architecture decision",
+    "api_conventions": "API design conventions, naming standards, or request/response contracts",
+    "middleware_infra": "Middleware stack or infrastructure/deployment setup",
+    "other": "Does not clearly belong to any of the other categories (e.g. table of contents, changelog, project timeline, unrelated notes)",
+}
+
+# Keyword fallback, used only when TypeSafe is unavailable (no API key,
+# network error, SDK not installed). Same literal substrings the old
+# heuristic used for all of these categories.
+_ARCH_KEYWORDS = [
     "stack", "tech stack", "technology stack",
     "data model", "schema", "database",
     "auth", "authentication", "authorization",
@@ -18,27 +35,80 @@ _ARCH_SECTIONS = [
 ]
 
 
-def _extract_sections(text: str) -> dict:
-    """Pull labelled sections from markdown text by heading keywords."""
-    sections: dict[str, list[str]] = {}
-    current_key = "preamble"
-    current_lines: list[str] = []
+def _split_by_heading(text: str) -> tuple[str, list[tuple[str, str]]]:
+    """Structural split only: every '#' heading line starts a new block.
+
+    Deciding what each heading is *about* is a semantic judgment made by
+    `_classify_headings`; this just recovers the document's actual structure,
+    so no heading's content silently gets absorbed into an unrelated section.
+    """
+    preamble_lines: list[str] = []
+    blocks: list[list[str]] = []
+    headings: list[str] = []
 
     for line in text.splitlines():
-        stripped = line.lstrip("#").strip().lower()
-        matched = next((k for k in _ARCH_SECTIONS if k in stripped), None)
-        if line.startswith("#") and matched:
-            if current_lines:
-                sections[current_key] = current_lines
-            current_key = stripped
-            current_lines = [line]
+        if line.startswith("#"):
+            headings.append(line.lstrip("#").strip())
+            blocks.append([line])
+        elif blocks:
+            blocks[-1].append(line)
         else:
-            current_lines.append(line)
+            preamble_lines.append(line)
 
-    if current_lines:
-        sections[current_key] = current_lines
+    bodies = ["\n".join(b).strip() for b in blocks]
+    return "\n".join(preamble_lines).strip(), list(zip(headings, bodies))
 
-    return {k: "\n".join(v).strip() for k, v in sections.items() if v}
+
+def _classify_headings_fallback(headings: list[str]) -> list[str]:
+    return [
+        "relevant" if any(k in heading.lower() for k in _ARCH_KEYWORDS) else "other"
+        for heading in headings
+    ]
+
+
+async def _classify_headings(headings: list[str]) -> list[str]:
+    """Classify each heading into an architecture category, or "other".
+
+    Each question embeds its own heading text directly in `instructions`
+    rather than referencing a shared `headings` list by index: batching many
+    structurally identical questions over an indexed array risks the model
+    binding an answer to the wrong index (observed empirically — two adjacent
+    headings' classifications shifted by one position when done that way).
+    """
+    if judgment.Choice is None:
+        return _classify_headings_fallback(headings)
+
+    result = await judgment.system_one_async(
+        state={},
+        questions={
+            f"h{i}": judgment.Choice(
+                instructions=f'Which architecture-document category does the heading "{heading}" belong to?',
+                criteria=_ARCH_CATEGORIES,
+            )
+            for i, heading in enumerate(headings)
+        },
+    )
+    if result is not None:
+        return [result.choices[f"h{i}"].choice for i in range(len(headings))]
+
+    return _classify_headings_fallback(headings)
+
+
+async def _extract_sections(text: str) -> dict:
+    """Pull architecturally-relevant sections from markdown text, keyed by heading."""
+    preamble, blocks = _split_by_heading(text)
+    sections: dict[str, str] = {}
+    if preamble:
+        sections["preamble"] = preamble
+
+    if blocks:
+        headings = [heading for heading, _ in blocks]
+        categories = await _classify_headings(headings)
+        for (heading, body), category in zip(blocks, categories):
+            if category != "other":
+                sections[heading.lower()] = body
+
+    return sections
 
 
 def register_arch_ingest_tool(mcp: FastMCP) -> None:
@@ -89,7 +159,7 @@ def register_arch_ingest_tool(mcp: FastMCP) -> None:
             for f in md_files:
                 try:
                     text = f.read_text(encoding="utf-8")
-                    sections = _extract_sections(text)
+                    sections = await _extract_sections(text)
                     all_sections.update(sections)
                     files_read.append(str(f))
                 except Exception as e:
