@@ -120,3 +120,35 @@ def test_detect_package_manager_falls_back_on_low_confidence(monkeypatch):
 def test_detect_package_manager_falls_back_when_typesafe_unavailable(monkeypatch):
     monkeypatch.setattr(judgment, "system_one", lambda **kwargs: None)
     assert package_resolver._detect_package_manager("a python service") == "pip"
+
+
+def test_detect_package_manager_fallback_recognizes_iac_tools():
+    assert package_resolver._detect_package_manager_fallback("terraform for aws") == "terraform"
+    assert package_resolver._detect_package_manager_fallback("ansible playbooks") == "ansible"
+    assert package_resolver._detect_package_manager_fallback("helm chart") == "helm"
+
+
+# ── arch_ingest: project shape ──────────────────────────────────────────────
+
+def test_classify_project_shape_falls_back_when_typesafe_unavailable(monkeypatch):
+    monkeypatch.setattr(judgment, "system_one_async", _returns_none)
+    return_value = arch_ingest._classify_project_shape_fallback(
+        "Terraform modules provisioning an AWS VPC and EKS cluster."
+    )
+    assert return_value == "infrastructure"
+
+
+async def test_classify_project_shape_uses_typesafe_choice(monkeypatch):
+    async def fake_system_one_async(state, questions):
+        assert "architecture_document" in state
+        return _FakeResponse(choices={"shape": _FakeChoiceAnswer("infrastructure", 0.99)})
+
+    monkeypatch.setattr(judgment, "system_one_async", fake_system_one_async)
+    shape = await arch_ingest._classify_project_shape("Terraform modules for an AWS VPC.")
+    assert shape == "infrastructure"
+
+
+def test_classify_project_shape_fallback_defaults_to_web_app():
+    # No IaC/pipeline/CLI/mobile keywords -- preserves /scaffold's long-standing
+    # default of assuming a UI app when nothing says otherwise.
+    assert arch_ingest._classify_project_shape_fallback("A service that does things.") == "web_app"

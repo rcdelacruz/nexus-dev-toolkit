@@ -2,18 +2,28 @@
 
 **Day 0 — Production Scaffold** (one-time project setup)
 
-Generates a complete production-grade scaffold from the architecture document and Figma export.
-Output: infrastructure + design system + UI shell + AGENTS.md + knowledge/.
+Generates a complete production-grade scaffold from the architecture document
+(plus a Figma export, for project shapes that have a UI). What gets generated
+depends on `project_shape`, returned by `ingest_architecture_doc`:
+
+| `project_shape` | Output |
+|---|---|
+| `web_app` / `mobile_app` | infrastructure boilerplate + design system + UI shell + AGENTS.md + knowledge/ |
+| `backend_api` / `data_pipeline` / `cli_or_library` | infrastructure boilerplate + AGENTS.md + knowledge/ — no UI shell, no Figma |
+| `infrastructure` | IaC modules/playbooks/charts + AGENTS.md + knowledge/ — no application boilerplate, no UI shell, no Figma |
 
 **Goal: structure and standards, not live integrations.**
 Day 0 prepares developers to follow golden paths and best practices from the very start.
 Real auth providers, live databases, and external service integrations are Day 1.
+For `infrastructure`, the equivalent boundary is: real modules/resources, wired
+correctly and passing `plan`/`lint`, but never `apply`d against real cloud
+accounts in Day 0.
 
 - No business logic. No API wiring. No placeholder pages.
-- **Auth = mock only** — login form redirects to dashboard, no real provider calls (no Supabase Auth, no NextAuth, no OAuth). Real auth is wired in Day 1.
-- **Data = mock only** — all components use local mock data, no live DB queries.
-- **No external service dependency** — the project must build and run without any credentials or services configured.
-- The install + dev command must work out of the box (e.g. `npm install && npm run dev` for Next.js, `flutter pub get && flutter run` for Flutter).
+- **`web_app` / `mobile_app` only — Auth = mock only** — login form redirects to dashboard, no real provider calls (no Supabase Auth, no NextAuth, no OAuth). Real auth is wired in Day 1.
+- **Data = mock only** — all components use local mock data, no live DB queries. (Not applicable to `infrastructure`: there's no application data layer to mock — a database showing up in the arch doc there is a provisioned resource, e.g. an RDS instance, not something to fake.)
+- **No external service dependency** — the project must build and run (for `infrastructure`: `terraform plan` / `helm template` / `ansible-playbook --check` must succeed) without any credentials or live cloud resources.
+- The install + dev command must work out of the box (e.g. `npm install && npm run dev` for Next.js, `flutter pub get && flutter run` for Flutter, `terraform init && terraform plan` for Terraform).
 
 ---
 
@@ -21,25 +31,34 @@ Real auth providers, live databases, and external service integrations are Day 1
 
 Before running /scaffold:
 1. Architecture document must be in `docs/arch-docs/`
-2. Figma export ZIP must be available
-3. Run: `ingest_architecture_doc` MCP tool on `docs/arch-docs/`
-4. Run: `ingest_figma_zip` MCP tool on the Figma ZIP
+2. Run: `ingest_architecture_doc` MCP tool on `docs/arch-docs/` — read its
+   `project_shape` field first, it determines the rest of this checklist.
+3. **If `project_shape` is `web_app` or `mobile_app`:** a Figma export ZIP
+   must also be available. Run: `ingest_figma_zip` MCP tool on it.
+4. **Any other `project_shape`:** no Figma/UI step — there's no design to
+   ingest. Skip straight to EVALUATE.
 
 ---
 
-## EVALUATE — Understand the Architecture and Design
+## EVALUATE — Understand the Architecture (and Design, if there is a UI)
 
-Load `docs/arch-docs/` (ARCH doc + ADRs) and the Figma export. Then walk through:
+Load `docs/arch-docs/` (ARCH doc + ADRs). If `project_shape` is `web_app` or
+`mobile_app`, also load the Figma export. Then walk through:
 
-**Architecture:**
+**Architecture (always):**
 1. The stack decisions and why they were made
-2. The data model — tables, relationships, indexes
-3. What infrastructure is needed from the start
-4. The middleware stack and auth flow
-5. Error response format and error handling strategy
-6. Security rules and constraints
+2. The data model — tables, relationships, indexes. For `infrastructure`,
+   this means data stores as provisioned resources (e.g. an RDS instance's
+   engine/size/backup policy), not an application ORM schema.
+3. What infrastructure is needed from the start. For `infrastructure`, this
+   *is* the whole project — every resource, module, and environment.
+4. The middleware stack and auth flow (skip for `infrastructure`)
+5. Error response format and error handling strategy (skip for `infrastructure`)
+6. Security rules and constraints. For `infrastructure`, this means IAM
+   policies, network ACLs/security groups, secrets management (no plaintext
+   secrets in `.tf`/`.yml` files), and remote state encryption/locking.
 
-**Design:**
+**Design — `web_app` / `mobile_app` only, skip entirely otherwise:**
 7. Design tokens (colors, typography, spacing, radii, shadows)
 8. Component inventory (every component, variants, states)
 9. Layout patterns (grid, breakpoints, responsive behavior)
@@ -74,23 +93,36 @@ Figma exports colors in oklch or hex — never copy them raw. Convert to the tar
 - Flutter: `Color(0xFF...)` or generated `color_theme.dart`
 - React Native: hex strings in a `colors.ts` theme file
 
-Do NOT generate code yet. Produce an EVALUATE SUMMARY covering all 10 points.
-Stop and wait for confirmation before proceeding to PLAN.
+Do NOT generate code yet. Produce an EVALUATE SUMMARY covering points 1-6
+always, plus 7-10 for `web_app`/`mobile_app`. Stop and wait for confirmation
+before proceeding to PLAN.
 
 ---
 
-## PLAN — Boilerplate + UI Shell + Project Rules
+## PLAN — Boilerplate (+ UI Shell, if there is one) + Project Rules
 
-Based on the architecture document and Figma design, plan four things:
+Based on the architecture document (and Figma design, if applicable), plan:
 
-**1. INFRASTRUCTURE BOILERPLATE**
+**1. INFRASTRUCTURE BOILERPLATE** — `web_app` / `mobile_app` / `backend_api` / `data_pipeline`
 - Project structure — every directory, annotated
 - Database schema — from the architecture doc's data model
 - Environment variables — complete list, documented
 - Auth flow — as specified in the architecture
 - Error handling — using the format from the architecture
 
-**2. UI SHELL (from Figma)**
+**1′. INFRASTRUCTURE-AS-CODE PLAN** — `infrastructure` only, replaces item 1 above
+- Module/playbook/chart layout — every directory, annotated (e.g.
+  `modules/vpc`, `modules/eks`, `environments/staging`, `environments/prod`)
+- Every resource the arch doc calls for, grouped by module, with its exact
+  provider/chart source (this is what `resolve_package_versions` pins)
+- Remote state backend (S3+DynamoDB, Terraform Cloud, etc.) and how each
+  environment isolates its state
+- Variable/tfvars structure per environment — no hardcoded account IDs,
+  regions, or secrets
+- What runs `plan`/`lint` on PR vs. `apply` on merge — plan the CI shape,
+  don't wire real CI credentials in Day 0
+
+**2. UI SHELL (from Figma)** — `web_app` / `mobile_app` only, skip entirely otherwise
 - Design system config (tailwind.config.ts, globals.css, CSS custom properties, font loading)
 - Component architecture (name, path, props interface, variants, composition, accessibility)
 - Page layouts (every page from the Figma, structured with placeholder data)
@@ -98,14 +130,14 @@ Based on the architecture document and Figma design, plan four things:
 
 **3. AGENTS.md (cross-tool project rules)**
 - Project description and stack summary
-- Backend and frontend coding standards
+- Backend and frontend coding standards (or IaC conventions, for `infrastructure`)
 - Security rules, git conventions, quality gates
 
 **4. KNOWLEDGE DIRECTORY STRUCTURE**
 - `knowledge/rules/coding-standards.md`
 - `knowledge/prompts/dev/` (initial prompt templates)
 - `knowledge/patterns/` (implement-and-test chain)
-- Design system spec saved to `knowledge/`
+- Design system spec saved to `knowledge/` — `web_app` / `mobile_app` only
 
 Output as a blueprint. No code yet.
 Stop and wait for `/apply` approval before proceeding.
@@ -118,32 +150,60 @@ Plan approved. Generate everything in one scaffold.
 
 **MANDATORY FIRST STEP — call `resolve_package_versions` before writing any file.**
 
-`resolve_package_versions` runs the real package manager in a temp directory and returns exact pinned versions from the lock file. Use those exact versions in the manifest — no guessing, no ranges, no AI memory.
+`resolve_package_versions` runs the real package manager (or, for the three
+IaC tools below, the real CLI) in a temp directory and returns exact pinned
+versions. Use those exact versions in the manifest — no guessing, no ranges,
+no AI memory.
 
 ```
 Step 1 — call resolve_package_versions with all deps + stack hint from arch doc
-  packages: ["next@^16", "react@^19", "@supabase/supabase-js@^2", ...]
-  stack_hint: "Next.js 16 TypeScript" / "Flutter 3" / "Go" / etc.
-  → returns: { "versions": { "next": "16.2.9", "react": "19.2.7", ... } }
 
-Step 2 — write the package manifest with EXACT versions from Step 1
-  npm:     package.json  — "next": "16.2.9"  (no ^ or ~)
-  Flutter: pubspec.yaml  — exact version constraints
-  Go:      go.mod        — exact module versions
-  Rust:    Cargo.toml    — exact versions
+  Application stacks:
+    packages: ["next@^16", "react@^19", "@supabase/supabase-js@^2", ...]
+    stack_hint: "Next.js 16 TypeScript" / "Flutter 3" / "Go" / etc.
+    → returns: { "versions": { "next": "16.2.9", "react": "19.2.7", ... } }
 
-Step 3 — run the package manager to produce the lock file
-  npm install       → package-lock.json
-  flutter pub get   → pubspec.lock
-  go mod tidy       → go.sum
-  cargo build       → Cargo.lock
+  Terraform (providers only — format "source@constraint"):
+    packages: ["hashicorp/aws@~>5.0", "hashicorp/random"]
+    stack_hint: "Terraform modules for an AWS VPC and EKS cluster"
+    → returns: { "versions": { "hashicorp/aws": "5.31.0", ... } }
+
+  Helm (repository URL required — format "name@version@repo_url"):
+    packages: ["nginx@~15.0.0@https://charts.bitnami.com/bitnami"]
+    stack_hint: "Helm chart for our microservices on Kubernetes"
+    → returns: { "versions": { "nginx": "15.0.2" } }
+
+  Ansible (collections only — format "namespace.name:constraint"):
+    packages: ["community.general:>=8.0.0"]
+    stack_hint: "Ansible playbooks provisioning an EC2 fleet"
+    → returns: { "versions": { "community.general": "13.4.0" } }
+
+Step 2 — write the REAL manifest in the project with EXACT versions from Step 1
+  npm:       package.json        — "next": "16.2.9"  (no ^ or ~)
+  Flutter:   pubspec.yaml        — exact version constraints
+  Go:        go.mod              — exact module versions
+  Rust:      Cargo.toml          — exact versions
+  Terraform: versions.tf         — required_providers with exact "version ="
+  Helm:      Chart.yaml          — dependencies with exact version + repository
+  Ansible:   requirements.yml    — collections with exact version
+
+Step 3 — run the real tool again in the actual project to produce its lockfile
+  npm install                          → package-lock.json
+  flutter pub get                      → pubspec.lock
+  go mod tidy                          → go.sum
+  cargo build                          → Cargo.lock
+  terraform init -backend=false        → .terraform.lock.hcl (then configure the real backend)
+  helm dependency update               → Chart.lock
+  ansible-galaxy collection install -r requirements.yml   → collections/ (no lockfile — the pinned version in requirements.yml *is* the pin)
 ```
 
 NEVER write "latest" in any manifest.
-NEVER write semver ranges (^ or ~) in the final manifest.
+NEVER write semver ranges (^ or ~) in the final manifest (Terraform provider
+`~>` constraints are the one exception — that's Terraform's own pinning
+syntax, paired with the exact resolved version from `.terraform.lock.hcl`).
 NEVER write patch versions from AI memory — training data is always stale.
 
-**1. Infrastructure:**
+**1. Infrastructure** — `web_app` / `mobile_app` / `backend_api` / `data_pipeline`:
 - `.gitignore` — node_modules, .env*, build outputs, OS files
 - `.env.example` — all variables documented, no real secrets
 - Initial migration — exact schema from arch doc
@@ -164,7 +224,31 @@ NEVER write patch versions from AI memory — training data is always stale.
 - README with local setup instructions
 - CI pipeline config (GitHub Actions or equivalent: lint, typecheck, test, db push)
 
-**2. UI shell (matching Figma exactly):**
+**1′. Infrastructure-as-code deliverables** — `infrastructure` only, replaces item 1 above:
+- `.gitignore` — `.terraform/`, `*.tfstate*`, `.terraform.lock.hcl` only if
+  intentionally not committed (most teams DO commit the lock file — don't
+  ignore it by default), `crash.log`, chart `charts/*.tgz`, ansible
+  `collections/`
+- Every module/playbook/chart from the PLAN, with real resource
+  definitions from the arch doc — no placeholder resources
+- Remote state backend configured (e.g. S3 backend block with a DynamoDB
+  `dynamodb_table` for locking) — never local state for anything beyond a
+  throwaway example
+- Per-environment `.tfvars` / `group_vars` / `values-<env>.yaml` — no
+  hardcoded account IDs, regions, or secrets; secrets referenced via a
+  secrets manager (e.g. `aws_secretsmanager_secret` data source), never
+  inline
+- Linter config: `.tflint.hcl` (if `tflint` available) or note in README to
+  install it; `.ansible-lint` config; Helm chart passes `helm lint`
+- Pre-commit hooks: `terraform fmt -check`, `tflint`, `ansible-lint`, or
+  `helm lint` as applicable, via `.pre-commit-config.yaml`
+- README with real init/plan instructions (`terraform init && terraform
+  plan`, `helm template . --debug`, `ansible-playbook --check`) and an
+  explicit note that `apply`/`install`/real playbook runs are NOT part of
+  Day 0
+- CI pipeline config: lint + plan/dry-run on PR (never apply)
+
+**2. UI shell (matching Figma exactly)** — `web_app` / `mobile_app` only, skip entirely otherwise:
 - Design system config (tailwind.config.ts, globals.css — tokens from Figma)
 - **Any hand-written base selector in globals.css (`a`, `body`, `input:focus`,
   `thead th`, etc.) MUST be wrapped in `@layer base { ... }`.** Tailwind v4
@@ -195,18 +279,22 @@ NEVER write patch versions from AI memory — training data is always stale.
 - Exact versions from `resolve_package_versions` — not from memory, not ranges
 - NEVER write "latest" — it is not a version
 - NEVER write patch versions from AI memory
-- Run the package manager after writing the manifest to produce the lock file
+- Run the package manager (or terraform/helm/ansible-galaxy) after writing
+  the manifest to produce the lock file
 - No beta, canary, or RC packages
 - No deprecated packages or APIs
 
 **Production-grade standards:**
 - No placeholder pages or unused dependencies
-- Auth protecting all routes that need it
-- Consistent error response format throughout
+- Auth protecting all routes that need it (`web_app`/`mobile_app`/`backend_api`)
+- Consistent error response format throughout (not `infrastructure`)
 - Proper logging setup (not console.log)
 - Environment-based configuration (dev/staging/prod)
-- Security headers configured (next.config.ts for Next.js, equivalent for other stacks)
-- Database connection pooling (use pooler URL, not direct)
+- Security headers configured (next.config.ts for Next.js, equivalent for other stacks) — not `infrastructure`
+- Database connection pooling (use pooler URL, not direct) — not `infrastructure`
+- **`infrastructure` only:** every resource tagged (environment, owner,
+  cost-center as applicable), no `0.0.0.0/0` ingress without an explicit
+  justification comment, state backend encrypted at rest
 
 **Next.js 16 specifics:**
 - Route proxy file is `proxy.ts` not `middleware.ts` — export function `proxy`, not `middleware`
@@ -219,8 +307,11 @@ NEVER write patch versions from AI memory — training data is always stale.
 - API endpoints or business logic beyond health check
 - Data fetching, form submissions, or backend interactions
 - Dev tasks from the CSV — that is Day 1
+- **`infrastructure` only:** `terraform apply`, `helm install`/`helm
+  upgrade`, or `ansible-playbook` run for real against any cloud account —
+  planning/linting/templating only
 
-**Mock auth pattern:**
+**Mock auth pattern** — `web_app` / `mobile_app` only:
 The login page accepts any input and sets a session cookie (preferred over localStorage — cookies are readable server-side for route guarding). No credentials checked.
 - Cookie holds the user's mock role (e.g. `mock-role=admin`), 8h expiry
 - Route guard (middleware/proxy) reads the cookie and redirects unauthenticated requests to login
@@ -228,17 +319,19 @@ The login page accepts any input and sets a session cookie (preferred over local
 - All role-gating uses the mock role value — no JWT, no OAuth token
 Real auth provider replaces the cookie on Day 1.
 
-Output as complete files. The install + dev command must work (e.g. `npm install && npm run dev` for Next.js, `flutter pub get && flutter run` for Flutter).
+Output as complete files. The install + dev command must work (e.g. `npm
+install && npm run dev` for Next.js, `flutter pub get && flutter run` for
+Flutter, `terraform init && terraform plan` for Terraform).
 
 ---
 
 ## VALIDATE — Validate Infrastructure + Design Fidelity
 
-**MANDATORY FIRST STEP — run the build. VALIDATE is not started until this passes.**
+**MANDATORY FIRST STEP — run the build/plan/lint. VALIDATE is not started until this passes.**
 
-Use the build command for the stack prescribed in the arch doc:
+Use the command for the stack prescribed in the arch doc:
 
-| Stack | Build command |
+| Stack | Build / validate command |
 |---|---|
 | Next.js | `npm run build` |
 | Vite / React | `npm run build` |
@@ -246,28 +339,34 @@ Use the build command for the stack prescribed in the arch doc:
 | Go | `go build ./...` |
 | Rust | `cargo build` |
 | Java / Spring | `mvn package -DskipTests` |
+| Terraform | `terraform validate && terraform plan` |
+| Helm | `helm lint . && helm template .` |
+| Ansible | `ansible-lint` (or `ansible-playbook --syntax-check` if ansible-lint isn't available) |
 
-If the build fails, fix ALL errors before running any other checks. Do not proceed to the checklist until the build exits with code 0. A failed build is an automatic [BLOCKER] that overrides everything else.
+If it fails, fix ALL errors before running any other checks. Do not proceed
+to the checklist until it exits 0. A failed build/plan/lint is an automatic
+[BLOCKER] that overrides everything else.
 
 ---
 
-Review everything against the architecture doc AND Figma.
+Review everything against the architecture doc (and Figma, for `web_app`/`mobile_app`).
 
 **Packages:**
 1. Are all dependencies on stable versions (no beta/canary/RC)?
 2. Any deprecated packages or APIs in use?
-3. Are versions pinned exactly in the lock file (package-lock.json / pubspec.lock / go.sum / Cargo.lock)?
-4. Any known security vulnerabilities? (npm audit / flutter pub audit / cargo audit / etc.)
+3. Are versions pinned exactly in the lock file (package-lock.json / pubspec.lock / go.sum / Cargo.lock / .terraform.lock.hcl / Chart.lock)?
+4. Any known security vulnerabilities? (npm audit / flutter pub audit / cargo audit / `tflint` or `checkov` for Terraform / etc.)
 
 **Infrastructure:**
 5. Does the project structure match the architecture?
-6. Does the schema match the data model?
-7. Are all env vars from the architecture doc present?
-8. Is logging production-grade (not console.log)?
-9. Are security headers and CORS configured?
-10. Is database connection pooling set up?
+6. Does the schema match the data model? (`infrastructure`: does every resource match what the arch doc specified?)
+7. Are all env vars from the architecture doc present? (`infrastructure`: are all tfvars/group_vars/values documented and environment-scoped?)
+8. Is logging production-grade (not console.log)? (not `infrastructure`)
+9. Are security headers and CORS configured? (`infrastructure`: are IAM policies/security groups least-privilege, no `0.0.0.0/0` without justification?)
+10. Is database connection pooling set up? (not `infrastructure`)
+10′. **`infrastructure` only:** Is the state backend remote and locked (not local state)? Is it encrypted at rest? Are there zero plaintext secrets/credentials committed anywhere in `.tf`/`.yml` files?
 
-**UI fidelity:**
+**UI fidelity — `web_app` / `mobile_app` only, skip entirely otherwise:**
 11. Do components match the Figma design?
 12. Responsive at 320px, 768px, 1024px, 1440px?
 13. All visual states render with placeholder data?
@@ -286,11 +385,11 @@ Review everything against the architecture doc AND Figma.
     preflight makes `<svg>` block-level and text-align won't center it.
 
 **AGENTS.md + knowledge directory:**
-17. Coding standards match the architecture?
-18. Design system spec saved to knowledge/?
+19. Coding standards match the architecture?
+20. Design system spec saved to knowledge/? (`web_app` / `mobile_app` only)
 
 **Git hygiene:**
-19. Pre-commit hooks configured and working? (husky executable + lint-staged for npm; equivalent for other stacks)
+21. Pre-commit hooks configured and working? (husky executable + lint-staged for npm; `terraform fmt`/`tflint`/`ansible-lint`/`helm lint` for `infrastructure`; equivalent for other stacks)
 
 Classify every issue: [BLOCKER] / [FIX NOW] / [BACKLOG]
 Fix every [BLOCKER] and [FIX NOW] before calling Day 0 complete.
