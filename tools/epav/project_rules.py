@@ -107,7 +107,7 @@ _STACK_TAGS = {
     "AWS": "AWS cloud infrastructure",
     "GCP": "Google Cloud Platform infrastructure",
     "Azure": "Microsoft Azure infrastructure",
-    "Terraform": "Terraform for infrastructure as code",
+    "Terraform / OpenTofu": "Terraform or OpenTofu for infrastructure as code",
     "Ansible": "Ansible for provisioning or configuration management",
     "Kubernetes": "Kubernetes for container orchestration",
     "Helm": "Helm charts for Kubernetes deployments",

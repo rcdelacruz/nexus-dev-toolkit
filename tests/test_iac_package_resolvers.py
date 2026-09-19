@@ -42,10 +42,44 @@ provider "registry.terraform.io/hashicorp/random" {
 }
 """
 
+# OpenTofu writes the same file with a different registry host --
+# registry.opentofu.org instead of registry.terraform.io.
+_OPENTOFU_LOCK = """\
+# This file is maintained automatically by "tofu init".
+# Manual edits may be lost in future updates.
+
+provider "registry.opentofu.org/hashicorp/aws" {
+  version     = "5.100.0"
+  constraints = "~> 5.0"
+  hashes = [
+    "h1:abc=",
+  ]
+}
+"""
+
 
 def test_parse_terraform_source_splits_constraint():
     assert pr._parse_terraform_source("hashicorp/aws@~>5.0") == ("hashicorp/aws", "~>5.0")
     assert pr._parse_terraform_source("hashicorp/random") == ("hashicorp/random", None)
+
+
+def test_read_terraform_lock_handles_opentofu_registry_host(tmp_path):
+    # Regression: a host-specific regex silently parsed to zero versions
+    # against a real OpenTofu-generated lock file (confirmed empirically).
+    lock_path = tmp_path / ".terraform.lock.hcl"
+    lock_path.write_text(_OPENTOFU_LOCK)
+    assert pr._read_terraform_lock(lock_path, ["hashicorp/aws"]) == {"hashicorp/aws": "5.100.0"}
+
+
+def test_terraform_binary_prefers_terraform_then_falls_back_to_tofu(monkeypatch):
+    monkeypatch.setattr(pr.shutil, "which", lambda name: f"/usr/bin/{name}" if name in ("terraform", "tofu") else None)
+    assert pr._terraform_binary() == "terraform"
+
+    monkeypatch.setattr(pr.shutil, "which", lambda name: "/usr/bin/tofu" if name == "tofu" else None)
+    assert pr._terraform_binary() == "tofu"
+
+    monkeypatch.setattr(pr.shutil, "which", lambda name: None)
+    assert pr._terraform_binary() == "terraform"  # neither installed -- fails loudly downstream, like every other tool here
 
 
 def test_read_terraform_lock_extracts_exact_versions(tmp_path):
@@ -63,6 +97,7 @@ def test_resolve_terraform_writes_required_providers_and_dedupes_local_names(tmp
         (Path(cwd) / ".terraform.lock.hcl").write_text(_TF_LOCK)
         return _FakeCompletedProcess(returncode=0)
 
+    monkeypatch.setattr(pr, "_terraform_binary", lambda: "terraform")
     monkeypatch.setattr(pr.subprocess, "run", fake_run)
     versions, errors = pr._resolve_terraform(tmp_path, ["hashicorp/aws@~>5.0", "hashicorp/random"])
 
@@ -71,7 +106,7 @@ def test_resolve_terraform_writes_required_providers_and_dedupes_local_names(tmp
     tf_content = (tmp_path / "versions.tf").read_text()
     assert 'source  = "hashicorp/aws"' in tf_content
     assert 'version = "~>5.0"' in tf_content
-    assert captured["cmd"] == pr._PM_REGISTRY["terraform"]["resolve"]
+    assert captured["cmd"] == ["terraform", "init", "-backend=false", "-input=false"]
 
 
 def test_resolve_terraform_reports_init_failure(tmp_path, monkeypatch):

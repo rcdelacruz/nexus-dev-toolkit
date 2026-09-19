@@ -4,13 +4,25 @@
 
 Generates a complete production-grade scaffold from the architecture document
 (plus a Figma export, for project shapes that have a UI). What gets generated
-depends on `project_shape`, returned by `ingest_architecture_doc`:
+depends on two independent fields from `ingest_architecture_doc`: `project_shape`
+(the primary output — a single choice, it can't be more than one of these) and
+`has_infrastructure_component` (a separate yes/no — true whenever the doc ALSO
+defines its own infrastructure-as-code, regardless of `project_shape`):
 
 | `project_shape` | Output |
 |---|---|
 | `web_app` / `mobile_app` | infrastructure boilerplate + design system + UI shell + AGENTS.md + knowledge/ |
 | `backend_api` / `data_pipeline` / `cli_or_library` | infrastructure boilerplate + AGENTS.md + knowledge/ — no UI shell, no Figma |
 | `infrastructure` | IaC modules/playbooks/charts + AGENTS.md + knowledge/ — no application boilerplate, no UI shell, no Figma |
+
+**If `has_infrastructure_component` is also `true`** for any non-`infrastructure`
+shape above (e.g. a 3-tier app whose doc also defines the Terraform/OpenTofu
+modules that provision what it runs on): generate the IaC deliverables
+*in addition to* that shape's normal output, not instead of it. Every "PLAN"/
+"APPLY"/"VALIDATE" item below marked `infrastructure` also applies whenever
+`has_infrastructure_component` is true, on top of — not replacing — the
+app-shaped items, unless `project_shape` itself is `infrastructure` (nothing
+else to add on top of).
 
 **Goal: structure and standards, not live integrations.**
 Day 0 prepares developers to follow golden paths and best practices from the very start.
@@ -110,7 +122,9 @@ Based on the architecture document (and Figma design, if applicable), plan:
 - Auth flow — as specified in the architecture
 - Error handling — using the format from the architecture
 
-**1′. INFRASTRUCTURE-AS-CODE PLAN** — `infrastructure` only, replaces item 1 above
+**1′. INFRASTRUCTURE-AS-CODE PLAN** — whenever `has_infrastructure_component`
+is true; replaces item 1 above if `project_shape` is `infrastructure`, runs
+alongside item 1 otherwise (e.g. the 3-tier-app-with-its-own-Terraform case)
 - Module/playbook/chart layout — every directory, annotated (e.g.
   `modules/vpc`, `modules/eks`, `environments/staging`, `environments/prod`)
 - Every resource the arch doc calls for, grouped by module, with its exact
@@ -151,9 +165,15 @@ Plan approved. Generate everything in one scaffold.
 **MANDATORY FIRST STEP — call `resolve_package_versions` before writing any file.**
 
 `resolve_package_versions` runs the real package manager (or, for the three
-IaC tools below, the real CLI) in a temp directory and returns exact pinned
+IaC tools below, the real CLI — terraform or tofu, whichever is installed;
+same lock file either way) in a temp directory and returns exact pinned
 versions. Use those exact versions in the manifest — no guessing, no ranges,
 no AI memory.
+
+**If `has_infrastructure_component` is true alongside an app-shaped
+`project_shape`:** call `resolve_package_versions` twice, once per component
+— once with the app's stack_hint/packages, once with the IaC stack_hint/
+packages. One call resolves one tool; a mixed project has two.
 
 ```
 Step 1 — call resolve_package_versions with all deps + stack hint from arch doc
@@ -192,7 +212,7 @@ Step 3 — run the real tool again in the actual project to produce its lockfile
   flutter pub get                      → pubspec.lock
   go mod tidy                          → go.sum
   cargo build                          → Cargo.lock
-  terraform init -backend=false        → .terraform.lock.hcl (then configure the real backend)
+  terraform/tofu init -backend=false   → .terraform.lock.hcl (then configure the real backend)
   helm dependency update               → Chart.lock
   ansible-galaxy collection install -r requirements.yml   → collections/ (no lockfile — the pinned version in requirements.yml *is* the pin)
 ```
@@ -224,7 +244,9 @@ NEVER write patch versions from AI memory — training data is always stale.
 - README with local setup instructions
 - CI pipeline config (GitHub Actions or equivalent: lint, typecheck, test, db push)
 
-**1′. Infrastructure-as-code deliverables** — `infrastructure` only, replaces item 1 above:
+**1′. Infrastructure-as-code deliverables** — whenever `has_infrastructure_component`
+is true; replaces item 1 above if `project_shape` is `infrastructure`, generated
+alongside item 1 otherwise:
 - `.gitignore` — `.terraform/`, `*.tfstate*`, `.terraform.lock.hcl` only if
   intentionally not committed (most teams DO commit the lock file — don't
   ignore it by default), `crash.log`, chart `charts/*.tgz`, ansible
@@ -292,9 +314,9 @@ NEVER write patch versions from AI memory — training data is always stale.
 - Environment-based configuration (dev/staging/prod)
 - Security headers configured (next.config.ts for Next.js, equivalent for other stacks) — not `infrastructure`
 - Database connection pooling (use pooler URL, not direct) — not `infrastructure`
-- **`infrastructure` only:** every resource tagged (environment, owner,
-  cost-center as applicable), no `0.0.0.0/0` ingress without an explicit
-  justification comment, state backend encrypted at rest
+- **Whenever `has_infrastructure_component` is true:** every resource tagged
+  (environment, owner, cost-center as applicable), no `0.0.0.0/0` ingress
+  without an explicit justification comment, state backend encrypted at rest
 
 **Next.js 16 specifics:**
 - Route proxy file is `proxy.ts` not `middleware.ts` — export function `proxy`, not `middleware`
@@ -307,9 +329,9 @@ NEVER write patch versions from AI memory — training data is always stale.
 - API endpoints or business logic beyond health check
 - Data fetching, form submissions, or backend interactions
 - Dev tasks from the CSV — that is Day 1
-- **`infrastructure` only:** `terraform apply`, `helm install`/`helm
-  upgrade`, or `ansible-playbook` run for real against any cloud account —
-  planning/linting/templating only
+- **Whenever `has_infrastructure_component` is true:** `terraform`/`tofu apply`,
+  `helm install`/`helm upgrade`, or `ansible-playbook` run for real against
+  any cloud account — planning/linting/templating only
 
 **Mock auth pattern** — `web_app` / `mobile_app` only:
 The login page accepts any input and sets a session cookie (preferred over localStorage — cookies are readable server-side for route guarding). No credentials checked.
@@ -329,7 +351,9 @@ Flutter, `terraform init && terraform plan` for Terraform).
 
 **MANDATORY FIRST STEP — run the build/plan/lint. VALIDATE is not started until this passes.**
 
-Use the command for the stack prescribed in the arch doc:
+Use the command for the stack prescribed in the arch doc. If `has_infrastructure_component`
+is true alongside an app-shaped `project_shape`, run BOTH the app's command
+and the IaC command(s) — both must pass:
 
 | Stack | Build / validate command |
 |---|---|
@@ -339,7 +363,7 @@ Use the command for the stack prescribed in the arch doc:
 | Go | `go build ./...` |
 | Rust | `cargo build` |
 | Java / Spring | `mvn package -DskipTests` |
-| Terraform | `terraform validate && terraform plan` |
+| Terraform / OpenTofu | `terraform validate && terraform plan` (or `tofu validate && tofu plan`) |
 | Helm | `helm lint . && helm template .` |
 | Ansible | `ansible-lint` (or `ansible-playbook --syntax-check` if ansible-lint isn't available) |
 
@@ -364,7 +388,7 @@ Review everything against the architecture doc (and Figma, for `web_app`/`mobile
 8. Is logging production-grade (not console.log)? (not `infrastructure`)
 9. Are security headers and CORS configured? (`infrastructure`: are IAM policies/security groups least-privilege, no `0.0.0.0/0` without justification?)
 10. Is database connection pooling set up? (not `infrastructure`)
-10′. **`infrastructure` only:** Is the state backend remote and locked (not local state)? Is it encrypted at rest? Are there zero plaintext secrets/credentials committed anywhere in `.tf`/`.yml` files?
+10′. **Whenever `has_infrastructure_component` is true:** Is the state backend remote and locked (not local state)? Is it encrypted at rest? Are there zero plaintext secrets/credentials committed anywhere in `.tf`/`.yml` files?
 
 **UI fidelity — `web_app` / `mobile_app` only, skip entirely otherwise:**
 11. Do components match the Figma design?

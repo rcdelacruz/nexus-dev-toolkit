@@ -133,12 +133,25 @@ _PROJECT_SHAPES = {
     "cli_or_library": "A command-line tool, SDK, or library with no server or UI",
 }
 
+# project_shape is a single forced choice, so it can't represent a project
+# that is BOTH an app and its own infrastructure (e.g. a 3-tier app whose
+# arch doc also defines the Terraform/OpenTofu modules that provision what
+# it runs on) -- verified empirically: such a doc classifies as "web_app"
+# alone, which would make /scaffold skip the IaC deliverables entirely.
+# has_infrastructure_component is a separate, independent yes/no question
+# for exactly that: it can be true alongside ANY project_shape, including
+# "infrastructure" itself (redundant there, but harmless).
+_INFRASTRUCTURE_KEYWORDS = [
+    "terraform", "opentofu", "tofu", ".tf files", "ansible", "helm chart",
+    "kubernetes manifest", "cloudformation", "pulumi", "provisioning",
+]
+
 # Keyword fallback, used only when TypeSafe is unavailable. Deliberately
 # defaults to "web_app" on no match -- that's the shape /scaffold has always
 # assumed, so a missing judgment call degrades to today's existing behavior
 # rather than silently switching everyone's default.
 _PROJECT_SHAPE_KEYWORDS: list[tuple[str, list[str]]] = [
-    ("infrastructure", ["terraform", ".tf files", "ansible", "helm chart", "kubernetes manifest", "cloudformation", "pulumi", "provisioning"]),
+    ("infrastructure", _INFRASTRUCTURE_KEYWORDS),
     ("data_pipeline", ["etl", "airflow", "data pipeline", "spark", "data warehouse"]),
     ("cli_or_library", ["cli tool", "command-line", "command line tool", "sdk", "library with no server"]),
     ("mobile_app", ["flutter", "react native", "ios app", "android app"]),
@@ -153,11 +166,19 @@ def _classify_project_shape_fallback(text: str) -> str:
     return "web_app"
 
 
-async def _classify_project_shape(text: str) -> str:
-    """What kind of project is this overall -- so /scaffold can skip the
-    Figma/UI-shell/mock-auth steps for a project that has no UI at all."""
-    if judgment.Choice is None:
-        return _classify_project_shape_fallback(text)
+def _has_infrastructure_component_fallback(text: str) -> bool:
+    text_lower = text.lower()
+    return any(k in text_lower for k in _INFRASTRUCTURE_KEYWORDS)
+
+
+async def _classify_project(text: str) -> tuple[str, bool]:
+    """(project_shape, has_infrastructure_component) -- asked together in one
+    call since they're independent questions over the same document: shape
+    is /scaffold's primary branch (Figma/UI-shell/mock-auth vs. not),
+    has_infrastructure_component is the orthogonal "also generate real IaC
+    deliverables" flag for a mixed project."""
+    if judgment.Choice is None or judgment.Noul is None:
+        return _classify_project_shape_fallback(text), _has_infrastructure_component_fallback(text)
 
     result = await judgment.system_one_async(
         state={"architecture_document": text},
@@ -165,13 +186,20 @@ async def _classify_project_shape(text: str) -> str:
             "shape": judgment.Choice(
                 instructions="What is the overall shape of the project described in `architecture_document`?",
                 criteria=_PROJECT_SHAPES,
-            )
+            ),
+            "has_infra": judgment.Noul(
+                instructions=(
+                    "Does `architecture_document` also define its own infrastructure-as-code "
+                    "(Terraform, OpenTofu, Pulumi, CDK, CloudFormation, Ansible, or Helm) to "
+                    "provision what it runs on, in addition to or instead of application code?"
+                ),
+            ),
         },
     )
     if result is not None:
-        return result.choices["shape"].choice
+        return result.choices["shape"].choice, result.nouls["has_infra"].noul >= 0.5
 
-    return _classify_project_shape_fallback(text)
+    return _classify_project_shape_fallback(text), _has_infrastructure_component_fallback(text)
 
 
 def register_arch_ingest_tool(mcp: FastMCP) -> None:
@@ -188,7 +216,11 @@ def register_arch_ingest_tool(mcp: FastMCP) -> None:
         extracts stack decisions, data model, auth strategy, error format, security rules,
         and ADR list. Also classifies the overall project_shape (web_app, mobile_app,
         backend_api, infrastructure, data_pipeline, cli_or_library) so /scaffold can
-        skip UI-specific steps (Figma, UI shell, mock auth) for non-UI projects.
+        skip UI-specific steps (Figma, UI shell, mock auth) for non-UI projects, plus an
+        independent has_infrastructure_component flag for a project that is BOTH an app
+        AND its own infrastructure (e.g. a 3-tier app whose doc also defines the
+        Terraform/OpenTofu modules that provision what it runs on) -- project_shape alone
+        can't represent that, since it's a single forced choice.
         Optionally writes a summary to knowledge/rules/arch-summary.md.
 
         Args:
@@ -198,7 +230,8 @@ def register_arch_ingest_tool(mcp: FastMCP) -> None:
                           knowledge/rules/arch-summary.md (creates dirs if needed).
 
         Returns:
-            JSON with extracted architecture sections, project_shape, and file paths written.
+            JSON with extracted architecture sections, project_shape,
+            has_infrastructure_component, and file paths written.
         """
         try:
             # Resolve the source path
@@ -239,7 +272,7 @@ def register_arch_ingest_tool(mcp: FastMCP) -> None:
                              "Check that headings use standard terms (stack, auth, data model, etc.)."
                 })
 
-            project_shape = await _classify_project_shape("\n\n".join(all_text_parts))
+            project_shape, has_infrastructure_component = await _classify_project("\n\n".join(all_text_parts))
 
             files_written = []
             if save_summary:
@@ -255,6 +288,7 @@ def register_arch_ingest_tool(mcp: FastMCP) -> None:
                 "files_read": files_read,
                 "files_written": files_written,
                 "project_shape": project_shape,
+                "has_infrastructure_component": has_infrastructure_component,
                 "sections_extracted": list(all_sections.keys()),
                 "summary": {k: v[:300] + "…" if len(v) > 300 else v
                             for k, v in all_sections.items()},

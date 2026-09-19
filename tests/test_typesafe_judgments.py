@@ -138,17 +138,44 @@ def test_classify_project_shape_falls_back_when_typesafe_unavailable(monkeypatch
     assert return_value == "infrastructure"
 
 
-async def test_classify_project_shape_uses_typesafe_choice(monkeypatch):
+async def test_classify_project_uses_typesafe_choice_and_noul(monkeypatch):
     async def fake_system_one_async(state, questions):
         assert "architecture_document" in state
-        return _FakeResponse(choices={"shape": _FakeChoiceAnswer("infrastructure", 0.99)})
+        assert set(questions) == {"shape", "has_infra"}
+        return _FakeResponse(
+            choices={"shape": _FakeChoiceAnswer("infrastructure", 0.99)},
+            nouls={"has_infra": _FakeNoulAnswer(0.95)},
+        )
 
     monkeypatch.setattr(judgment, "system_one_async", fake_system_one_async)
-    shape = await arch_ingest._classify_project_shape("Terraform modules for an AWS VPC.")
+    shape, has_infra = await arch_ingest._classify_project("Terraform modules for an AWS VPC.")
     assert shape == "infrastructure"
+    assert has_infra is True
+
+
+async def test_classify_project_flags_has_infra_alongside_a_non_infra_shape(monkeypatch):
+    # A 3-tier app with its own Terraform/OpenTofu modules: project_shape is a
+    # single forced choice ("web_app"), but has_infrastructure_component must
+    # still surface independently so /scaffold generates the IaC deliverables
+    # too, not just the app boilerplate.
+    async def fake_system_one_async(state, questions):
+        return _FakeResponse(
+            choices={"shape": _FakeChoiceAnswer("web_app", 0.9)},
+            nouls={"has_infra": _FakeNoulAnswer(0.9)},
+        )
+
+    monkeypatch.setattr(judgment, "system_one_async", fake_system_one_async)
+    shape, has_infra = await arch_ingest._classify_project("React app; OpenTofu provisions the AWS infra it runs on.")
+    assert shape == "web_app"
+    assert has_infra is True
 
 
 def test_classify_project_shape_fallback_defaults_to_web_app():
     # No IaC/pipeline/CLI/mobile keywords -- preserves /scaffold's long-standing
     # default of assuming a UI app when nothing says otherwise.
     assert arch_ingest._classify_project_shape_fallback("A service that does things.") == "web_app"
+
+
+def test_has_infrastructure_component_fallback_recognizes_opentofu():
+    assert arch_ingest._has_infrastructure_component_fallback("Provisioned via OpenTofu modules.")
+    assert not arch_ingest._has_infrastructure_component_fallback("A plain Next.js app with no infra of its own.")

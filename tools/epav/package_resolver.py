@@ -90,8 +90,8 @@ _PM_REGISTRY: dict[str, dict] = {
     "terraform": {
         "detect": ["*.tf", ".terraform.lock.hcl"],
         "init": None,
-        "resolve": ["terraform", "init", "-backend=false", "-input=false"],
-        "lock_file": ".terraform.lock.hcl",
+        "resolve": ["terraform", "init", "-backend=false", "-input=false"],  # or "tofu" -- see _terraform_binary()
+        "lock_file": ".terraform.lock.hcl",  # same filename for OpenTofu
     },
     "ansible": {
         "detect": ["requirements.yml", "ansible.cfg"],
@@ -118,7 +118,7 @@ _PM_CRITERIA = {
     "go": "Go projects (go.mod)",
     "cargo": "Rust projects (Cargo.toml)",
     "pip": "Python projects (requirements.txt, pyproject.toml) not using a Python tool with its own distinct lockfile format",
-    "terraform": "Terraform projects (.tf files) with no separate application-language package manager -- dependencies are cloud providers/modules pinned via terraform init and .terraform.lock.hcl",
+    "terraform": "Terraform or OpenTofu projects (.tf files) with no separate application-language package manager -- dependencies are cloud providers/modules pinned via terraform/tofu init and .terraform.lock.hcl",
     "ansible": "Ansible playbooks or roles for provisioning or configuring infrastructure, with dependencies (collections) pinned via ansible-galaxy",
     "helm": "Helm charts for deploying to Kubernetes, with chart dependencies pinned via helm dependency update and Chart.lock",
 }
@@ -174,7 +174,7 @@ def _detect_package_manager_fallback(hint_lower: str) -> str:
         return "pip"
     if "rust" in hint_lower:
         return "cargo"
-    if "terraform" in hint_lower:
+    if any(k in hint_lower for k in ["terraform", "opentofu", "tofu"]):
         return "terraform"
     if "ansible" in hint_lower:
         return "ansible"
@@ -325,8 +325,26 @@ def _resolve_generic(pm: str, tmpdir: Path, packages: list[str]) -> tuple[dict[s
 # a provider. Terraform modules aren't covered -- they're pinned by source
 # ref/tag directly in the module block, not resolved via a lockfile.
 
-_TF_LOCK_PROVIDER_RE = re.compile(r'^provider\s+"registry\.terraform\.io/(?P<source>[^"]+)"\s*\{')
+# Registry host varies: Terraform uses registry.terraform.io, OpenTofu uses
+# registry.opentofu.org -- the host doesn't matter, only the provider source
+# path after it (confirmed empirically: OpenTofu's real lock file uses the
+# opentofu.org host, so a host-specific regex silently parses to zero
+# versions against it).
+_TF_LOCK_PROVIDER_RE = re.compile(r'^provider\s+"registry\.[^/]+/(?P<source>[^"]+)"\s*\{')
 _TF_LOCK_VERSION_RE = re.compile(r'^\s*version\s*=\s*"(?P<version>[^"]+)"')
+
+
+def _terraform_binary() -> str:
+    """Prefer `terraform` if installed, else `tofu` (OpenTofu, the
+    Terraform-compatible fork) -- same CLI surface and lock file format,
+    just a different binary name. Defaults to "terraform" if neither is on
+    PATH, which fails with a clear "not found" error like every other tool
+    here does when it's missing."""
+    if shutil.which("terraform"):
+        return "terraform"
+    if shutil.which("tofu"):
+        return "tofu"
+    return "terraform"
 
 
 def _parse_terraform_source(pkg: str) -> tuple[str, str | None]:
@@ -379,7 +397,8 @@ def _resolve_terraform(tmpdir: Path, packages: list[str]) -> tuple[dict[str, str
     )
 
     result = subprocess.run(
-        _PM_REGISTRY["terraform"]["resolve"], cwd=tmpdir, capture_output=True, text=True, timeout=120,
+        [_terraform_binary(), "init", "-backend=false", "-input=false"],
+        cwd=tmpdir, capture_output=True, text=True, timeout=120,
     )
     if result.returncode != 0:
         errors.append(result.stderr[:500])
