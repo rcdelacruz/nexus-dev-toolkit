@@ -6,7 +6,7 @@ path is exercised by patching them to return None (exactly what happens with
 no TYPESAFE_API_KEY set, per `tools.epav.judgment`'s own fail-soft contract).
 """
 
-from tools.epav import arch_ingest, judgment, package_resolver, project_rules
+from tools.epav import arch_ingest, judgment, package_resolver, project_rules, task_loader
 
 
 class _FakeChoiceAnswer:
@@ -179,3 +179,52 @@ def test_classify_project_shape_fallback_defaults_to_web_app():
 def test_has_infrastructure_component_fallback_recognizes_opentofu():
     assert arch_ingest._has_infrastructure_component_fallback("Provisioned via OpenTofu modules.")
     assert not arch_ingest._has_infrastructure_component_fallback("A plain Next.js app with no infra of its own.")
+
+
+# ── task_loader: CSV header mapping ─────────────────────────────────────────
+
+async def test_map_csv_headers_exact_names_skip_typesafe(monkeypatch):
+    def fail_if_called(*a, **k):
+        raise AssertionError("should not call TypeSafe when headers already match exactly")
+
+    monkeypatch.setattr(judgment, "system_one_async", fail_if_called)
+    mapping = await task_loader._map_csv_headers(
+        ["task_id", "User_Story", "description", "Acceptance-Criteria", "dependencies"]
+    )
+    assert mapping == {
+        "task_id": "task_id",
+        "User_Story": "user_story",
+        "description": "description",
+        "Acceptance-Criteria": "acceptance_criteria",
+        "dependencies": "dependencies",
+    }
+
+
+async def test_map_csv_headers_uses_typesafe_for_nonstandard_names(monkeypatch):
+    async def fake_system_one_async(state, questions):
+        assert set(questions) == {"h0", "h1", "h2"}
+        return _FakeResponse(choices={
+            "h0": _FakeChoiceAnswer("task_id", 0.99),
+            "h1": _FakeChoiceAnswer("user_story", 0.9),
+            "h2": _FakeChoiceAnswer("other", 0.99),
+        })
+
+    monkeypatch.setattr(judgment, "system_one_async", fake_system_one_async)
+    mapping = await task_loader._map_csv_headers(["Ticket", "Story", "Assignee"])
+    assert mapping == {"Ticket": "task_id", "Story": "user_story"}  # "Assignee" -> other is omitted
+
+
+async def test_map_csv_headers_falls_back_when_typesafe_unavailable(monkeypatch):
+    monkeypatch.setattr(judgment, "system_one_async", _returns_none)
+    mapping = await task_loader._map_csv_headers(["Ticket", "Story", "AC", "Depends On"])
+    assert mapping == {
+        "Ticket": "task_id",
+        "Story": "user_story",
+        "AC": "acceptance_criteria",
+        "Depends On": "dependencies",
+    }
+
+
+def test_map_csv_headers_fallback_ignores_unrelated_columns():
+    mapping = task_loader._map_csv_headers_fallback(["Priority", "Sprint"])
+    assert mapping == {}
