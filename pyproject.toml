@@ -28,6 +28,7 @@ Issues = "https://github.com/rcdelacruz/nexus-dev-toolkit/issues"
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "typesafe-sdk>=0.7.0,<1.0.0",
 ]
 typesafe = [
     "typesafe-sdk>=0.7.0,<1.0.0",
