@@ -1,10 +1,11 @@
 # tools/
 
-Python package behind `nexus-mcp` (the MCP server `nexus init` wires into
-`.mcp.json`/`opencode.json`). This is the implementation of the EPAV MCP
-tools that the `/evaluate`, `/plan`, `/apply`, `/validate`, and `/scaffold`
-skills call — the skills themselves (prose Claude reads and follows) live
-in `tools/epav/skills/*.md`, not here.
+Developer guide to the Python package behind `nexus-mcp` — the MCP server
+`nexus init` wires into `.mcp.json`/`opencode.json`, and the built-in skill
+and subagent prompts that `nexus init`/`nexus sync` copy into a project's
+`.claude/`/`.opencode/` directories.
+
+## Layout
 
 ```
 tools/
@@ -15,34 +16,83 @@ tools/
 │   ├── package_resolver.py  resolve_package_versions
 │   ├── graph_backend.py     graphify/codegraph detection + query (shared)
 │   ├── judgment.py          TypeSafe/Jev fail-soft client wrapper (shared)
-│   └── skills/*.md          built-in skill prompts (copied into .claude/commands/
-│                            or .opencode/commands/ by `nexus init`/`nexus sync`)
-└── agents/*.md              built-in subagent personas (copied into .claude/agents/
-                             or .opencode/agents/ the same way)
+│   ├── __init__.py          register_epav_tools() -- entry point onto the MCP server
+│   └── skills/*.md          built-in skill prompts (EPAV cycle + reviewers + git/PR)
+└── agents/*.md              built-in subagent personas (reviewers, pr-verifier)
 ```
 
-`register_epav_tools()` in `tools/epav/__init__.py` registers all four tools
-onto the `FastMCP` server — that's the entry point if you're tracing how a
-tool call reaches its implementation.
+## How it fits together
 
-## The `.md` files aren't code
+```
+nexus init  →  writes .mcp.json: {"command": "uvx", "args": [..., "--from",
+                "nexus-dev-toolkit", "nexus-mcp"]}
+                     │
+Claude Code launches the MCP server via that command
+                     │
+nexus_server.py  →  FastMCP("nexus-dev-toolkit") + register_epav_tools(mcp)
+                     │
+tools/epav/__init__.py  →  registers all 4 tool functions below onto `mcp`
+```
 
-`tools/epav/skills/*.md` and `tools/agents/*.md` are prose that Claude (or
-another AI coding agent) reads directly and follows with full contextual
-judgment — they are not parsed by any Python here. Don't look for parsing
-logic to "improve" in them; there isn't any, and there isn't meant to be
-(verified by actually reading all 20 of them — see the TypeSafe section
-below for why that distinction matters).
+Separately, `nexus init`/`nexus sync` copy `tools/epav/skills/*.md` into
+`.claude/commands/` (or `.opencode/commands/`) and `tools/agents/*.md` into
+`.claude/agents/`, using the `_BUILTIN_SKILLS`/`_BUILTIN_AGENTS` lists in
+`nexus_cli.py` — a CI test asserts every file in those two directories has a
+matching entry in those lists (and vice versa), so add to both together
+when you add a new built-in skill or agent.
+
+A skill (prose Claude reads directly, e.g. `scaffold.md`) references an MCP
+tool by name when it wants Claude to call it (e.g. `scaffold.md` calls
+`ingest_architecture_doc` then `resolve_package_versions`). This is
+guidance, not a rigid call graph enforced anywhere — a skill can also just
+read a file directly instead of calling a tool (`evaluate.md`'s CSV
+handling reads the fields inline rather than always naming `load_task`
+explicitly). If you rename a tool or change its output shape, grep
+`tools/epav/skills/*.md` for the old name/field before assuming nothing
+references it.
+
+## The MCP tools
+
+Every tool follows the same contract: a `@mcp.tool()`-decorated async or
+sync function, registered by a `register_<name>_tool(mcp)` function, whose
+docstring **is** the tool description the calling LLM sees (keep it
+accurate — it's not internal documentation, it's the interface). Every one
+wraps its body in `try/except Exception` and returns `json.dumps({"error":
+...})` on failure rather than raising — a tool that raises breaks the whole
+MCP call for the caller with a stack trace instead of a message it can act
+on or show the user.
+
+| Tool | File | Does |
+|---|---|---|
+| `ingest_architecture_doc` | `arch_ingest.py` | Reads arch doc(s), extracts sections by category (stack/auth/security/data-model/...), classifies `project_shape` and `has_infrastructure_component`, writes `knowledge/rules/arch-summary.md` |
+| `load_task` | `task_loader.py` | Finds a CSV under `docs/dev-tasks/`, maps its columns onto the standard task fields regardless of header names, returns one row structured for `/evaluate` (plus a graphify/codegraph blast-radius query on the description) |
+| `generate_project_rules` | `project_rules.py` | Reads `knowledge/rules/arch-summary.md` (or a given doc), infers the stack, writes `AGENTS.md` + `knowledge/rules/coding-standards.md` |
+| `resolve_package_versions` | `package_resolver.py` | Runs the real package manager/IaC tool in a temp dir and returns exact pinned versions — see the IaC section below for the three tools that don't fit the plain "install then read a lockfile" shape |
+
+### `graph_backend.py` (shared, not a tool itself)
+
+Used by `task_loader.py` for blast-radius context, and referenced from
+`evaluate.md`/`plan.md`/`validate.md`. Picks between graphify and codegraph
+so callers never hardcode which one is active:
+
+- `detect_backend(root)` — `NEXUS_GRAPH_BACKEND` env var wins if set *and*
+  that backend's graph actually exists; otherwise a built graph beats a
+  merely-installed tool, and graphify wins ties.
+- `run_query(text, backend=None, root=...)` — returns `None` on any
+  failure (no backend, subprocess error, timeout) — callers treat that as
+  "no graph context available," never as an error to surface.
+- `has_graphify_hook(root)` — whether the PostToolUse auto-update hook is
+  wired into `.claude/settings.json` or `.opencode/plugins/graphify.js`.
 
 ## TypeSafe / Jev integration
 
 Four of the five tools call out to [TypeSafe](https://docs.typesafe.ai)'s
-Jev model for judgments that used to be done with hardcoded keyword/
-substring matching against free-text input (an arch doc, a CSV header, a
-stack hint). Each replaced a real, verified silent-failure mode — not a
-hypothetical one — where the old heuristic matched on `hint.lower() in
-hint_lower`, ignored the file entirely, or picked whatever came first in a
-`for pm in registry` scan.
+Jev model for judgments that used to
+be done with hardcoded keyword/substring matching against free-text input
+(an arch doc, a CSV header, a stack hint). Each replaced a real, verified
+silent-failure mode — not a hypothetical one — where the old heuristic
+matched on `hint.lower() in hint_lower`, ignored the file entirely, or
+picked whatever came first in a `for pm in registry` scan.
 
 | Tool | Judgment | Old failure mode |
 |---|---|---|
@@ -98,13 +148,17 @@ judgment call):
 - Classifying on a heading's title alone fails for generic titles ("Architecture",
   "Overview") whose *body* carries the real signal — give the judgment a
   content snippet, not just a label.
+- Keep known rules, exact lookups, and strictly-specified machine formats
+  (npm's `name@version`, a lockfile's own grammar) in plain code — the
+  three IaC tools below need real parsing, not judgment, because their
+  formats are fully specified.
 
 ## IaC package-manager resolution
 
 `package_resolver.py` also covers three DevOps tools whose resolution
 mechanics genuinely differ from an application package manager's "install
 then read a lockfile" shape (this part is plain deterministic code, not a
-TypeSafe judgment — each format is fully specified):
+TypeSafe judgment):
 
 - **Terraform / OpenTofu** — `"source@constraint"` (providers only).
   Whichever binary (`terraform` or `tofu`) is on `PATH` is used; both write
@@ -118,18 +172,78 @@ TypeSafe judgment — each format is fully specified):
   introspects with `ansible-galaxy collection list` to discover the exact
   version that got installed.
 
+`project_shape: "infrastructure"` and `has_infrastructure_component: true`
+(from `ingest_architecture_doc`) are what tell `/scaffold` to generate IaC
+deliverables instead of, or alongside, application boilerplate — see
+`tools/epav/skills/scaffold.md` for the exact branching.
+
+## Writing or extending a tool
+
+1. Add the function to an existing module, or a new `tools/epav/<name>.py`
+   with a `register_<name>_tool(mcp: FastMCP) -> None` function.
+2. Decorate the tool function with `@mcp.tool()`. Write the docstring as
+   the interface spec (args, return JSON shape) — it's what the calling
+   model reads to know how to use the tool.
+3. Wrap the body in `try/except Exception`, returning
+   `json.dumps({"error": ...})` on failure. Log unexpected exceptions with
+   `logger.exception(...)` before returning the error JSON.
+4. If the tool needs to interpret free-text input against a fixed set of
+   categories, check whether that's a TypeSafe candidate (see above) before
+   reaching for keyword matching — and if it's genuinely a strictly-specified
+   format instead (a config file grammar, a well-known CLI's output), keep
+   it as plain deterministic parsing.
+5. Register it in `tools/epav/__init__.py`'s `register_epav_tools()`.
+6. Add tests (see below) — new judgment calls need both a TypeSafe-path
+   test (mocked) and a fallback-path test.
+7. If a built-in skill should call it, reference the tool by its exact
+   registered name in the relevant `tools/epav/skills/*.md` file.
+
+## Local dev workflow
+
+```bash
+uv pip install -e ".[dev,typesafe]"   # editable install, test + TypeSafe deps
+uv run pytest tests/ -v               # or: .venv/bin/python3 -m pytest -q
+
+# Run the MCP server directly (e.g. for the MCP inspector):
+uv run nexus-mcp
+```
+
+This repo dogfoods itself: `.claude/commands/` and `.claude/agents/` here
+are a **synced copy** of `tools/epav/skills/` and `tools/agents/`, not the
+source of truth. After editing a skill or agent source file, run
+`python -m nexus_cli sync` (or `nexus sync` if installed) to propagate the
+change — otherwise a `/scaffold` (etc.) run in this repo's own Claude Code
+session will use the stale copy.
+
 ## Testing
 
-`tests/test_typesafe_judgments.py` covers the TypeSafe-backed judgments
-(mocking `judgment.system_one`/`system_one_async`, never hitting the real
-API) and `tests/test_iac_package_resolvers.py` covers the deterministic IaC
-parsing/orchestration (mocking `subprocess.run`, since CI has none of
-`terraform`/`tofu`/`helm`/`ansible-galaxy` installed).
+- `tests/test_server.py` — tool registration onto the MCP server.
+- `tests/test_typesafe_judgments.py` — the TypeSafe-backed judgments,
+  mocking `judgment.system_one`/`system_one_async` (never hitting the real
+  API) and covering both the AI path and the fallback path for each.
+- `tests/test_iac_package_resolvers.py` — the deterministic IaC
+  parsing/orchestration, mocking `subprocess.run` (CI has none of
+  `terraform`/`tofu`/`helm`/`ansible-galaxy` installed).
+- `tests/test_cli.py` — `nexus init`/`sync`/`doctor`/etc.; interactive
+  y/N-style prompts are tested by calling the command function directly
+  (e.g. `nexus_cli.init(...)`), not via `CliRunner.invoke()`, since
+  `invoke()` redirects `sys.stdin` itself and silently defeats a
+  `_FakeTTY` monkeypatch.
 
 CI installs `typesafe-sdk` explicitly (`--with typesafe-sdk` in
 `.github/workflows/test.yml`) even though it's an optional runtime extra —
 without it, `judgment.Choice`/`Noul` are `None` and every test short-circuits
 to its fallback path before the mocked `system_one*` call is ever reached,
 silently skipping the code the test claims to cover. If you add a new
-TypeSafe-backed test, run it once with `typesafe-sdk` uninstalled locally to
-confirm it actually fails closed instead of passing for the wrong reason.
+TypeSafe-backed test, run it once with `typesafe-sdk` uninstalled locally
+(`uv pip uninstall --python .venv/bin/python typesafe-sdk`) to confirm it
+actually fails closed instead of passing for the wrong reason.
+
+## The `.md` files aren't code
+
+`tools/epav/skills/*.md` and `tools/agents/*.md` are prose that Claude (or
+another AI coding agent) reads directly and follows with full contextual
+judgment — they are not parsed by any Python here. Don't look for parsing
+logic to "improve" in them; there isn't any, and there isn't meant to be
+(verified by actually reading all 20 of them, not assumed from the file
+extension).
