@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -143,19 +144,26 @@ _KNOWLEDGE_DIRS = [
 
 # ── MCP config ────────────────────────────────────────────────────────────────
 
-_MCP_BLOCK = {
-    "nexus": {
-        "command": "uvx",
-        "args": ["--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"],
-    }
-}
+def _mcp_package_spec(enable_typesafe: bool) -> str:
+    return "nexus-dev-toolkit[typesafe]" if enable_typesafe else "nexus-dev-toolkit"
 
-_OPENCODE_MCP_BLOCK = {
-    "nexus-mcp": {
-        "type": "local",
-        "command": ["uvx", "--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"],
+
+def _mcp_block(enable_typesafe: bool) -> dict:
+    return {
+        "nexus": {
+            "command": "uvx",
+            "args": ["--refresh", "--from", _mcp_package_spec(enable_typesafe), "nexus-mcp"],
+        }
     }
-}
+
+
+def _opencode_mcp_block(enable_typesafe: bool) -> dict:
+    return {
+        "nexus-mcp": {
+            "type": "local",
+            "command": ["uvx", "--refresh", "--from", _mcp_package_spec(enable_typesafe), "nexus-mcp"],
+        }
+    }
 
 _OPENCODE_GRAPHIFY_PLUGIN = """\
 // .opencode/plugins/graphify.js
@@ -235,7 +243,7 @@ def _strip_claude_frontmatter(content: str) -> str:
     return "---" + "\n".join(lines) + "---" + parts[2]
 
 
-def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
+def _init_opencode(project_dir: Path, backend: str = "graphify", enable_typesafe: bool = False) -> list[str]:
     """
     nexus init --tool opencode — sets up:
       .opencode/commands/   ← built-in skills
@@ -285,7 +293,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
             pass
     already_has_mcp = "nexus-mcp" in existing.get("mcp", {})
     existing.setdefault("$schema", "https://opencode.ai/config.json")
-    existing.setdefault("mcp", {}).update(_OPENCODE_MCP_BLOCK)
+    existing.setdefault("mcp", {}).update(_opencode_mcp_block(enable_typesafe))
     opencode_json.write_text(json.dumps(existing, indent=2))
     if not already_has_mcp:
         created.append("opencode.json")
@@ -297,7 +305,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
     return created
 
 
-def _write_mcp_config(project_dir: Path) -> str:
+def _write_mcp_config(project_dir: Path, enable_typesafe: bool = False) -> str:
     mcp_path = project_dir / ".mcp.json"
     existing: dict = {}
     if mcp_path.exists():
@@ -305,7 +313,7 @@ def _write_mcp_config(project_dir: Path) -> str:
             existing = json.loads(mcp_path.read_text())
         except Exception:
             pass
-    existing.setdefault("mcpServers", {}).update(_MCP_BLOCK)
+    existing.setdefault("mcpServers", {}).update(_mcp_block(enable_typesafe))
     mcp_path.write_text(json.dumps(existing, indent=2))
     return ".mcp.json"
 
@@ -383,11 +391,30 @@ def _resolve_graph_backend(explicit: str | None) -> str:
     return {"2": "codegraph", "3": "none"}.get(answer, "graphify")
 
 
+def _resolve_typesafe(explicit: bool | None) -> bool:
+    if explicit is not None:
+        return explicit
+
+    if not sys.stdin.isatty():
+        return False  # unchanged behavior for CI/scripted `nexus init`
+
+    console.print("  Enable TypeSafe/Jev-powered smart detection for EPAV tools?")
+    console.print(
+        "  [dim]Architecture-doc parsing, stack inference, and package-manager\n"
+        "  selection get AI judgment instead of keyword matching. Needs a\n"
+        "  TYPESAFE_API_KEY; falls back to built-in heuristics either way if\n"
+        "  one isn't set, so this is safe to skip and enable later.[/dim]"
+    )
+    answer = console.input(f"  Enable TypeSafe? {escape('[y/N]')} ").strip().lower()
+    return answer == "y"
+
+
 @app.command()
 def init(
     project_dir: str = typer.Argument(".", help="Project directory to initialize"),
     tool: str = typer.Option("claude", "--tool", "-t", help=f"AI coding tool to set up for ({', '.join(_SUPPORTED_TOOLS)})"),
     graph_backend: str = typer.Option(None, "--graph-backend", "-g", help=f"Knowledge graph tool to wire up ({', '.join(_GRAPH_BACKENDS)}). Prompts interactively if omitted."),
+    typesafe: bool = typer.Option(None, "--typesafe/--no-typesafe", help="Enable TypeSafe/Jev-powered smart detection for EPAV tools (needs TYPESAFE_API_KEY). Prompts interactively if omitted."),
 ) -> None:
     """Initialize nexus in a project directory. Defaults to Claude Code."""
     if tool not in _SUPPORTED_TOOLS:
@@ -397,12 +424,13 @@ def init(
     _check_and_offer_install(tool)
 
     backend = _resolve_graph_backend(graph_backend)
+    enable_typesafe = _resolve_typesafe(typesafe)
 
     root = Path(project_dir).resolve()
     console.print(f"  [cyan]▶[/cyan]  Initializing nexus for [bold]{tool}[/bold] in [bold]{root}[/bold]\n")
 
     if tool == "opencode":
-        created = _init_opencode(root, backend)
+        created = _init_opencode(root, backend, enable_typesafe)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
         if not created:
@@ -416,12 +444,15 @@ def init(
         if not created:
             console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
             return
-        mcp = _write_mcp_config(root)
+        mcp = _write_mcp_config(root, enable_typesafe)
         console.print(f"  [green]✓[/green]  {mcp}")
         console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in Claude Code and type [cyan]/scaffold[/cyan]\n")
 
     if backend == "codegraph":
         console.print("  [cyan]→[/cyan]  Next: run [bold]codegraph install && codegraph init[/bold] to wire codegraph into this project (it manages its own auto-sync — no hook needed).\n")
+
+    if enable_typesafe:
+        console.print("  [cyan]→[/cyan]  Next: set [bold]TYPESAFE_API_KEY[/bold] (create one at https://console.typesafe.ai/) — without it, EPAV tools fall back to built-in heuristics automatically.\n")
 
 
 @app.command()
@@ -654,6 +685,29 @@ def doctor(
                     table.add_row("opencode.json", warn("exists but no nexus-mcp entry"))
             except Exception:
                 table.add_row("opencode.json", warn("invalid JSON"))
+
+    # ── TypeSafe / Jev ───────────────────────────────────────────────────────
+    typesafe_wired = False
+    if has_claude_dir and (root / ".mcp.json").exists():
+        try:
+            args = json.loads((root / ".mcp.json").read_text()).get("mcpServers", {}).get("nexus", {}).get("args", [])
+            typesafe_wired = typesafe_wired or "[typesafe]" in " ".join(args)
+        except Exception:
+            pass
+    if has_opencode_dir and (root / "opencode.json").exists():
+        try:
+            cmd = json.loads((root / "opencode.json").read_text()).get("mcp", {}).get("nexus-mcp", {}).get("command", [])
+            typesafe_wired = typesafe_wired or "[typesafe]" in " ".join(cmd)
+        except Exception:
+            pass
+
+    if typesafe_wired:
+        if os.environ.get("TYPESAFE_API_KEY", "").strip():
+            table.add_row("TypeSafe / Jev", ok("enabled — arch-doc parsing, stack inference, and package-manager selection are TypeSafe-powered"))
+        else:
+            table.add_row("TypeSafe / Jev", warn("wired but TYPESAFE_API_KEY not set — falling back to built-in heuristics"))
+    else:
+        table.add_row("TypeSafe / Jev", "[dim]not enabled (optional) — run `nexus init --typesafe` to wire it up[/dim]")
 
     # ── Skills & Agents ──────────────────────────────────────────────────────
     if has_claude_dir:

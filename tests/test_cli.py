@@ -71,6 +71,56 @@ def test_init_creates_mcp_json(tmp_project):
     assert data["mcpServers"]["nexus"]["command"] == "uvx"
 
 
+def test_init_mcp_json_omits_typesafe_extra_by_default(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    data = json.loads((tmp_project / ".mcp.json").read_text())
+    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit"
+
+
+def test_init_typesafe_flag_adds_extra_to_mcp_json(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--typesafe"])
+    assert result.exit_code == 0
+    data = json.loads((tmp_project / ".mcp.json").read_text())
+    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit[typesafe]"
+    assert "TYPESAFE_API_KEY" in _flat(result.output)
+
+
+def test_init_no_typesafe_flag_omits_extra(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--no-typesafe"])
+    data = json.loads((tmp_project / ".mcp.json").read_text())
+    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit"
+
+
+def test_init_typesafe_flag_opencode(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode", "--typesafe"])
+    data = json.loads((tmp_project / "opencode.json").read_text())
+    assert "nexus-dev-toolkit[typesafe]" in data["mcp"]["nexus-mcp"]["command"]
+
+
+def test_init_typesafe_interactive_prompt_yes(monkeypatch, tmp_project):
+    # runner.invoke() redirects sys.stdin itself during CLI dispatch, which
+    # would silently defeat the _FakeTTY monkeypatch -- call the command
+    # function directly instead, matching this file's established pattern
+    # for testing interactive prompts (see test_update_interactive_prompt_*).
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    monkeypatch.setattr("sys.stdin", _FakeTTY())
+    monkeypatch.setattr("nexus_cli.console.input", lambda prompt: "y")
+    nexus_cli.init(str(tmp_project), tool="claude", graph_backend=None, typesafe=None)
+    data = json.loads((tmp_project / ".mcp.json").read_text())
+    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit[typesafe]"
+
+
+def test_init_typesafe_interactive_prompt_empty_defaults_no(monkeypatch, tmp_project):
+    import nexus_cli
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    monkeypatch.setattr("sys.stdin", _FakeTTY())
+    monkeypatch.setattr("nexus_cli.console.input", lambda prompt: "")
+    nexus_cli.init(str(tmp_project), tool="claude", graph_backend=None, typesafe=None)
+    data = json.loads((tmp_project / ".mcp.json").read_text())
+    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit"
+
+
 def test_init_idempotent(tmp_project):
     runner.invoke(app, ["init", str(tmp_project)])
     result = runner.invoke(app, ["init", str(tmp_project)])
@@ -278,6 +328,33 @@ def test_doctor_shows_backend_conflict_note(tmp_project):
     output = _flat(result.output)
     assert result.exit_code == 0
     assert "alternatives, not companions" in output
+
+
+# ── doctor: TypeSafe / Jev ───────────────────────────────────────────────────
+
+def test_doctor_typesafe_not_enabled(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert "TypeSafe / Jev" in output
+    assert "not enabled" in output
+
+
+def test_doctor_typesafe_wired_but_no_api_key(tmp_project, monkeypatch):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    runner.invoke(app, ["init", str(tmp_project), "--typesafe"])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert "TYPESAFE_API_KEY not set" in output
+
+
+def test_doctor_typesafe_enabled_with_api_key(tmp_project, monkeypatch):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
+    runner.invoke(app, ["init", str(tmp_project), "--typesafe"])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    output = _flat(result.output)
+    assert "enabled" in output
+    assert "TypeSafe-powered" in output
 
 
 # ── doctor: version check ────────────────────────────────────────────────────
