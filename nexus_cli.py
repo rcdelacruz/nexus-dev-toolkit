@@ -13,7 +13,7 @@ from rich.table import Table
 
 from tools.epav import graph_backend
 
-_VERSION = "3.1.9-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
+_VERSION = "3.1.11-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
 
 # This branch is published/installed under a distinct package + binary identity
 # from the real "nexus-dev-toolkit" so both can be installed side by side without
@@ -479,7 +479,12 @@ def update(
     else:
         console.print(f"\n  [cyan]▶[/cyan]  Updating {_PACKAGE_NAME}…\n")
         if shutil.which("uv"):
-            subprocess.run(["uv", "tool", "upgrade", _PACKAGE_NAME])
+            # Not `uv tool upgrade` -- confirmed empirically (reproduced 3x) that it can
+            # silently no-op ("Nothing to upgrade") shortly after a fresh PyPI publish,
+            # even once the new version is live and a plain `uv tool install <name>`
+            # (no pin) resolves to it correctly. `install --reinstall` reliably picks up
+            # the real latest version; `upgrade` alone does not.
+            subprocess.run(["uv", "tool", "install", _PACKAGE_NAME, "--reinstall"])
         else:
             subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", _PACKAGE_NAME])
         console.print("\n  [green]✓[/green]  Done.\n")

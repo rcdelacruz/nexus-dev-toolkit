@@ -505,7 +505,7 @@ def test_update_with_sync_flag_reexecs_sync_after_real_upgrade(monkeypatch, tmp_
     result = runner.invoke(app, ["update", "--sync"])
 
     assert result.exit_code == 0
-    assert calls[0] == ["uv", "tool", "upgrade", "nexus-dev-toolkit-jev"]
+    assert calls[0] == ["uv", "tool", "install", "nexus-dev-toolkit-jev", "--reinstall"]
     assert calls[1] == ["/usr/bin/nexus-jev", "sync", str(tmp_project.resolve())]
 
 
