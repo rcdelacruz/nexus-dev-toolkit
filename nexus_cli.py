@@ -23,7 +23,7 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.9"
+_VERSION = "3.1.9-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
 
 
 def _fetch_latest_pypi_version() -> str | None:
@@ -39,7 +39,8 @@ def _fetch_latest_pypi_version() -> str | None:
 
 
 def _version_tuple(v: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in v.split("."))
+    core = v.split("-", 1)[0].split("+", 1)[0]  # strip a local suffix, e.g. "3.1.9-jev" -> "3.1.9"
+    return tuple(int(part) for part in core.split("."))
 
 
 def _is_outdated(installed: str, latest: str) -> bool:

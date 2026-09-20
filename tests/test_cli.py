@@ -357,6 +357,23 @@ def test_doctor_typesafe_enabled_with_api_key(tmp_project, monkeypatch):
     assert "TypeSafe-powered" in output
 
 
+# ── version comparison ───────────────────────────────────────────────────────
+
+def test_version_tuple_strips_local_suffix():
+    import nexus_cli
+    # e.g. the "-jev" experimental-branch disambiguation marker -- a bare
+    # int() per dot-segment would raise on "9-jev" and silently disable the
+    # outdated check entirely (caught by _is_outdated's own except clause).
+    assert nexus_cli._version_tuple("3.1.9-jev") == (3, 1, 9)
+    assert nexus_cli._version_tuple("3.1.9+build.5") == (3, 1, 9)
+
+
+def test_is_outdated_still_detects_newer_pypi_version_with_local_suffix():
+    import nexus_cli
+    assert nexus_cli._is_outdated("3.1.9-jev", "99.0.0") is True
+    assert nexus_cli._is_outdated("3.1.9-jev", "3.1.9-jev") is False
+
+
 # ── doctor: version check ────────────────────────────────────────────────────
 
 def test_doctor_shows_update_available(tmp_project, monkeypatch):
