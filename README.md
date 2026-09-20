@@ -66,10 +66,24 @@ uv tool install nexus-dev-toolkit
 
 ```bash
 cd my-project
-nexus init .                                        # Claude Code (default), prompts for graphify/codegraph/none
+nexus init .                                        # Claude Code (default), prompts for graphify/codegraph/none + TypeSafe
 nexus init . --tool opencode                        # OpenCode
-nexus init . --graph-backend codegraph              # skip the prompt, use codegraph
+nexus init . --graph-backend codegraph              # skip the graph-backend prompt, use codegraph
+nexus init . --typesafe                             # skip the TypeSafe prompt, enable it
 ```
+
+**TypeSafe/Jev** _(optional)_ — replaces a handful of hardcoded keyword-matching
+heuristics in the EPAV tools (which architecture-doc section is about auth vs.
+security, which of ~30 stack tags an arch doc mentions, which package manager
+or IaC tool fits a free-text hint, which CSV column means "acceptance
+criteria") with an actual judgment call. Every one of those tools works
+exactly the same without it — TypeSafe is off by default, `pip install
+nexus-dev-toolkit` never installs it, and every judgment falls back to the
+original heuristic if it isn't enabled or the API call fails. Enable at init
+with `--typesafe` (or answer `y` at the prompt), then set `TYPESAFE_API_KEY`
+(get one at https://console.typesafe.ai/). `nexus doctor` reports whether
+it's wired up and whether the key is set. See `tools/README.md` for how it's
+implemented.
 
 ### 4. Place your reference docs
 
@@ -112,7 +126,7 @@ This generates `graphify-out/graph.json` or `.codegraph/codegraph.db` — EPAV s
 
 ### Day 0 — `/scaffold` (once per project)
 
-Produces a production-grade project from your architecture document and Figma design: correct stack, mock auth, mock data, design system, AGENTS.md — zero external dependencies. Runs `npm install && npm run dev` (or equivalent) from commit one.
+Produces a production-grade project from your architecture document — plus a Figma design, for a project with a UI: correct stack, mock auth, mock data, design system, AGENTS.md — zero external dependencies. Runs `npm install && npm run dev` (or equivalent) from commit one. For an infrastructure-shaped project (Terraform/OpenTofu, Helm, Ansible), there's no Figma/UI/mock-auth step at all — it generates the IaC modules/playbooks/charts instead, validated with `plan`/`lint`/`template`, never `apply`d against real cloud accounts on Day 0.
 
 ### Day 1 — EPAV (every feature, every sprint)
 
@@ -193,14 +207,17 @@ nexus rule add api-standards      # create a project rule
 }
 ```
 
+Add `[typesafe]` to the package name (`"nexus-dev-toolkit[typesafe]"`) to enable
+TypeSafe/Jev-powered detection — `nexus init --typesafe` does this for you.
+
 ### MCP Tools
 
 | Tool | Purpose |
 |---|---|
-| `ingest_architecture_doc` | Load arch doc → `knowledge/rules/arch-summary.md` |
-| `load_task` | Load a CSV task row into context |
+| `ingest_architecture_doc` | Load arch doc → `knowledge/rules/arch-summary.md`; also classifies `project_shape` (web_app, mobile_app, backend_api, infrastructure, data_pipeline, cli_or_library) and `has_infrastructure_component`, so `/scaffold` knows whether to generate a UI shell, IaC deliverables, or both |
+| `load_task` | Load a CSV task row into context — maps whatever column headers your CSV actually uses onto the standard task fields |
 | `generate_project_rules` | Generate `AGENTS.md` from arch doc |
-| `resolve_package_versions` | Resolve exact package versions via real package manager |
+| `resolve_package_versions` | Resolve exact versions via the real tool — npm/pnpm/yarn/pub/go/cargo/maven/gradle/pip, or Terraform/OpenTofu, Helm, and Ansible for infrastructure-shaped projects |
 
 ---
 
