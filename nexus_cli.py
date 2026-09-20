@@ -13,7 +13,20 @@ from rich.table import Table
 
 from tools.epav import graph_backend
 
-app = typer.Typer(name="nexus", no_args_is_help=False, help="nexus-dev-toolkit — Day 0 scaffold + Day 1 EPAV workflow for Claude Code and OpenCode")
+_VERSION = "3.1.9-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
+
+# This branch is published/installed under a distinct package + binary identity
+# from the real "nexus-dev-toolkit" so both can be installed side by side without
+# one silently overwriting the other's `uv tool install` slot -- `uv tool install`
+# keys by package name, not by script name alone. Every place that names the
+# package for install/upgrade/PyPI-lookup purposes must use this constant, not a
+# literal "nexus-dev-toolkit" -- e.g. `nexus-jev update` must upgrade THIS package,
+# never the real one.
+_PACKAGE_NAME = "nexus-dev-toolkit-jev"
+_CLI_BIN = "nexus-jev"
+_MCP_BIN = "nexus-jev-mcp"
+
+app = typer.Typer(name=_CLI_BIN, no_args_is_help=False, help="nexus-dev-toolkit (jev build) — Day 0 scaffold + Day 1 EPAV workflow for Claude Code and OpenCode")
 skill_app = typer.Typer(name="skill", no_args_is_help=True, help="Manage skills in .claude/commands/")
 rule_app = typer.Typer(name="rule", no_args_is_help=True, help="Manage rules in knowledge/rules/")
 agent_app = typer.Typer(name="agent", no_args_is_help=True, help="Manage subagents in .claude/agents/")
@@ -23,15 +36,13 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.9-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
-
 
 def _fetch_latest_pypi_version() -> str | None:
     """Fetch the latest published version from PyPI. None on any failure — offline, timeout,
-    bad response — never raises."""
+    bad response, or package not published under this name — never raises."""
     try:
         with urllib.request.urlopen(
-            "https://pypi.org/pypi/nexus-dev-toolkit/json", timeout=3
+            f"https://pypi.org/pypi/{_PACKAGE_NAME}/json", timeout=3
         ) as resp:
             return json.loads(resp.read())["info"]["version"]
     except Exception:
@@ -69,7 +80,7 @@ def _print_logo() -> None:
 
 def _version_callback(value: bool) -> None:
     if value:
-        console.print(f"nexus-dev-toolkit v{_VERSION}")
+        console.print(f"{_PACKAGE_NAME} v{_VERSION}")
         raise typer.Exit()
 
 
@@ -146,23 +157,23 @@ _KNOWLEDGE_DIRS = [
 # ── MCP config ────────────────────────────────────────────────────────────────
 
 def _mcp_package_spec(enable_typesafe: bool) -> str:
-    return "nexus-dev-toolkit[typesafe]" if enable_typesafe else "nexus-dev-toolkit"
+    return f"{_PACKAGE_NAME}[typesafe]" if enable_typesafe else _PACKAGE_NAME
 
 
 def _mcp_block(enable_typesafe: bool) -> dict:
     return {
-        "nexus": {
+        "nexus-jev": {
             "command": "uvx",
-            "args": ["--refresh", "--from", _mcp_package_spec(enable_typesafe), "nexus-mcp"],
+            "args": ["--refresh", "--from", _mcp_package_spec(enable_typesafe), _MCP_BIN],
         }
     }
 
 
 def _opencode_mcp_block(enable_typesafe: bool) -> dict:
     return {
-        "nexus-mcp": {
+        "nexus-jev-mcp": {
             "type": "local",
-            "command": ["uvx", "--refresh", "--from", _mcp_package_spec(enable_typesafe), "nexus-mcp"],
+            "command": ["uvx", "--refresh", "--from", _mcp_package_spec(enable_typesafe), _MCP_BIN],
         }
     }
 
@@ -292,7 +303,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify", enable_typesafe
             existing = json.loads(opencode_json.read_text())
         except Exception:
             pass
-    already_has_mcp = "nexus-mcp" in existing.get("mcp", {})
+    already_has_mcp = "nexus-jev-mcp" in existing.get("mcp", {})
     existing.setdefault("$schema", "https://opencode.ai/config.json")
     existing.setdefault("mcp", {}).update(_opencode_mcp_block(enable_typesafe))
     opencode_json.write_text(json.dumps(existing, indent=2))
@@ -370,7 +381,7 @@ def _check_and_offer_install(tool: str) -> None:
 _GRAPH_BACKENDS = {
     "graphify": "existing default — this scaffolds the PostToolUse hook that auto-updates it",
     "codegraph": "you run `codegraph install && codegraph init` yourself — it syncs itself, no hook needed",
-    "none": "skip for now — set either up later, `nexus doctor` will detect it",
+    "none": "skip for now — set either up later, doctor will detect it",
 }
 
 
@@ -384,7 +395,7 @@ def _resolve_graph_backend(explicit: str | None) -> str:
     if not sys.stdin.isatty():
         return "graphify"  # unchanged behavior for CI/scripted `nexus init`
 
-    console.print("  Which knowledge graph do you want nexus to wire up?")
+    console.print(f"  Which knowledge graph do you want {_CLI_BIN} to wire up?")
     console.print("    [cyan]1[/cyan] graphify   (default)")
     console.print("    [cyan]2[/cyan] codegraph")
     console.print("    [cyan]3[/cyan] skip for now")
@@ -428,7 +439,7 @@ def init(
     enable_typesafe = _resolve_typesafe(typesafe)
 
     root = Path(project_dir).resolve()
-    console.print(f"  [cyan]▶[/cyan]  Initializing nexus for [bold]{tool}[/bold] in [bold]{root}[/bold]\n")
+    console.print(f"  [cyan]▶[/cyan]  Initializing {_CLI_BIN} for [bold]{tool}[/bold] in [bold]{root}[/bold]\n")
 
     if tool == "opencode":
         created = _init_opencode(root, backend, enable_typesafe)
@@ -466,11 +477,11 @@ def update(
     if latest_version and not _is_outdated(_VERSION, latest_version):
         console.print(f"\n  [green]✓[/green]  Already up to date (v{_VERSION}).\n")
     else:
-        console.print("\n  [cyan]▶[/cyan]  Updating nexus-dev-toolkit…\n")
+        console.print(f"\n  [cyan]▶[/cyan]  Updating {_PACKAGE_NAME}…\n")
         if shutil.which("uv"):
-            subprocess.run(["uv", "tool", "upgrade", "nexus-dev-toolkit"])
+            subprocess.run(["uv", "tool", "upgrade", _PACKAGE_NAME])
         else:
-            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "nexus-dev-toolkit"])
+            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", _PACKAGE_NAME])
         console.print("\n  [green]✓[/green]  Done.\n")
         upgraded = True
 
@@ -481,7 +492,7 @@ def update(
 
         if not also_sync:
             console.print(
-                "  [dim]This only updated the nexus CLI itself. Run [/dim][cyan]nexus sync[/cyan][dim] in each "
+                f"  [dim]This only updated the {_CLI_BIN} CLI itself. Run [/dim][cyan]{_CLI_BIN} sync[/cyan][dim] in each "
                 "project to pull the updated skills/agents into .claude/ or .opencode/ — or pass "
                 "[/dim][cyan]--sync[/cyan][dim] next time to do both at once.[/dim]\n"
             )
@@ -492,20 +503,22 @@ def update(
     if upgraded:
         # This process's own _BUILTIN_SKILLS/_BUILTIN_AGENTS were imported before the upgrade
         # subprocess above ran, so syncing in-process here would silently miss anything newly
-        # added in the version just installed. Re-exec `nexus sync` as a fresh process instead.
-        nexus_bin = shutil.which("nexus")
+        # added in the version just installed. Re-exec `<_CLI_BIN> sync` as a fresh process
+        # instead -- must be this build's own binary, not the real "nexus", or it would re-exec
+        # the stable install's sync (wrong codebase, wrong skill set) instead of this one's.
+        nexus_bin = shutil.which(_CLI_BIN)
         if nexus_bin:
             subprocess.run([nexus_bin, "sync", str(root)])
             return
         console.print(
-            "  [yellow]⚠[/yellow]  Couldn't find [bold]nexus[/bold] on PATH to re-run sync in a fresh "
+            f"  [yellow]⚠[/yellow]  Couldn't find [bold]{_CLI_BIN}[/bold] on PATH to re-run sync in a fresh "
             "process — syncing in-process instead, which may miss anything added in this exact "
-            "upgrade. Run [cyan]nexus sync[/cyan] again afterward to be sure.\n"
+            f"upgrade. Run [cyan]{_CLI_BIN} sync[/cyan] again afterward to be sure.\n"
         )
 
     table = _sync_project(root)
     if table is None:
-        console.print("  [yellow]⚠[/yellow]  Current directory isn't a nexus project — skipping sync.\n")
+        console.print("  [yellow]⚠[/yellow]  Current directory isn't a nexus-jev project — skipping sync.\n")
         return
 
     console.print(f"  [cyan]▶[/cyan]  Syncing built-ins in [bold]{root}[/bold]\n")
@@ -601,7 +614,7 @@ def sync(
     root = Path(project_dir).resolve()
     table = _sync_project(root)
     if table is None:
-        console.print("  [red]✗[/red]  Not a nexus project. Run [cyan]nexus init[/cyan] first.\n")
+        console.print(f"  [red]✗[/red]  Not a nexus project. Run [cyan]{_CLI_BIN} init[/cyan] first.\n")
         raise typer.Exit(1)
 
     console.print(f"\n  [cyan]▶[/cyan]  Syncing built-ins in [bold]{root}[/bold]\n")
@@ -637,9 +650,9 @@ def doctor(
     latest_version = _fetch_latest_pypi_version()
     if latest_version:
         if _is_outdated(_VERSION, latest_version):
-            table.add_row("nexus-dev-toolkit", warn(f"update available: v{_VERSION} → v{latest_version} (run: nexus update)"))
+            table.add_row(_PACKAGE_NAME, warn(f"update available: v{_VERSION} → v{latest_version} (run: {_CLI_BIN} update)"))
         else:
-            table.add_row("nexus-dev-toolkit", ok(f"up to date (v{_VERSION})"))
+            table.add_row(_PACKAGE_NAME, ok(f"up to date (v{_VERSION})"))
 
     # ── Tool ─────────────────────────────────────────────────────────────────
     has_claude_bin = bool(shutil.which("claude"))
@@ -652,9 +665,9 @@ def doctor(
     has_opencode_dir = (root / ".opencode").is_dir()
     initialized = has_claude_dir or has_opencode_dir
     table.add_row(
-        "nexus initialized",
+        f"{_CLI_BIN} initialized",
         ok(f"yes ({', '.join(filter(None, ['claude' if has_claude_dir else '', 'opencode' if has_opencode_dir else '']))})")
-        if initialized else fail("no — run nexus init")
+        if initialized else fail(f"no — run {_CLI_BIN} init")
     )
 
     # MCP config — Claude Code
@@ -665,10 +678,10 @@ def doctor(
         else:
             try:
                 mcp_data = json.loads(mcp_path.read_text())
-                if "nexus" in mcp_data.get("mcpServers", {}):
-                    table.add_row(".mcp.json", ok("nexus entry present"))
+                if "nexus-jev" in mcp_data.get("mcpServers", {}):
+                    table.add_row(".mcp.json", ok("nexus-jev entry present"))
                 else:
-                    table.add_row(".mcp.json", warn("exists but no nexus entry"))
+                    table.add_row(".mcp.json", warn("exists but no nexus-jev entry"))
             except Exception:
                 table.add_row(".mcp.json", warn("invalid JSON"))
 
@@ -680,10 +693,10 @@ def doctor(
         else:
             try:
                 oc_data = json.loads(oc_json.read_text())
-                if "nexus-mcp" in oc_data.get("mcp", {}):
-                    table.add_row("opencode.json", ok("nexus entry present"))
+                if "nexus-jev-mcp" in oc_data.get("mcp", {}):
+                    table.add_row("opencode.json", ok("nexus-jev entry present"))
                 else:
-                    table.add_row("opencode.json", warn("exists but no nexus-mcp entry"))
+                    table.add_row("opencode.json", warn("exists but no nexus-jev-mcp entry"))
             except Exception:
                 table.add_row("opencode.json", warn("invalid JSON"))
 
@@ -691,13 +704,13 @@ def doctor(
     typesafe_wired = False
     if has_claude_dir and (root / ".mcp.json").exists():
         try:
-            args = json.loads((root / ".mcp.json").read_text()).get("mcpServers", {}).get("nexus", {}).get("args", [])
+            args = json.loads((root / ".mcp.json").read_text()).get("mcpServers", {}).get("nexus-jev", {}).get("args", [])
             typesafe_wired = typesafe_wired or "[typesafe]" in " ".join(args)
         except Exception:
             pass
     if has_opencode_dir and (root / "opencode.json").exists():
         try:
-            cmd = json.loads((root / "opencode.json").read_text()).get("mcp", {}).get("nexus-mcp", {}).get("command", [])
+            cmd = json.loads((root / "opencode.json").read_text()).get("mcp", {}).get("nexus-jev-mcp", {}).get("command", [])
             typesafe_wired = typesafe_wired or "[typesafe]" in " ".join(cmd)
         except Exception:
             pass
@@ -708,7 +721,7 @@ def doctor(
         else:
             table.add_row("TypeSafe / Jev", warn("wired but TYPESAFE_API_KEY not set — falling back to built-in heuristics"))
     else:
-        table.add_row("TypeSafe / Jev", "[dim]not enabled (optional) — run `nexus init --typesafe` to wire it up[/dim]")
+        table.add_row("TypeSafe / Jev", f"[dim]not enabled (optional) — run `{_CLI_BIN} init --typesafe` to wire it up[/dim]")
 
     # ── Skills & Agents ──────────────────────────────────────────────────────
     if has_claude_dir:
@@ -718,7 +731,7 @@ def doctor(
         if missing == 0:
             table.add_row("Built-in skills (Claude)", ok(f"all {len(_BUILTIN_SKILLS)} present"))
         else:
-            table.add_row("Built-in skills (Claude)", warn(f"{missing} missing — run nexus sync"))
+            table.add_row("Built-in skills (Claude)", warn(f"{missing} missing — run {_CLI_BIN} sync"))
 
         ag_dir = root / ".claude" / "agents"
         present_ag = [f for f in _BUILTIN_AGENTS if (ag_dir / f).exists()]
@@ -726,7 +739,7 @@ def doctor(
         if missing_ag == 0:
             table.add_row("Built-in agents (Claude)", ok(f"all {len(_BUILTIN_AGENTS)} present"))
         else:
-            table.add_row("Built-in agents (Claude)", warn(f"{missing_ag} missing — run nexus sync"))
+            table.add_row("Built-in agents (Claude)", warn(f"{missing_ag} missing — run {_CLI_BIN} sync"))
 
     if has_opencode_dir:
         oc_cmd_dir = root / ".opencode" / "commands"
@@ -735,7 +748,7 @@ def doctor(
         if missing_oc == 0:
             table.add_row("Built-in skills (OpenCode)", ok(f"all {len(_BUILTIN_SKILLS)} present"))
         else:
-            table.add_row("Built-in skills (OpenCode)", warn(f"{missing_oc} missing — run nexus sync"))
+            table.add_row("Built-in skills (OpenCode)", warn(f"{missing_oc} missing — run {_CLI_BIN} sync"))
 
         oc_ag_dir = root / ".opencode" / "agents"
         present_oc_ag = [f for f in _BUILTIN_AGENTS if (oc_ag_dir / f).exists()]
@@ -743,7 +756,7 @@ def doctor(
         if missing_oc_ag == 0:
             table.add_row("Built-in agents (OpenCode)", ok(f"all {len(_BUILTIN_AGENTS)} present"))
         else:
-            table.add_row("Built-in agents (OpenCode)", warn(f"{missing_oc_ag} missing — run nexus sync"))
+            table.add_row("Built-in agents (OpenCode)", warn(f"{missing_oc_ag} missing — run {_CLI_BIN} sync"))
 
     # ── Knowledge ────────────────────────────────────────────────────────────
     missing_dirs = [d for d in _KNOWLEDGE_DIRS if not (root / d).is_dir()]
@@ -787,7 +800,7 @@ def doctor(
         table.add_row("Stale hook", warn("graphify PostToolUse hook present but codegraph is the active backend — harmless no-op, remove manually if unwanted"))
 
     console.print()
-    console.print("  [dim]Some tools below are alternatives, not companions (e.g. graphify vs codegraph) — nexus flags conflicts here when both are present.[/dim]")
+    console.print("  [dim]Some tools below are alternatives, not companions (e.g. graphify vs codegraph) — nexus-jev flags conflicts here when both are present.[/dim]")
     console.print()
     console.print(table)
     console.print()
@@ -851,12 +864,12 @@ def skill_list(
     commands_dir = root / ".claude" / "commands"
 
     if not commands_dir.exists():
-        console.print("  [yellow]·[/yellow]  No .claude/commands/ found. Run [cyan]nexus init[/cyan] first.")
+        console.print(f"  [yellow]·[/yellow]  No .claude/commands/ found. Run [cyan]{_CLI_BIN} init[/cyan] first.")
         return
 
     skills = sorted(commands_dir.glob("*.md"))
     if not skills:
-        console.print("  [yellow]·[/yellow]  No skills yet. Run [cyan]nexus skill add <name>[/cyan]")
+        console.print(f"  [yellow]·[/yellow]  No skills yet. Run [cyan]{_CLI_BIN} skill add <name>[/cyan]")
         return
 
     table = Table(show_header=True, header_style="dim")
@@ -917,12 +930,12 @@ def rule_list(
     rules_dir = root / "knowledge" / "rules"
 
     if not rules_dir.exists():
-        console.print("  [yellow]·[/yellow]  No knowledge/rules/ found. Run [cyan]nexus init[/cyan] first.")
+        console.print(f"  [yellow]·[/yellow]  No knowledge/rules/ found. Run [cyan]{_CLI_BIN} init[/cyan] first.")
         return
 
     rules = sorted(rules_dir.glob("*.md"))
     if not rules:
-        console.print("  [yellow]·[/yellow]  No rules yet. Run [cyan]nexus rule add <name>[/cyan]")
+        console.print(f"  [yellow]·[/yellow]  No rules yet. Run [cyan]{_CLI_BIN} rule add <name>[/cyan]")
         return
 
     table = Table(show_header=True, header_style="dim")
@@ -990,12 +1003,12 @@ def agent_list(
     agents_dir = root / ".claude" / "agents"
 
     if not agents_dir.exists():
-        console.print("  [yellow]·[/yellow]  No .claude/agents/ found. Run [cyan]nexus init[/cyan] first.")
+        console.print(f"  [yellow]·[/yellow]  No .claude/agents/ found. Run [cyan]{_CLI_BIN} init[/cyan] first.")
         return
 
     agents = sorted(agents_dir.glob("*.md"))
     if not agents:
-        console.print("  [yellow]·[/yellow]  No agents yet. Run [cyan]nexus agent add <name>[/cyan]")
+        console.print(f"  [yellow]·[/yellow]  No agents yet. Run [cyan]{_CLI_BIN} agent add <name>[/cyan]")
         return
 
     table = Table(show_header=True, header_style="dim")

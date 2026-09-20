@@ -67,34 +67,34 @@ def test_init_creates_mcp_json(tmp_project):
     mcp = tmp_project / ".mcp.json"
     assert mcp.exists()
     data = json.loads(mcp.read_text())
-    assert "nexus" in data["mcpServers"]
-    assert data["mcpServers"]["nexus"]["command"] == "uvx"
+    assert "nexus-jev" in data["mcpServers"]
+    assert data["mcpServers"]["nexus-jev"]["command"] == "uvx"
 
 
 def test_init_mcp_json_omits_typesafe_extra_by_default(tmp_project):
     runner.invoke(app, ["init", str(tmp_project)])
     data = json.loads((tmp_project / ".mcp.json").read_text())
-    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit"
+    assert data["mcpServers"]["nexus-jev"]["args"][2] == "nexus-dev-toolkit-jev"
 
 
 def test_init_typesafe_flag_adds_extra_to_mcp_json(tmp_project):
     result = runner.invoke(app, ["init", str(tmp_project), "--typesafe"])
     assert result.exit_code == 0
     data = json.loads((tmp_project / ".mcp.json").read_text())
-    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit[typesafe]"
+    assert data["mcpServers"]["nexus-jev"]["args"][2] == "nexus-dev-toolkit-jev[typesafe]"
     assert "TYPESAFE_API_KEY" in _flat(result.output)
 
 
 def test_init_no_typesafe_flag_omits_extra(tmp_project):
     runner.invoke(app, ["init", str(tmp_project), "--no-typesafe"])
     data = json.loads((tmp_project / ".mcp.json").read_text())
-    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit"
+    assert data["mcpServers"]["nexus-jev"]["args"][2] == "nexus-dev-toolkit-jev"
 
 
 def test_init_typesafe_flag_opencode(tmp_project):
     runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode", "--typesafe"])
     data = json.loads((tmp_project / "opencode.json").read_text())
-    assert "nexus-dev-toolkit[typesafe]" in data["mcp"]["nexus-mcp"]["command"]
+    assert "nexus-dev-toolkit-jev[typesafe]" in data["mcp"]["nexus-jev-mcp"]["command"]
 
 
 def test_init_typesafe_interactive_prompt_yes(monkeypatch, tmp_project):
@@ -108,7 +108,7 @@ def test_init_typesafe_interactive_prompt_yes(monkeypatch, tmp_project):
     monkeypatch.setattr("nexus_cli.console.input", lambda prompt: "y")
     nexus_cli.init(str(tmp_project), tool="claude", graph_backend=None, typesafe=None)
     data = json.loads((tmp_project / ".mcp.json").read_text())
-    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit[typesafe]"
+    assert data["mcpServers"]["nexus-jev"]["args"][2] == "nexus-dev-toolkit-jev[typesafe]"
 
 
 def test_init_typesafe_interactive_prompt_empty_defaults_no(monkeypatch, tmp_project):
@@ -118,7 +118,7 @@ def test_init_typesafe_interactive_prompt_empty_defaults_no(monkeypatch, tmp_pro
     monkeypatch.setattr("nexus_cli.console.input", lambda prompt: "")
     nexus_cli.init(str(tmp_project), tool="claude", graph_backend=None, typesafe=None)
     data = json.loads((tmp_project / ".mcp.json").read_text())
-    assert data["mcpServers"]["nexus"]["args"][2] == "nexus-dev-toolkit"
+    assert data["mcpServers"]["nexus-jev"]["args"][2] == "nexus-dev-toolkit-jev"
 
 
 def test_init_idempotent(tmp_project):
@@ -199,9 +199,9 @@ def test_init_opencode_creates_opencode_json(tmp_project):
     config = tmp_project / "opencode.json"
     assert config.exists()
     data = json.loads(config.read_text())
-    assert "nexus-mcp" in data["mcp"]
-    assert data["mcp"]["nexus-mcp"]["type"] == "local"
-    assert data["mcp"]["nexus-mcp"]["command"][0] == "uvx"
+    assert "nexus-jev-mcp" in data["mcp"]
+    assert data["mcp"]["nexus-jev-mcp"]["type"] == "local"
+    assert data["mcp"]["nexus-jev-mcp"]["command"][0] == "uvx"
 
 
 def test_init_opencode_idempotent(tmp_project):
@@ -401,7 +401,7 @@ def test_doctor_skips_version_row_when_pypi_unreachable(tmp_project):
     runner.invoke(app, ["init", str(tmp_project)])
     result = runner.invoke(app, ["doctor", str(tmp_project)])
     assert result.exit_code == 0
-    assert "nexus-dev-toolkit" not in result.output
+    assert "nexus-dev-toolkit-jev" not in result.output
 
 
 # ── built-in registration ────────────────────────────────────────────────────
@@ -450,7 +450,7 @@ def test_update_runs_upgrade_when_outdated(monkeypatch):
     result = runner.invoke(app, ["update"])
     assert result.exit_code == 0
     assert called.get("ran") is True
-    assert "nexus sync" in _flat(result.output)
+    assert "nexus-jev sync" in _flat(result.output)
 
 
 def test_update_shows_sync_reminder_even_when_already_up_to_date(monkeypatch):
@@ -459,7 +459,7 @@ def test_update_shows_sync_reminder_even_when_already_up_to_date(monkeypatch):
     monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
     result = runner.invoke(app, ["update"])
     assert result.exit_code == 0
-    assert "nexus sync" in _flat(result.output)
+    assert "nexus-jev sync" in _flat(result.output)
 
 
 def test_update_with_sync_flag_skips_reminder(monkeypatch, tmp_project):
@@ -469,8 +469,8 @@ def test_update_with_sync_flag_skips_reminder(monkeypatch, tmp_project):
     monkeypatch.chdir(tmp_project)
     result = runner.invoke(app, ["update", "--sync"])
     assert result.exit_code == 0
-    assert "Run nexus sync" not in result.output
-    assert "isn't a nexus project" in result.output
+    assert "Run nexus-jev sync" not in result.output
+    assert "isn't a nexus-jev project" in result.output
 
 
 def test_update_with_sync_flag_syncs_current_project(monkeypatch, tmp_project):
@@ -487,7 +487,7 @@ def test_update_with_sync_flag_syncs_current_project(monkeypatch, tmp_project):
 
 
 def test_update_with_sync_flag_reexecs_sync_after_real_upgrade(monkeypatch, tmp_project):
-    """After an actual upgrade, sync must run as a fresh `nexus sync` process, not in-process —
+    """After an actual upgrade, sync must run as a fresh `nexus-jev sync` process, not in-process —
     this process's own _BUILTIN_SKILLS/_BUILTIN_AGENTS were imported before the upgrade ran, so
     calling _sync_project() directly here would silently miss anything the upgrade just added."""
     import nexus_cli
@@ -505,8 +505,8 @@ def test_update_with_sync_flag_reexecs_sync_after_real_upgrade(monkeypatch, tmp_
     result = runner.invoke(app, ["update", "--sync"])
 
     assert result.exit_code == 0
-    assert calls[0] == ["uv", "tool", "upgrade", "nexus-dev-toolkit"]
-    assert calls[1] == ["/usr/bin/nexus", "sync", str(tmp_project.resolve())]
+    assert calls[0] == ["uv", "tool", "upgrade", "nexus-dev-toolkit-jev"]
+    assert calls[1] == ["/usr/bin/nexus-jev", "sync", str(tmp_project.resolve())]
 
 
 def test_update_sync_falls_back_in_process_when_nexus_not_on_path(monkeypatch, tmp_project):
@@ -541,7 +541,7 @@ def test_update_interactive_prompt_yes_runs_sync(monkeypatch, tmp_project, capsy
 
     output = _flat(capsys.readouterr().out)
     assert "Syncing built-ins" in output
-    assert "Run nexus sync" not in output
+    assert "Run nexus-jev sync" not in output
 
 
 def test_update_interactive_prompt_no_shows_reminder(monkeypatch, tmp_project, capsys):
@@ -557,7 +557,7 @@ def test_update_interactive_prompt_no_shows_reminder(monkeypatch, tmp_project, c
 
     output = _flat(capsys.readouterr().out)
     assert "Syncing built-ins" not in output
-    assert "nexus sync" in output
+    assert "nexus-jev sync" in output
 
 
 def test_update_interactive_prompt_empty_answer_defaults_no(monkeypatch, tmp_project, capsys):

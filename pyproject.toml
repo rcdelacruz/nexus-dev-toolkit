@@ -1,7 +1,7 @@
 [project]
-name = "nexus-dev-toolkit"
+name = "nexus-dev-toolkit-jev"
 version = "3.1.9"
-description = "Developer workflow toolkit for Claude Code — Day 0 scaffold + Day 1 EPAV"
+description = "Developer workflow toolkit for Claude Code — Day 0 scaffold + Day 1 EPAV (experimental TypeSafe/Jev build -- installs as nexus-jev/nexus-jev-mcp, side by side with the real nexus-dev-toolkit)"
 authors = [
     {name = "Ronald dela Cruz", email = "rcdelacruz@users.noreply.github.com"}
 ]
@@ -15,8 +15,8 @@ dependencies = [
 ]
 
 [project.scripts]
-nexus = "nexus_cli:main"
-nexus-mcp = "nexus_server:main"
+nexus-jev = "nexus_cli:main"
+nexus-jev-mcp = "nexus_server:main"
 
 [project.urls]
 Homepage = "https://nexus.coderstudio.co"
