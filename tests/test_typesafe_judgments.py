@@ -6,7 +6,7 @@ path is exercised by patching them to return None (exactly what happens with
 no TYPESAFE_API_KEY set, per `tools.epav.judgment`'s own fail-soft contract).
 """
 
-from tools.epav import arch_ingest, judgment, package_resolver, project_rules, task_loader
+from tools.epav import arch_ingest, design_ingest, judgment, package_resolver, project_rules, task_loader
 
 
 class _FakeChoiceAnswer:
@@ -228,3 +228,24 @@ async def test_map_csv_headers_falls_back_when_typesafe_unavailable(monkeypatch)
 def test_map_csv_headers_fallback_ignores_unrelated_columns():
     mapping = task_loader._map_csv_headers_fallback(["Priority", "Sprint"])
     assert mapping == {}
+
+
+# ── design_ingest: token role mapping ────────────────────────────────────────
+
+async def test_map_token_roles_uses_typesafe_choice(monkeypatch):
+    async def fake_system_one_async(state, questions):
+        assert set(questions) == {"t0", "t1"}
+        return _FakeResponse(choices={
+            "t0": _FakeChoiceAnswer("primary", 0.99),
+            "t1": _FakeChoiceAnswer("other", 0.9),
+        })
+
+    monkeypatch.setattr(judgment, "system_one_async", fake_system_one_async)
+    mapping = await design_ingest._map_token_roles(["cta-color", "z-index-modal"])
+    assert mapping == {"cta-color": "primary"}  # "other" -> correctly omitted
+
+
+async def test_map_token_roles_falls_back_when_typesafe_unavailable(monkeypatch):
+    monkeypatch.setattr(judgment, "system_one_async", _returns_none)
+    mapping = await design_ingest._map_token_roles(["brand-500", "space-4"])
+    assert mapping == {"brand-500": "primary", "space-4": "spacing"}

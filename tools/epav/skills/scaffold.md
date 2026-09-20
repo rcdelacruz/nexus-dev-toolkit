@@ -3,7 +3,8 @@
 **Day 0 — Production Scaffold** (one-time project setup)
 
 Generates a complete production-grade scaffold from the architecture document
-(plus a Figma export, for project shapes that have a UI). What gets generated
+(plus a design export — a Figma export or a Claude-Design HTML mockup — for
+project shapes that have a UI). What gets generated
 depends on two independent fields from `ingest_architecture_doc`: `project_shape`
 (the primary output — a single choice, it can't be more than one of these) and
 `has_infrastructure_component` (a separate yes/no — true whenever the doc ALSO
@@ -12,8 +13,8 @@ defines its own infrastructure-as-code, regardless of `project_shape`):
 | `project_shape` | Output |
 |---|---|
 | `web_app` / `mobile_app` | infrastructure boilerplate + design system + UI shell + AGENTS.md + knowledge/ |
-| `backend_api` / `data_pipeline` / `cli_or_library` | infrastructure boilerplate + AGENTS.md + knowledge/ — no UI shell, no Figma |
-| `infrastructure` | IaC modules/playbooks/charts + AGENTS.md + knowledge/ — no application boilerplate, no UI shell, no Figma |
+| `backend_api` / `data_pipeline` / `cli_or_library` | infrastructure boilerplate + AGENTS.md + knowledge/ — no UI shell, no design step |
+| `infrastructure` | IaC modules/playbooks/charts + AGENTS.md + knowledge/ — no application boilerplate, no UI shell, no design step |
 
 **If `has_infrastructure_component` is also `true`** for any non-`infrastructure`
 shape above (e.g. a 3-tier app whose doc also defines the Terraform/OpenTofu
@@ -45,9 +46,15 @@ Before running /scaffold:
 1. Architecture document must be in `docs/arch-docs/`
 2. Run: `ingest_architecture_doc` MCP tool on `docs/arch-docs/` — read its
    `project_shape` field first, it determines the rest of this checklist.
-3. **If `project_shape` is `web_app` or `mobile_app`:** a Figma export ZIP
-   must also be available in `docs/designs/`. Run: `ingest_figma_zip` MCP tool on it.
-4. **Any other `project_shape`:** no Figma/UI step — there's no design to
+3. **If `project_shape` is `web_app` or `mobile_app`:** a design export
+   must also be available in `docs/designs/` — a Figma export ZIP, a Figma
+   dev-mode export directory, or a standalone HTML mockup (e.g. one
+   produced by Claude's Design artifact type). Run: `ingest_design_export`
+   MCP tool on it for a structured token pass — it only extracts CSS
+   custom properties, so still read the actual file yourself in EVALUATE
+   below (a Figma export's inline JS token arrays, and everything else a
+   full read would catch, aren't covered by the tool).
+4. **Any other `project_shape`:** no design/UI step — there's no design to
    ingest. Skip straight to EVALUATE.
 
 ---
@@ -55,7 +62,8 @@ Before running /scaffold:
 ## EVALUATE — Understand the Architecture (and Design, if there is a UI)
 
 Load `docs/arch-docs/` (ARCH doc + ADRs). If `project_shape` is `web_app` or
-`mobile_app`, also load the Figma export. Then walk through:
+`mobile_app`, also load the design export (plus `ingest_design_export`'s
+token pass, if you haven't run it yet). Then walk through:
 
 **Architecture (always):**
 1. The stack decisions and why they were made
@@ -105,6 +113,11 @@ Figma exports colors in oklch or hex — never copy them raw. Convert to the tar
 - Flutter: `Color(0xFF...)` or generated `color_theme.dart`
 - React Native: hex strings in a `colors.ts` theme file
 
+(A Claude-Design HTML mockup's tokens are usually already plain CSS values —
+check what `ingest_design_export` actually returned per token before assuming
+a conversion is needed; don't apply the Figma oklch/hex rule to a source that
+was never Figma.)
+
 Do NOT generate code yet. Produce an EVALUATE SUMMARY covering points 1-6
 always, plus 7-10 for `web_app`/`mobile_app`. Stop and wait for confirmation
 before proceeding to PLAN.
@@ -113,7 +126,7 @@ before proceeding to PLAN.
 
 ## PLAN — Boilerplate (+ UI Shell, if there is one) + Project Rules
 
-Based on the architecture document (and Figma design, if applicable), plan:
+Based on the architecture document (and design export, if applicable), plan:
 
 **1. INFRASTRUCTURE BOILERPLATE** — `web_app` / `mobile_app` / `backend_api` / `data_pipeline`
 - Project structure — every directory, annotated
@@ -136,10 +149,10 @@ alongside item 1 otherwise (e.g. the 3-tier-app-with-its-own-Terraform case)
 - What runs `plan`/`lint` on PR vs. `apply` on merge — plan the CI shape,
   don't wire real CI credentials in Day 0
 
-**2. UI SHELL (from Figma)** — `web_app` / `mobile_app` only, skip entirely otherwise
+**2. UI SHELL (from design export)** — `web_app` / `mobile_app` only, skip entirely otherwise
 - Design system config (tailwind.config.ts, globals.css, CSS custom properties, font loading)
 - Component architecture (name, path, props interface, variants, composition, accessibility)
-- Page layouts (every page from the Figma, structured with placeholder data)
+- Page layouts (every page from the design export, structured with placeholder data)
 - Build order (component dependency chain)
 
 **3. AGENTS.md (cross-tool project rules)**
@@ -270,8 +283,8 @@ alongside item 1 otherwise:
   Day 0
 - CI pipeline config: lint + plan/dry-run on PR (never apply)
 
-**2. UI shell (matching Figma exactly)** — `web_app` / `mobile_app` only, skip entirely otherwise:
-- Design system config (tailwind.config.ts, globals.css — tokens from Figma)
+**2. UI shell (matching the design export exactly)** — `web_app` / `mobile_app` only, skip entirely otherwise:
+- Design system config (tailwind.config.ts, globals.css — tokens from the design export)
 - **Any hand-written base selector in globals.css (`a`, `body`, `input:focus`,
   `thead th`, etc.) MUST be wrapped in `@layer base { ... }`.** Tailwind v4
   emits its own utilities into a cascade layer; an unlayered rule beats a
@@ -288,7 +301,7 @@ alongside item 1 otherwise:
   instead — don't assume `text-align: center` survives the port.
 - All components with TypeScript props and ALL visual states:
   (default, hover, focus, disabled, loading, empty, error)
-- All page layouts responsive to Figma breakpoints
+- All page layouts responsive to the design export's breakpoints
 - Semantic HTML + ARIA attributes throughout
 - Placeholder/mock data — NOT real API calls
 - Prop interfaces defined so Day 1 can wire real data without changing the component
@@ -373,7 +386,7 @@ to the checklist until it exits 0. A failed build/plan/lint is an automatic
 
 ---
 
-Review everything against the architecture doc (and Figma, for `web_app`/`mobile_app`).
+Review everything against the architecture doc (and the design export, for `web_app`/`mobile_app`).
 
 **Packages:**
 1. Are all dependencies on stable versions (no beta/canary/RC)?
@@ -391,7 +404,7 @@ Review everything against the architecture doc (and Figma, for `web_app`/`mobile
 10′. **Whenever `has_infrastructure_component` is true:** Is the state backend remote and locked (not local state)? Is it encrypted at rest? Are there zero plaintext secrets/credentials committed anywhere in `.tf`/`.yml` files?
 
 **UI fidelity — `web_app` / `mobile_app` only, skip entirely otherwise:**
-11. Do components match the Figma design?
+11. Do components match the design export?
 12. Responsive at 320px, 768px, 1024px, 1440px?
 13. All visual states render with placeholder data?
 14. Accessibility — keyboard nav, WCAG AA contrast?
