@@ -46,7 +46,7 @@ Before running /scaffold:
 2. Run: `ingest_architecture_doc` MCP tool on `docs/arch-docs/` — read its
    `project_shape` field first, it determines the rest of this checklist.
 3. **If `project_shape` is `web_app` or `mobile_app`:** a Figma export ZIP
-   must also be available. Run: `ingest_figma_zip` MCP tool on it.
+   must also be available in `docs/designs/`. Run: `ingest_figma_zip` MCP tool on it.
 4. **Any other `project_shape`:** no Figma/UI step — there's no design to
    ingest. Skip straight to EVALUATE.
 

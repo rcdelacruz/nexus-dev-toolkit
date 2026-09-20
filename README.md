@@ -92,7 +92,7 @@ Before running `/scaffold`, put everything Claude needs in `docs/`:
 ```
 docs/
 ├── arch-docs/   ← architecture doc, ADRs
-├── figma/       ← Figma export ZIP
+├── designs/     ← design export (Figma export ZIP, or a Claude-Design HTML mockup)
 ├── brd/         ← Business Requirements Document
 └── prd/         ← Product Requirements Document
 ```
