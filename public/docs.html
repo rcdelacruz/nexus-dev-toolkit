@@ -575,6 +575,15 @@
 <span class="prompt">$</span> <span class="cmd">nexus init</span> .                        <span class="comment"># Claude Code (default)</span>
 <span class="prompt">$</span> <span class="cmd">nexus init</span> . <span class="arg">--tool opencode</span>       <span class="comment"># OpenCode</span></code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
 
+    <div class="callout">
+      <strong>First time opening this project in Claude Code</strong>, you'll see a one-time prompt:
+      "New MCP server found in this project: nexus" — choose <code>Use this MCP server</code> (or
+      <code>Use this and all future MCP servers in this project</code>). Picking
+      <code>Continue without using this MCP server</code> means none of the EPAV tools
+      (<code>ingest_architecture_doc</code>, <code>resolve_package_versions</code>, etc.) will actually
+      be available during that session, even though <code>.mcp.json</code> is configured correctly.
+    </div>
+
     <h3 id="init-claude">Claude Code (default)</h3>
 
     <pre><code>.claude/
@@ -1485,6 +1494,16 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
 
     <pre><code><span class="prompt">$</span> <span class="cmd">cd</span> my-project
 <span class="prompt">$</span> <span class="cmd">nexus-jev init</span> . --typesafe    <span class="comment"># prompts if --typesafe/--no-typesafe omitted</span></code><button class="copy-btn" onclick="copy(this, 'nexus-jev init . --typesafe')">copy</button></pre>
+
+    <div class="callout">
+      <strong>First time opening this project in Claude Code</strong>, you'll see a one-time prompt:
+      "New MCP server found in this project: nexus-jev" — choose <code>Use this MCP server</code> (or
+      <code>Use this and all future MCP servers in this project</code>). Picking
+      <code>Continue without using this MCP server</code> means none of the EPAV tools
+      (<code>ingest_architecture_doc</code>, <code>resolve_package_versions</code>, etc.) will actually
+      be available, even though <code>.mcp.json</code> is configured correctly — this applies to the
+      regular <code>nexus</code> MCP server the same way, not just <code>nexus-jev</code>.
+    </div>
 
     <p>Enabling TypeSafe needs one more step: set a <code>TYPESAFE_API_KEY</code> (get one at
       <a href="https://console.typesafe.ai/" target="_blank" style="color:var(--cyan-dim);">console.typesafe.ai</a>).
