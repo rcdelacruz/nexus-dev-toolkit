@@ -455,6 +455,11 @@
     <a href="#commands" class="sub">→ nexus doctor</a>
     <a href="#knowledge">knowledge/ layout</a>
 
+    <div class="nav-section" style="color: var(--yellow);">Experimental</div>
+    <a href="#jev">nexus-jev (TypeSafe)</a>
+    <a href="#jev-install" class="sub">→ Install</a>
+    <a href="#jev-usage" class="sub">→ Usage</a>
+
     <div class="nav-section">Links</div>
     <a href="/">← Home</a>
     <a href="/workflow">Workflow diagram</a>
@@ -1444,6 +1449,90 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
 │   └── implement-and-test.md <span class="comment">← E→P→A→V pattern</span>
 ├── prompts/dev/             <span class="comment">← task prompt templates</span>
 └── retros/                  <span class="comment">← [BACKLOG] items from /validate</span></code></pre>
+
+    <!-- nexus-jev -->
+    <h2 id="jev">nexus-jev — Experimental TypeSafe/Jev Build</h2>
+
+    <div class="callout warn">
+      <strong>nexus-dev-toolkit-jev</strong> is a separate, independently-versioned package from
+      <code>nexus-dev-toolkit</code> — different name, different commands (<code>nexus-jev</code> /
+      <code>nexus-jev-mcp</code>), its own release history on PyPI. Installing it never touches your
+      existing <code>nexus</code> install.
+    </div>
+
+    <p>Replaces a handful of hardcoded keyword-matching heuristics in the EPAV tools with an actual AI
+      judgment call via <a href="https://docs.typesafe.ai" target="_blank"
+        style="color:var(--cyan-dim);">TypeSafe</a>'s Jev model — which architecture-doc section is about
+      auth vs. security, which of ~30 stack tags an arch doc mentions, which package manager or IaC tool
+      fits a free-text hint, which CSV column means "acceptance criteria," which design-token name maps to
+      which role. Every tool works exactly the same without it: TypeSafe is off by default, and every
+      judgment falls back to the original heuristic if it isn't enabled or the API call fails.</p>
+
+    <p>Also adds support for infrastructure-shaped projects: <code>project_shape</code> (web_app /
+      mobile_app / backend_api / infrastructure / data_pipeline / cli_or_library) and
+      <code>has_infrastructure_component</code>, so <code>/scaffold</code> can generate
+      Terraform/OpenTofu, Helm, or Ansible deliverables instead of — or alongside — application
+      boilerplate.</p>
+
+    <h3 id="jev-install">Install</h3>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> nexus-dev-toolkit-jev</code><button class="copy-btn" onclick="copy(this, 'uv tool install nexus-dev-toolkit-jev')">copy</button></pre>
+
+    <p>Installs <code>nexus-jev</code> and <code>nexus-jev-mcp</code> as real, separate commands — run them
+      side by side with <code>nexus</code> / <code>nexus-mcp</code> on the same machine, no conflict.</p>
+
+    <h3 id="jev-usage">Usage</h3>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">cd</span> my-project
+<span class="prompt">$</span> <span class="cmd">nexus-jev init</span> . --typesafe    <span class="comment"># prompts if --typesafe/--no-typesafe omitted</span></code><button class="copy-btn" onclick="copy(this, 'nexus-jev init . --typesafe')">copy</button></pre>
+
+    <p>Enabling TypeSafe needs one more step: set a <code>TYPESAFE_API_KEY</code> (get one at
+      <a href="https://console.typesafe.ai/" target="_blank" style="color:var(--cyan-dim);">console.typesafe.ai</a>).
+      Without it, every tool below falls back to its original heuristic automatically — nothing breaks,
+      you just don't get the smarter detection.</p>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">export</span> TYPESAFE_API_KEY=your-key-here
+<span class="prompt">$</span> <span class="cmd">nexus-jev doctor</span>    <span class="comment"># reports whether TypeSafe is wired up and the key is set</span></code><button class="copy-btn" onclick="copy(this, 'nexus-jev doctor')">copy</button></pre>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>TypeSafe-powered judgment</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ingest_architecture_doc</code></td>
+          <td>Which category a doc section belongs to; <code>project_shape</code> /
+            <code>has_infrastructure_component</code></td>
+        </tr>
+        <tr>
+          <td><code>generate_project_rules</code></td>
+          <td>Which of ~30 stack tags an arch doc mentions (Next.js, Django, Terraform/OpenTofu,
+            Kubernetes, ...)</td>
+        </tr>
+        <tr>
+          <td><code>resolve_package_versions</code></td>
+          <td>Which package manager or IaC tool (npm/pnpm/yarn/pub/go/cargo/maven/gradle/pip,
+            Terraform/OpenTofu, Helm, Ansible) fits a free-text stack hint</td>
+        </tr>
+        <tr>
+          <td><code>load_task</code></td>
+          <td>Which canonical task field a CSV column maps to, regardless of header naming</td>
+        </tr>
+        <tr>
+          <td><code>ingest_design_export</code> <span style="color:var(--yellow);font-size:0.75em;">(new)</span></td>
+          <td>Which design-token role a CSS custom property plays (primary, error, spacing, ...) — accepts
+            a Figma export or a standalone HTML mockup (e.g. from Claude's Design artifact type)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="margin-top:1.5rem;">Full write-up — including the Terraform/OpenTofu/Helm/Ansible support
+      and version-resolution mechanics — lives in the repo:
+      <a href="https://github.com/rcdelacruz/nexus-dev-toolkit/tree/experimental-jev" target="_blank"
+        style="color:var(--cyan-dim);">experimental-jev branch</a> and its <code>tools/README.md</code>.</p>
 
     <div
       style="margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.7rem;">

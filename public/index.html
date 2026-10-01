@@ -334,6 +334,20 @@
     </div>
   </div>
 
+  <div class="install-box" style="border-color: var(--yellow);">
+    <div class="install-label" style="color: var(--yellow);">Experimental — TypeSafe/Jev build</div>
+    <div class="install-cmd">
+      <code>
+        <span class="prompt">$</span>
+        <span class="cmd"> uv tool install </span><span class="url">nexus-dev-toolkit-jev</span>
+      </code>
+      <button class="copy-btn" onclick="copy(this, 'uv tool install nexus-dev-toolkit-jev')">copy</button>
+    </div>
+    <div style="color: var(--muted); font-size: 0.7rem; margin-top: 0.6rem;">
+      Installs as <code style="color:var(--cyan)">nexus-jev</code> / <code style="color:var(--cyan)">nexus-jev-mcp</code> — a separate command, side by side with <code style="color:var(--cyan)">nexus</code>, never overwrites it. AI-judgment-powered arch-doc parsing, stack detection, and IaC (Terraform/OpenTofu/Helm/Ansible) support. <a href="/docs#jev" style="color: var(--cyan-dim);">→ full details</a>
+    </div>
+  </div>
+
   <div class="use-cases">
     <div class="use-cases-label">Workflow</div>
     <div class="uc-grid">
