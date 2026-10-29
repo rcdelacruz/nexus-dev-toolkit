@@ -30,3 +30,7 @@ htmlcov/
 graphify-out/
 
 .claude/
+
+# Local tooling
+.mcp.json
+.wrangler/
