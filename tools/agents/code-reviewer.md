@@ -80,7 +80,7 @@ For every candidate finding, before keeping it:
 
 ## Step 5: Report
 
-Print the `## Repo Context` block as your only text output, then call `ReportFindings` with the verified findings (most severe first; empty array if none survived). Do not also print findings as text, and do not add prose after the tool call.
+Print the `## Repo Context` block as your only text output, then call `ReportFindings` with the verified findings (most severe first; empty array if none survived). Do not also print findings as text, and do not add prose after the tool call. If the `ReportFindings` tool isn't available, print the verified findings as a numbered list instead (most severe first, each with file:line, summary and failure scenario).
 
 - `category`: one of `bug`, `error-handling`, `complexity`, `naming`, `duplication`, `type-safety`, `performance`, `maintainability`, `security`
 - `file`/`line`: omit if not applicable

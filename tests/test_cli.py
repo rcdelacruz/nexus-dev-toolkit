@@ -549,3 +549,150 @@ def test_doctor_stale_graphify_hook_warns(tmp_project, monkeypatch):
     assert result.exit_code == 0
     assert "Stale hook" in output
     assert "codegraph is the active backend" in output
+
+
+# ── init --tool codex ────────────────────────────────────────────────────────
+
+import tomllib  # noqa: E402 — test-only; runtime code stays 3.10-compatible
+
+_EPAV_SKILLS_WITHOUT_FRONTMATTER = [
+    s for s in _BUILTIN_SKILLS
+    if not (Path(__file__).parent.parent / "tools" / "epav" / "skills" / s).read_text().startswith("---")
+]
+
+
+def _frontmatter(text: str) -> dict:
+    assert text.startswith("---"), "SKILL.md must start with frontmatter"
+    fields = {}
+    for line in text.split("---", 2)[1].splitlines():
+        key, sep, value = line.partition(":")
+        if sep:
+            fields[key.strip()] = value.strip().strip('"')
+    return fields
+
+
+def test_init_codex_creates_skills(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    assert result.exit_code == 0
+    for skill in _BUILTIN_SKILLS:
+        stem = Path(skill).stem
+        skill_md = tmp_project / ".agents" / "skills" / stem / "SKILL.md"
+        assert skill_md.exists(), f"Missing skill: {stem}"
+        fields = _frontmatter(skill_md.read_text())
+        assert fields.get("name") == stem
+        assert fields.get("description"), f"{stem} has an empty description"
+
+
+def test_init_codex_epav_skills_are_explicit_only(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    assert _EPAV_SKILLS_WITHOUT_FRONTMATTER, "expected some frontmatter-less EPAV skills"
+    for skill in _BUILTIN_SKILLS:
+        yaml_path = tmp_project / ".agents" / "skills" / Path(skill).stem / "agents" / "openai.yaml"
+        if skill in _EPAV_SKILLS_WITHOUT_FRONTMATTER:
+            assert "allow_implicit_invocation: false" in yaml_path.read_text()
+        else:
+            assert not yaml_path.exists(), f"{skill} should stay implicitly invocable"
+
+
+def test_init_codex_creates_agent_tomls(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    for agent in _BUILTIN_AGENTS:
+        toml_path = tmp_project / ".codex" / "agents" / f"{Path(agent).stem}.toml"
+        assert toml_path.exists(), f"Missing agent: {agent}"
+        data = tomllib.loads(toml_path.read_text())
+        assert data["name"] and data["description"] and data["developer_instructions"]
+        assert "model" not in data and "tools" not in data
+
+
+def test_init_codex_creates_config_toml(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    data = tomllib.loads((tmp_project / ".codex" / "config.toml").read_text())
+    assert data["mcp_servers"]["nexus"]["command"] == "uvx"
+    assert data["mcp_servers"]["nexus"]["args"][-1] == "nexus-mcp"
+
+
+def test_init_codex_preserves_existing_config_toml(tmp_project):
+    existing = 'model = "gpt-5"\n\n[mcp_servers.other]\ncommand = "other"'
+    (tmp_project / ".codex").mkdir()
+    (tmp_project / ".codex" / "config.toml").write_text(existing)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    text = (tmp_project / ".codex" / "config.toml").read_text()
+    assert text.startswith(existing)
+    data = tomllib.loads(text)
+    assert set(data["mcp_servers"]) == {"other", "nexus"}
+
+
+def test_init_codex_does_not_duplicate_nexus_mcp_entry(tmp_project):
+    (tmp_project / ".codex").mkdir()
+    (tmp_project / ".codex" / "config.toml").write_text('[mcp_servers.nexus]\ncommand = "custom"\n')
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    text = (tmp_project / ".codex" / "config.toml").read_text()
+    assert text.count("[mcp_servers.nexus]") == 1
+    assert 'command = "custom"' in text
+
+
+def test_init_codex_creates_graphify_hook(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    data = json.loads((tmp_project / ".codex" / "hooks.json").read_text())
+    entry = data["hooks"]["PostToolUse"][0]
+    assert entry["matcher"] == "Edit|Write"
+    assert "graphify update" in entry["hooks"][0]["command"]
+
+
+def test_init_codex_merges_existing_hooks(tmp_project):
+    (tmp_project / ".codex").mkdir()
+    mine = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "echo done"}]}]}}
+    (tmp_project / ".codex" / "hooks.json").write_text(json.dumps(mine))
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    data = json.loads((tmp_project / ".codex" / "hooks.json").read_text())
+    assert data["hooks"]["Stop"] == mine["hooks"]["Stop"]
+    assert "PostToolUse" in data["hooks"]
+
+
+def test_init_codex_codegraph_backend_skips_hook(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex", "--graph-backend", "codegraph"])
+    assert not (tmp_project / ".codex" / "hooks.json").exists()
+    assert (tmp_project / ".codex" / "config.toml").exists()
+
+
+def test_init_codex_idempotent(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    assert result.exit_code == 0
+    assert "Already initialized" in result.output
+
+
+def test_sync_codex_updates_modified_skill(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    skill_md = tmp_project / ".agents" / "skills" / "evaluate" / "SKILL.md"
+    skill_md.write_text("stale")
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "updated" in result.output
+    assert skill_md.read_text() != "stale"
+    assert _frontmatter(skill_md.read_text())["name"] == "evaluate"
+
+
+def test_doctor_codex_project(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    out = _flat(result.output)
+    assert "yes (codex)" in out
+    assert "nexus entry present" in out
+    assert f"all {len(_BUILTIN_SKILLS)} present" in out
+    assert f"all {len(_BUILTIN_AGENTS)} present" in out
+
+
+def test_codex_hook_counts_as_graphify_hook(tmp_project):
+    from tools.epav import graph_backend
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    assert graph_backend.has_graphify_hook(tmp_project)
+
+
+def test_init_codex_rewrites_skill_refs_to_dollar_syntax(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    apply_md = (tmp_project / ".agents" / "skills" / "apply" / "SKILL.md").read_text()
+    assert "$validate" in apply_md and "`/validate`" not in apply_md
+    # Claude Code output must keep the slash syntax
+    runner.invoke(app, ["init", str(tmp_project)])
+    assert "`/validate`" in (tmp_project / ".claude" / "commands" / "apply.md").read_text()

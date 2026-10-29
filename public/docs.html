@@ -414,7 +414,7 @@
   <nav>
     <div class="nav-logo">NEXUS</div>
 
-    <div class="nav-version">v3.1.9</div>
+    <div class="nav-version">v3.1.10</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
@@ -422,6 +422,7 @@
     <a href="#init">nexus init</a>
     <a href="#init-claude" class="sub">→ Claude Code</a>
     <a href="#init-opencode" class="sub">→ OpenCode</a>
+    <a href="#init-codex" class="sub">→ Codex</a>
 
     <div class="nav-section">Day 0</div>
     <a href="#day0">Overview</a>
@@ -574,7 +575,8 @@
 
     <pre><code><span class="prompt">$</span> <span class="cmd">cd</span> my-project
 <span class="prompt">$</span> <span class="cmd">nexus init</span> .                        <span class="comment"># Claude Code (default)</span>
-<span class="prompt">$</span> <span class="cmd">nexus init</span> . <span class="arg">--tool opencode</span>       <span class="comment"># OpenCode</span></code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
+<span class="prompt">$</span> <span class="cmd">nexus init</span> . <span class="arg">--tool opencode</span>       <span class="comment"># OpenCode</span>
+<span class="prompt">$</span> <span class="cmd">nexus init</span> . <span class="arg">--tool codex</span>          <span class="comment"># Codex</span></code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
 
     <div class="callout">
       <strong>First time opening this project in Claude Code</strong>, you'll see a one-time prompt:
@@ -664,6 +666,30 @@ knowledge/
 ├── prompts/dev/
 └── retros/
 opencode.json                <span class="comment">← MCP server config</span></code></pre>
+
+    <h3 id="init-codex">Codex</h3>
+
+    <div class="callout">
+      Skills go to <code>.agents/skills/&lt;name&gt;/SKILL.md</code> — invoke them with <code>$evaluate</code>, <code>$plan</code>, … or <code>/skills</code>.
+      The EPAV steps also get <code>agents/openai.yaml</code> with <code>allow_implicit_invocation: false</code>, so Codex never starts
+      <code>$apply</code> or <code>$commit</code> on its own. Agents are converted to Codex TOML (Claude Code-only <code>tools</code>/<code>model</code> are dropped;
+      they inherit your session model). The nexus MCP block is <em>appended</em> to <code>.codex/config.toml</code> — existing config is never rewritten.
+      Codex only loads project <code>.codex/</code> config and hooks for <strong>trusted</strong> projects — trust it when asked.
+    </div>
+
+    <pre><code>.agents/skills/
+├── evaluate/
+│   ├── SKILL.md             <span class="comment">← $evaluate — orient on task</span>
+│   └── agents/openai.yaml   <span class="comment">← explicit-only (EPAV steps)</span>
+├── plan/ apply/ validate/ epav/ scaffold/ commit/ create-pr/ dev-tasks-planner/
+└── code-review/ database-review/ … pr-review/   <span class="comment">← reviewer skills (implicit allowed)</span>
+.codex/
+├── agents/
+│   ├── code-reviewer.toml
+│   └── …                    <span class="comment">← all 6 reviewer subagents</span>
+├── config.toml              <span class="comment">← [mcp_servers.nexus]</span>
+└── hooks.json               <span class="comment">← PostToolUse: graphify auto-update (graphify backend only)</span>
+knowledge/                   <span class="comment">← same structure</span></code></pre>
 
     <!-- Day 0 -->
     <h2 id="day0">Day 0 — /scaffold <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(one-time, reference)</span></h2>
@@ -1045,7 +1071,7 @@ opencode.json                <span class="comment">← MCP server config</span><
 
     <p>graphify auto-updates after every file edit — via the PostToolUse hook in <code>.claude/settings.json</code>
       (Claude Code) or the <code>tool.execute.after</code> plugin in <code>.opencode/plugins/graphify.js</code>
-      (OpenCode). Both are installed automatically by <code>nexus init</code> if you picked graphify. codegraph
+      (OpenCode) or the <code>PostToolUse</code> hook in <code>.codex/hooks.json</code> (Codex). All are installed automatically by <code>nexus init</code> if you picked graphify. codegraph
       updates itself via its own background sync daemon — no hook needed, and none is scaffolded.</p>
 
     <h3 id="validate">/validate</h3>
@@ -1138,6 +1164,13 @@ opencode.json                <span class="comment">← MCP server config</span><
     }
   }
 }</code><button class="copy-btn" onclick="copy(this, '{&quot;$schema&quot;:&quot;https://opencode.ai/config.json&quot;,&quot;mcp&quot;:{&quot;nexus-mcp&quot;:{&quot;type&quot;:&quot;local&quot;,&quot;command&quot;:[&quot;uvx&quot;,&quot;--refresh&quot;,&quot;--from&quot;,&quot;nexus-dev-toolkit&quot;,&quot;nexus-mcp&quot;]}}}')">copy</button></pre>
+
+    <h3>Codex (project-level)</h3>
+    <p><code>nexus init . --tool codex</code> appends this to <code>.codex/config.toml</code> automatically (trusted projects only). To add manually:</p>
+    <pre><code><span class="comment"># .codex/config.toml</span>
+[mcp_servers.nexus]
+command = "uvx"
+args = ["--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"]</code><button class="copy-btn" onclick="copy(this, '[mcp_servers.nexus]\ncommand = &quot;uvx&quot;\nargs = [&quot;--refresh&quot;, &quot;--from&quot;, &quot;nexus-dev-toolkit&quot;, &quot;nexus-mcp&quot;]')">copy</button></pre>
 
     <h2 id="mcp-tools">MCP Tool Reference</h2>
 
@@ -1388,6 +1421,10 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
         <tr>
           <td><code>nexus init [dir] --tool opencode</code></td>
           <td>Initialize for OpenCode</td>
+        </tr>
+        <tr>
+          <td><code>nexus init [dir] --tool codex</code></td>
+          <td>Initialize for Codex</td>
         </tr>
         <tr>
           <td><code>nexus update</code></td>

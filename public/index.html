@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nexus — Developer Workflow Toolkit</title>
   <link rel="icon" href="/favicon.ico" sizes="any" />
-  <meta name="description" content="Developer workflow toolkit for Claude Code and OpenCode. Day 0 scaffold + Day 1 EPAV methodology." />
+  <meta name="description" content="Developer workflow toolkit for Claude Code, OpenCode and Codex. Day 0 scaffold + Day 1 EPAV methodology." />
   <script>
     (function () {
       var t = localStorage.getItem('nexus-theme');
@@ -309,7 +309,7 @@
 ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
 ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝</pre>
 
-  <p class="subtitle">developer workflow toolkit &nbsp;·&nbsp; <span id="site-version">v3.1.9</span></p>
+  <p class="subtitle">developer workflow toolkit &nbsp;·&nbsp; <span id="site-version">v3.1.10</span></p>
 
   <div id="version-banner"></div>
 
@@ -387,6 +387,7 @@
       <div class="cmd-group-label">Project Setup</div>
       <div class="cmd-row"><span class="c">nexus init .</span><span class="d">Claude Code — sets up .claude/ + knowledge/ + .mcp.json</span></div>
       <div class="cmd-row"><span class="c">nexus init . --tool opencode</span><span class="d">OpenCode — sets up .opencode/ + knowledge/ + opencode.json</span></div>
+      <div class="cmd-row"><span class="c">nexus init . --tool codex</span><span class="d">Codex — sets up .agents/skills/ + .codex/ + knowledge/</span></div>
       <div class="cmd-row"><span class="c">nexus init . -g codegraph</span><span class="d">choose codegraph over graphify (default), skip the interactive prompt</span></div>
       <div class="cmd-row"><span class="c">nexus update</span><span class="d">update the CLI itself; asks whether to also sync in a real terminal</span></div>
       <div class="cmd-row"><span class="c">nexus update --sync</span><span class="d">skip the prompt, always sync the current project too</span></div>

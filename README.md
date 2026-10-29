@@ -1,7 +1,7 @@
 # nexus-dev-toolkit
 
 
-Developer workflow toolkit for Claude Code and OpenCode. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
+Developer workflow toolkit for Claude Code, OpenCode and Codex. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
 
 **[Documentation](https://nexus.coderstudio.co/docs)**
 
@@ -68,6 +68,7 @@ uv tool install nexus-dev-toolkit
 cd my-project
 nexus init .                                        # Claude Code (default), prompts for graphify/codegraph/none
 nexus init . --tool opencode                        # OpenCode
+nexus init . --tool codex                           # Codex
 nexus init . --graph-backend codegraph              # skip the prompt, use codegraph
 ```
 
@@ -153,6 +154,20 @@ knowledge/             ← same structure
 opencode.json          ← MCP server config
 ```
 
+**Codex** (`nexus init . --tool codex`):
+```
+.agents/skills/<name>/
+├── SKILL.md           ← same EPAV + reviewer skills — invoke with $evaluate, $plan, …
+└── agents/openai.yaml ← EPAV steps only: blocks implicit invocation, so Codex never starts $apply on its own
+.codex/
+├── agents/*.toml      ← same reviewer subagents (converted to Codex TOML)
+├── config.toml        ← [mcp_servers.nexus] (appended — your existing config is never rewritten)
+└── hooks.json         ← PostToolUse: graphify auto-update (graphify backend only)
+knowledge/             ← same structure
+```
+
+Codex only loads project `.codex/` config and hooks for **trusted** projects — trust the project when Codex asks.
+
 ---
 
 ## Commands
@@ -160,6 +175,7 @@ opencode.json          ← MCP server config
 ```bash
 nexus init .                      # Claude Code — set up .claude/ + knowledge/ + .mcp.json
 nexus init . --tool opencode      # OpenCode — set up .opencode/ + knowledge/ + opencode.json
+nexus init . --tool codex         # Codex — set up .agents/skills/ + .codex/ + knowledge/
 nexus --version                   # show installed version
 nexus update                      # update the CLI itself; asks whether to also sync in a real terminal
 nexus update --sync               # skip the prompt, always sync the current project's skills/agents too

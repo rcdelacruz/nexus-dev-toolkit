@@ -17,7 +17,7 @@ Default scope is "what changed": uncommitted/staged changes plus any commits ahe
 
 ### 2 — Delegate to the code-reviewer agent
 
-Launch the `code-reviewer` agent (Agent tool, `subagent_type: "code-reviewer"`) with a prompt stating the scope from Step 1 and any focus areas the user mentioned (e.g. "focus on the auth changes"). The agent discovers repo context itself, reviews read-only, and reports findings via `ReportFindings` — do not ask it to edit code.
+Launch the `code-reviewer` agent (Agent tool, `subagent_type: "code-reviewer"`) with a prompt stating the scope from Step 1 and any focus areas the user mentioned (e.g. "focus on the auth changes"). The agent discovers repo context itself, reviews read-only, and reports findings via `ReportFindings` — do not ask it to edit code. If the `ReportFindings` tool isn't available (non-Claude Code tools), the agent prints the findings as a numbered list instead.
 
 ### 3 — Output
 

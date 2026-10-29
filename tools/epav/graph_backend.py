@@ -78,11 +78,11 @@ def run_query(text: str, backend: str | None = None, root: Path = Path(".")) -> 
 
 def has_graphify_hook(root: Path = Path(".")) -> bool:
     """True if this project has graphify's PostToolUse automation wired in."""
-    settings_path = root / ".claude" / "settings.json"
-    if settings_path.exists():
-        try:
-            if _GRAPHIFY_HOOK_MARKER in settings_path.read_text():
-                return True
-        except Exception:
-            pass
+    for settings_path in (root / ".claude" / "settings.json", root / ".codex" / "hooks.json"):
+        if settings_path.exists():
+            try:
+                if _GRAPHIFY_HOOK_MARKER in settings_path.read_text():
+                    return True
+            except Exception:
+                pass
     return (root / ".opencode" / "plugins" / "graphify.js").exists()

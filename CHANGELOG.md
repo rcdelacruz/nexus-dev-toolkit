@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.10] - 2026-10-29
+
+### Added
+- `nexus init --tool codex` — sets up nexus for OpenAI Codex: skills in `.agents/skills/<name>/SKILL.md` (EPAV steps get `agents/openai.yaml` with `allow_implicit_invocation: false` so Codex never starts `$apply`/`$commit` on its own), reviewer subagents converted to `.codex/agents/*.toml`, the nexus MCP server appended to `.codex/config.toml` (existing config never rewritten), and a graphify `PostToolUse` hook in `.codex/hooks.json`. `nexus sync` and `nexus doctor` understand Codex projects.
+
+### Changed
+- `code-reviewer` agent and `/code-review` skill fall back to printing findings as a numbered list when the Claude Code-only `ReportFindings` tool isn't available (OpenCode, Codex).
+
 ## [3.1.9] - 2026-09-15
 
 ### Fixed
