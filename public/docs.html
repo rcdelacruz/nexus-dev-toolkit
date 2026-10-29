@@ -423,6 +423,7 @@
     <a href="#init-claude" class="sub">→ Claude Code</a>
     <a href="#init-opencode" class="sub">→ OpenCode</a>
     <a href="#init-codex" class="sub">→ Codex</a>
+    <a href="#docs-folder">The docs/ folder</a>
 
     <div class="nav-section">Day 0</div>
     <a href="#day0">Overview</a>
@@ -622,6 +623,7 @@ knowledge/
 ├── patterns/                <span class="comment">← reusable implementation patterns</span>
 ├── prompts/dev/             <span class="comment">← task prompt templates</span>
 └── retros/                  <span class="comment">← retrospective notes</span>
+docs/                        <span class="comment">← arch-docs/, dev-tasks/, designs/, requirements/</span>
 .mcp.json                    <span class="comment">← MCP server config</span></code></pre>
 
     <h3 id="init-opencode">OpenCode</h3>
@@ -665,6 +667,7 @@ knowledge/
 ├── patterns/
 ├── prompts/dev/
 └── retros/
+docs/                        <span class="comment">← arch-docs/, dev-tasks/, designs/, requirements/</span>
 opencode.json                <span class="comment">← MCP server config</span></code></pre>
 
     <h3 id="init-codex">Codex</h3>
@@ -689,7 +692,60 @@ opencode.json                <span class="comment">← MCP server config</span><
 │   └── …                    <span class="comment">← all 6 reviewer subagents</span>
 ├── config.toml              <span class="comment">← [mcp_servers.nexus]</span>
 └── hooks.json               <span class="comment">← PostToolUse: graphify auto-update (graphify backend only)</span>
-knowledge/                   <span class="comment">← same structure</span></code></pre>
+knowledge/                   <span class="comment">← same structure</span>
+docs/                        <span class="comment">← arch-docs/, dev-tasks/, designs/, requirements/</span></code></pre>
+
+    <!-- docs folder -->
+    <h2 id="docs-folder">The docs/ folder</h2>
+
+    <p><code>docs/</code> is where your project's reference material lives — the documents Claude reads to understand
+      what you're building and how. <code>nexus init</code> creates the four folders below for every tool (Claude Code,
+      OpenCode, Codex). It only creates folders: if <code>docs/</code> already exists, nothing inside it is moved,
+      renamed or overwritten, and re-running <code>nexus init</code> just adds any folder that's missing.</p>
+
+    <pre><code>docs/
+├── arch-docs/       <span class="comment">← HOW: architecture doc, ADRs</span>
+├── dev-tasks/       <span class="comment">← WHAT TO DO NEXT: task CSVs, one row per task</span>
+├── designs/         <span class="comment">← WHAT IT LOOKS LIKE: design exports (e.g. Figma ZIP)</span>
+└── requirements/    <span class="comment">← WHAT &amp; WHY: BRD, PRD, user stories</span></code></pre>
+
+    <table>
+      <thead><tr><th>Folder</th><th>Put here</th><th>Read by</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>arch-docs/</code></td>
+          <td>Your architecture document and ADRs, as markdown. Stack, data model, auth, error format, security rules.</td>
+          <td><code>ingest_architecture_doc</code> (scans this folder by default), <code>/scaffold</code>, <code>/evaluate</code>, <code>/dev-tasks-planner</code></td>
+        </tr>
+        <tr>
+          <td><code>dev-tasks/</code></td>
+          <td>Task CSVs with columns <code>task_id</code>, <code>user_story</code>, <code>description</code>, <code>acceptance_criteria</code>, <code>dependencies</code>. Usually one file per module or epic.</td>
+          <td><code>load_task</code> (scans this folder by default), <code>/evaluate</code>. Written by <code>/dev-tasks-planner</code>.</td>
+        </tr>
+        <tr>
+          <td><code>designs/</code></td>
+          <td>Design exports — a Figma export ZIP, screens, a design-system spec.</td>
+          <td><code>/scaffold</code> (design system + UI shell), <code>/dev-tasks-planner</code></td>
+        </tr>
+        <tr>
+          <td><code>requirements/</code></td>
+          <td>Business and product requirements: BRD, PRD, user stories, acceptance notes.</td>
+          <td>No step loads it automatically yet — point Claude at it (e.g. <code>/evaluate</code> a task "per docs/requirements/prd.md") when requirements matter.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Why requirements and architecture are separate folders:</strong> <code>ingest_architecture_doc</code> scans
+      all of <code>docs/arch-docs/</code> and extracts stack, data model and security rules from whatever it finds. A PRD
+      dropped in there would be parsed as architecture and pollute those results. Requirements answer <em>what and why</em>;
+      architecture answers <em>how</em> — keep them apart.
+    </div>
+
+    <div class="callout warn">
+      Git doesn't track empty folders. They show up in your repo once you add a file — teammates who clone before then
+      get them by running <code>nexus init .</code> themselves.
+    </div>
 
     <!-- Day 0 -->
     <h2 id="day0">Day 0 — /scaffold <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(one-time, reference)</span></h2>
@@ -712,13 +768,9 @@ knowledge/                   <span class="comment">← same structure</span></co
         <div class="step-content">
           <div class="step-title">Place all reference documents in <code>docs/</code></div>
           <div class="step-desc">
-            Keep everything Claude needs in one place:
-            <ul style="margin-top:0.5rem;padding-left:1.25rem;line-height:1.8">
-              <li><code>docs/arch-docs/</code> — architecture doc, ADRs</li>
-              <li><code>docs/figma/</code> — Figma export ZIP</li>
-              <li><code>docs/brd/</code> — Business Requirements Document</li>
-              <li><code>docs/prd/</code> — Product Requirements Document</li>
-            </ul>
+            <code>nexus init</code> already created the folders. For Day 0 you need at least your architecture doc in
+            <code>docs/arch-docs/</code> and your design export in <code>docs/designs/</code>. See
+            <a href="#docs-folder">The docs/ folder</a> for what goes where and which step reads it.
           </div>
         </div>
       </div>

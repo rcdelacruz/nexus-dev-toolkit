@@ -28,7 +28,7 @@ Missing: <"ARCH doc / ADRs under docs/arch-docs/<module>/" and/or "scaffolded co
 
 <module> needs <the missing piece(s)> before dev-tasks-planner has anything to plan against or
 reconcile STATUS with. Run <the specific missing step — e.g. "the architecture-authoring process
-for this module" and/or "/scaffold <module> based on docs/arch-docs/<module>/ and docs/figma/<module>/">
+for this module" and/or "/scaffold <module> based on docs/arch-docs/<module>/ and docs/designs/<module>/">
 first, then re-run /dev-tasks-planner.
 ```
 

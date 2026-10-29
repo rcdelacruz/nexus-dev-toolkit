@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from nexus_cli import app, _BUILTIN_SKILLS, _BUILTIN_AGENTS, _KNOWLEDGE_DIRS
+from nexus_cli import app, _BUILTIN_SKILLS, _BUILTIN_AGENTS, _KNOWLEDGE_DIRS, _DOCS_DIRS
 
 runner = CliRunner()
 
@@ -696,3 +696,47 @@ def test_init_codex_rewrites_skill_refs_to_dollar_syntax(tmp_project):
     # Claude Code output must keep the slash syntax
     runner.invoke(app, ["init", str(tmp_project)])
     assert "`/validate`" in (tmp_project / ".claude" / "commands" / "apply.md").read_text()
+
+
+# ── init: docs/ scaffold ─────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("tool", ["claude", "opencode", "codex"])
+def test_init_creates_docs_dirs(tmp_project, tool):
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", tool])
+    assert result.exit_code == 0
+    for d in _DOCS_DIRS:
+        assert (tmp_project / d).is_dir(), f"Missing {d} for --tool {tool}"
+        assert f"{d}/" in result.output
+
+
+def test_init_preserves_existing_docs(tmp_project):
+    arch = tmp_project / "docs" / "arch-docs"
+    arch.mkdir(parents=True)
+    (arch / "ARCH.md").write_text("# my architecture\n")
+    result = runner.invoke(app, ["init", str(tmp_project)])
+    assert result.exit_code == 0
+    assert (arch / "ARCH.md").read_text() == "# my architecture\n"
+    assert list(arch.iterdir()) == [arch / "ARCH.md"]
+    assert "docs/arch-docs/" not in result.output
+    assert "docs/dev-tasks/" in result.output
+
+
+def test_init_on_existing_project_adds_docs_dirs(tmp_project):
+    import shutil
+    runner.invoke(app, ["init", str(tmp_project)])
+    shutil.rmtree(tmp_project / "docs")
+    result = runner.invoke(app, ["init", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "docs/arch-docs/" in result.output
+    assert "Already initialized" not in result.output
+    result = runner.invoke(app, ["init", str(tmp_project)])
+    assert "Already initialized" in result.output
+
+
+def test_doctor_docs_dirs_row(tmp_project):
+    import shutil
+    runner.invoke(app, ["init", str(tmp_project)])
+    assert f"all {len(_DOCS_DIRS)} present" in _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    shutil.rmtree(tmp_project / "docs" / "requirements")
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "Docs dirs" in out and "docs/requirements" in out

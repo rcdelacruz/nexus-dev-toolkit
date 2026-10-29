@@ -74,15 +74,17 @@ nexus init . --graph-backend codegraph              # skip the prompt, use codeg
 
 ### 4. Place your reference docs
 
-Before running `/scaffold`, put everything Claude needs in `docs/`:
+`nexus init` creates these folders for you (it never touches files already in `docs/`). Before running `/scaffold`, put everything Claude needs in them:
 
 ```
 docs/
 ├── arch-docs/   ← architecture doc, ADRs
-├── figma/       ← Figma export ZIP
-├── brd/         ← Business Requirements Document
-└── prd/         ← Product Requirements Document
+├── dev-tasks/   ← task CSVs — read by /evaluate and the load_task MCP tool
+├── designs/     ← design exports (e.g. Figma export ZIP)
+└── requirements/ ← BRD, PRD, user stories — the what and why
 ```
+
+Keep requirements out of `arch-docs/`: `ingest_architecture_doc` scans that whole folder, so a PRD there gets parsed as architecture. See the [docs folder guide](https://nexus.coderstudio.co/docs#docs-folder) for what reads each folder.
 
 ### 5. Start Day 0
 
@@ -140,6 +142,7 @@ knowledge/
 ├── patterns/          ← reusable implementation patterns
 ├── prompts/dev/       ← task prompt templates
 └── retros/            ← retrospective notes
+docs/                  ← arch-docs/, dev-tasks/, designs/, requirements/ (empty folders, existing files untouched)
 .mcp.json              ← MCP server config
 ```
 
@@ -151,6 +154,7 @@ knowledge/
 └── plugins/
     └── graphify.js    ← tool.execute.after: graphify auto-update (graphify backend only)
 knowledge/             ← same structure
+docs/                  ← same structure
 opencode.json          ← MCP server config
 ```
 
@@ -164,6 +168,7 @@ opencode.json          ← MCP server config
 ├── config.toml        ← [mcp_servers.nexus] (appended — your existing config is never rewritten)
 └── hooks.json         ← PostToolUse: graphify auto-update (graphify backend only)
 knowledge/             ← same structure
+docs/                  ← same structure
 ```
 
 Codex only loads project `.codex/` config and hooks for **trusted** projects — trust the project when Codex asks.

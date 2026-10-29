@@ -142,6 +142,19 @@ _KNOWLEDGE_DIRS = [
     "knowledge/retros",
 ]
 
+# ── docs/ scaffold ────────────────────────────────────────────────────────────
+# Where the workflow expects reference docs: arch_ingest reads docs/arch-docs/,
+# load_task and /evaluate read docs/dev-tasks/, /scaffold uses docs/designs/. docs/requirements/
+# (BRD, PRD) is deliberately separate from arch-docs/ — ingest_architecture_doc scans that whole
+# folder, so requirements docs there would be parsed as architecture.
+
+_DOCS_DIRS = [
+    "docs/arch-docs",
+    "docs/dev-tasks",
+    "docs/designs",
+    "docs/requirements",
+]
+
 # ── MCP config ────────────────────────────────────────────────────────────────
 
 _MCP_BLOCK = {
@@ -206,6 +219,21 @@ policy:
 """
 
 
+def _create_scaffold_dirs(project_dir: Path) -> list[str]:
+    """Create knowledge/ and docs/ folders. Folders only — never writes a file, so an existing
+    docs/ is left exactly as it was. Returns the docs/ folders that didn't exist before."""
+    for d in _KNOWLEDGE_DIRS:
+        (project_dir / d).mkdir(parents=True, exist_ok=True)
+
+    created = []
+    for d in _DOCS_DIRS:
+        target = project_dir / d
+        if not target.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            created.append(f"{d}/")
+    return created
+
+
 def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
     """
     nexus init — sets up:
@@ -245,10 +273,8 @@ def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
             settings_path.write_text(json.dumps(_CLAUDE_SETTINGS, indent=2))
             created.append(".claude/settings.json")
 
-    # knowledge/ scaffold
-    for d in _KNOWLEDGE_DIRS:
-        target = project_dir / d
-        target.mkdir(parents=True, exist_ok=True)
+    # knowledge/ + docs/ scaffold
+    created += _create_scaffold_dirs(project_dir)
 
     return created
 
@@ -322,9 +348,8 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
     if not already_has_mcp:
         created.append("opencode.json")
 
-    # knowledge/ scaffold
-    for d in _KNOWLEDGE_DIRS:
-        (project_dir / d).mkdir(parents=True, exist_ok=True)
+    # knowledge/ + docs/ scaffold
+    created += _create_scaffold_dirs(project_dir)
 
     return created
 
@@ -456,9 +481,8 @@ def _init_codex(project_dir: Path, backend: str = "graphify") -> list[str]:
     if backend == "graphify" and _write_codex_hooks(project_dir):
         created.append(".codex/hooks.json")
 
-    # knowledge/ scaffold
-    for d in _KNOWLEDGE_DIRS:
-        (project_dir / d).mkdir(parents=True, exist_ok=True)
+    # knowledge/ + docs/ scaffold
+    created += _create_scaffold_dirs(project_dir)
 
     return created
 
@@ -902,6 +926,12 @@ def doctor(
         table.add_row("Knowledge dirs", ok(f"all {len(_KNOWLEDGE_DIRS)} present"))
     else:
         table.add_row("Knowledge dirs", warn(f"missing: {', '.join(missing_dirs)}"))
+
+    missing_docs = [d for d in _DOCS_DIRS if not (root / d).is_dir()]
+    if not missing_docs:
+        table.add_row("Docs dirs", ok(f"all {len(_DOCS_DIRS)} present"))
+    else:
+        table.add_row("Docs dirs", warn(f"missing: {', '.join(missing_docs)} — run nexus init"))
 
     # ── Knowledge graph backends ────────────────────────────────────────────
     has_graphify = graph_backend.backend_installed("graphify")
