@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [3.1.11] - 2026-10-29
 
 ### Added
 - `nexus init` (all tools) creates `docs/arch-docs/`, `docs/dev-tasks/`, `docs/designs/` and `docs/requirements/` — the folders the workflow reads reference docs from. Folders only: existing files in `docs/` are never touched. Re-running `init` on an existing project adds any missing ones. `nexus doctor` shows a warn-only "Docs dirs" row.
