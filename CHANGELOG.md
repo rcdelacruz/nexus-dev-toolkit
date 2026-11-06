@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.1.12] - 2026-11-06
+
+### Added
+- OpenCode v2 support, verified on v2.2.5 (v1 keeps its layout). Commands, agents and `opencode.json` are written the same for v1 and v2; the graphify plugin is the one piece that differs, because v2 doesn't run v1 plugins. `nexus init` / `nexus sync` read `opencode --version` and write `.opencode/plugins/graphify/index.ts` for v2 or `.opencode/plugins/graphify.js` for v1 (v2 when the version can't be detected). `nexus sync` never deletes the other form. The v2 plugin runs `graphify update` asynchronously and coalesces overlapping runs, so it can't stall OpenCode v2's shared background service.
+- `nexus init` extends an existing `opencode.json` that is already on v2's `mcp.servers` shape instead of creating a mixed flat + `servers` file. New files keep the flat `mcp` map, which v2 accepts.
+- `nexus doctor`: shows the installed OpenCode major version, accepts both `mcp` and `mcp.servers` for the `nexus-mcp` entry, and warns when the graphify plugin on disk is one your installed OpenCode won't run (or a legacy `graphify.js` v2 ignores).
+
+- README and docs: a "Quick try-out" for training and demos — `nexus init ~/nexus-test-opencode --tool opencode --graph-backend graphify` (creates the folder, no prompts), a small sample architecture doc for `/scaffold` to read, then `nexus doctor`, `opencode` and the `/scaffold` flow.
+- README and docs: how to install or upgrade to OpenCode v2 (`curl -fsSL https://opencode.ai/v2/install | bash`, `opencode upgrade --major`) — in the Setup steps and next to the OpenCode layout — and to run `nexus sync` in each project afterwards. The nexus-dev-toolkit Setup step also gets install-check commands (`nexus --version`, `uv tool list`), since other packages (e.g. `nexus-toolkit`) install a `nexus` command too.
+
+### Fixed
+- Docs page layout: a wide code line no longer pushes a whole Setup step (and its code blocks) past the column edge — the "Install graphify" and "Build the knowledge graph" steps had the same overflow before this release. The content column is also wider (max 820px → 1100px) and now shrinks with the window instead of forcing a sideways scroll.
+- `nexus init --tool opencode` offered to install OpenCode with `https://opencode.ai/install`, and `nexus doctor` hinted the same command — that installer only installs OpenCode 1. Both now use `https://opencode.ai/v2/install`.
+- OpenCode reviewer subagents never loaded on v2: the frontmatter written to `.opencode/agents/*.md` had its closing `---` glued onto the last field (`…after code changes.---`), so it was never closed — 0 of the 6 agents registered on OpenCode v2.2.5. The closing delimiter now sits on its own line. Run `nexus sync` in existing projects to repair them.
+- OpenCode agents are now marked `mode: subagent`. Without it, v2 registers them as primary agents rather than subagents.
+- The graphify auto-update hook was silently dead on OpenCode v2 (`failed to load plugin: Plugin must export a default definition with an id and an effect or setup function`).
+
 ## [3.1.11] - 2026-10-29
 
 ### Added

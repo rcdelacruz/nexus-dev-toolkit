@@ -85,4 +85,8 @@ def has_graphify_hook(root: Path = Path(".")) -> bool:
                     return True
             except Exception:
                 pass
-    return (root / ".opencode" / "plugins" / "graphify.js").exists()
+    # OpenCode: v1 plugin file, or the v2 plugin directory
+    return any(
+        (root / ".opencode" / "plugins" / rel).exists()
+        for rel in ("graphify.js", "graphify/index.ts")
+    )

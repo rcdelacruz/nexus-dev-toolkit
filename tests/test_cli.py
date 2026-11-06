@@ -23,6 +23,14 @@ def _no_real_pypi_calls(monkeypatch):
     monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: None)
 
 
+@pytest.fixture(autouse=True)
+def _opencode_v2_by_default(monkeypatch):
+    """init/sync/doctor pick the OpenCode plugin form from the installed version. Pin it so tests
+    don't depend on (or shell out to) whatever `opencode` the dev machine has; tests that care
+    about v1 or 'not installed' override this locally."""
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 2)
+
+
 @pytest.fixture()
 def tmp_project(tmp_path):
     return tmp_path
@@ -139,9 +147,10 @@ def test_init_opencode_creates_agents(tmp_project):
 
 def test_init_opencode_creates_plugin(tmp_project):
     runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
-    plugin = tmp_project / ".opencode" / "plugins" / "graphify.js"
+    plugin = tmp_project / ".opencode" / "plugins" / "graphify" / "index.ts"
     assert plugin.exists()
-    assert "tool.execute.after" in plugin.read_text()
+    assert "execute.after" in plugin.read_text()
+    assert not (tmp_project / ".opencode" / "plugins" / "graphify.js").exists()
 
 
 def test_init_opencode_creates_opencode_json(tmp_project):
@@ -192,6 +201,7 @@ def test_init_opencode_codegraph_backend_skips_plugin(tmp_project):
     result = runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode", "--graph-backend", "codegraph"])
     assert result.exit_code == 0
     assert not (tmp_project / ".opencode" / "plugins" / "graphify.js").exists()
+    assert not (tmp_project / ".opencode" / "plugins" / "graphify").exists()
 
 
 def test_init_unknown_graph_backend(tmp_project):
@@ -740,3 +750,204 @@ def test_doctor_docs_dirs_row(tmp_project):
     shutil.rmtree(tmp_project / "docs" / "requirements")
     out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
     assert "Docs dirs" in out and "docs/requirements" in out
+
+
+# ── OpenCode v2 ──────────────────────────────────────────────────────────────
+
+from nexus_cli import _opencode_major as _real_opencode_major, _strip_claude_frontmatter  # noqa: E402
+
+_PLUGIN_V1 = Path(".opencode") / "plugins" / "graphify.js"
+_PLUGIN_V2 = Path(".opencode") / "plugins" / "graphify" / "index.ts"
+
+
+def _closed_frontmatter(text: str) -> tuple[list[str], str]:
+    """Strict check: opening `---`, closing `---` on its own line. Returns (field lines, body)."""
+    match = re.match(r"---\n(.*?)\n---\n(.*)", text, re.DOTALL)
+    assert match, "frontmatter must be opened and closed with --- on their own lines"
+    return match.group(1).splitlines(), match.group(2)
+
+
+def test_opencode_agents_have_closed_frontmatter_and_subagent_mode(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    for agent in _BUILTIN_AGENTS:
+        fields, body = _closed_frontmatter((tmp_project / ".opencode" / "agents" / agent).read_text())
+        assert any(line.startswith("name:") for line in fields), agent
+        assert "mode: subagent" in fields, agent
+        assert not any(line.startswith(("tools:", "model:")) for line in fields), agent
+        assert body.strip(), f"{agent} lost its prompt body"
+
+
+def test_strip_claude_frontmatter_is_idempotent_and_keeps_existing_mode():
+    src = "---\nname: x\ndescription: d\ntools: Read\nmodel: sonnet\n---\n\nBody\n"
+    once = _strip_claude_frontmatter(src)
+    assert once == "---\nname: x\nmode: subagent\ndescription: d\n---\n\nBody\n"
+    assert _strip_claude_frontmatter(once) == once
+    assert "mode: primary" in _strip_claude_frontmatter("---\nname: x\nmode: primary\n---\n\nBody\n")
+    assert _strip_claude_frontmatter("no frontmatter here") == "no frontmatter here"
+
+
+def test_init_opencode_v1_writes_v1_plugin(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert "tool.execute.after" in (tmp_project / _PLUGIN_V1).read_text()
+    assert not (tmp_project / _PLUGIN_V2).exists()
+
+
+def test_init_opencode_undetectable_version_defaults_to_v2(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: None)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert (tmp_project / _PLUGIN_V2).exists()
+    assert not (tmp_project / _PLUGIN_V1).exists()
+
+
+def test_v2_plugin_is_a_default_export_with_id_and_setup(tmp_project):
+    """v2 rejects plugins without a default { id, setup } export; the v1 named-export shape fails."""
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    text = (tmp_project / _PLUGIN_V2).read_text()
+    assert "export default {" in text and 'id: "nexus.graphify"' in text and "setup(ctx" in text
+    assert "ctx.location.directory" in text and 'ctx.tool.hook("execute.after"' in text
+    assert "execSync" not in text  # must not block the shared v2 service
+
+
+@pytest.mark.parametrize("version_output, expected", [
+    ("opencode v2.2.5\n", 2),
+    ("1.0.7\n", 1),
+    ("0.15.3\n", 0),
+    ("garbage\n", None),
+])
+def test_opencode_major_parses_version_output(monkeypatch, version_output, expected):
+    import types
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: "/fake/opencode")
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: types.SimpleNamespace(stdout=version_output))
+    assert _real_opencode_major() == expected
+
+
+def test_opencode_major_none_when_not_installed_or_failing(monkeypatch):
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: None)
+    assert _real_opencode_major() is None
+
+    def boom(*a, **k):
+        raise OSError("exec failed")
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: "/fake/opencode")
+    monkeypatch.setattr("nexus_cli.subprocess.run", boom)
+    assert _real_opencode_major() is None
+
+
+def test_sync_opencode_repairs_broken_agent_frontmatter(tmp_project):
+    """Pre-fix versions glued the closing --- onto the last field, so OpenCode v2 never loaded the agent."""
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    agent = tmp_project / ".opencode" / "agents" / "code-reviewer.md"
+    agent.write_text("---\nname: code-reviewer\ndescription: Reviews code.---\n\nBroken body\n")
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    _closed_frontmatter(agent.read_text())
+    assert "mode: subagent" in agent.read_text()
+    assert "Broken body" not in agent.read_text()
+
+
+def test_sync_opencode_v2_adds_v2_plugin_and_keeps_legacy(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert (tmp_project / _PLUGIN_V1).exists() and not (tmp_project / _PLUGIN_V2).exists()
+
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 2)
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    assert (tmp_project / _PLUGIN_V2).exists()
+    assert (tmp_project / _PLUGIN_V1).exists(), "sync must never delete the other form"
+
+
+def test_sync_opencode_v1_does_not_create_v2_plugin(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert (tmp_project / _PLUGIN_V1).exists()
+    assert not (tmp_project / _PLUGIN_V2).exists()
+
+
+def test_init_opencode_extends_existing_mcp_servers_shape(tmp_project):
+    (tmp_project / "opencode.json").write_text(json.dumps(
+        {"mcp": {"servers": {"other": {"type": "local", "command": ["x"]}}}}
+    ))
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    mcp = json.loads((tmp_project / "opencode.json").read_text())["mcp"]
+    assert set(mcp["servers"]) == {"other", "nexus-mcp"}
+    assert "nexus-mcp" not in mcp, "must not create a mixed flat + servers shape"
+
+
+def test_init_opencode_flat_server_named_servers_stays_flat(tmp_project):
+    """A v1 server literally named 'servers' has a 'type' key — it is not a v2 servers map."""
+    (tmp_project / "opencode.json").write_text(json.dumps(
+        {"mcp": {"servers": {"type": "local", "command": ["x"]}}}
+    ))
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    mcp = json.loads((tmp_project / "opencode.json").read_text())["mcp"]
+    assert "nexus-mcp" in mcp
+    assert mcp["servers"] == {"type": "local", "command": ["x"]}
+
+
+def test_doctor_opencode_accepts_mcp_servers_shape(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    (tmp_project / "opencode.json").write_text(json.dumps(
+        {"mcp": {"servers": {"nexus-mcp": {"type": "local", "command": ["uvx"]}}}}
+    ))
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "opencode.json" in out and "nexus entry present" in out
+
+
+def test_doctor_opencode_v2_plugin_present(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "graphify plugin (OpenCode)" in out and "present (v2)" in out
+
+
+def test_doctor_opencode_v2_warns_on_legacy_v1_plugin(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 2)
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "OpenCode v2 doesn't run it" in out
+
+    runner.invoke(app, ["sync", str(tmp_project)])  # adds the v2 plugin; the legacy file stays
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "ignored by OpenCode v2" in out and "safe to delete" in out
+
+
+def test_doctor_opencode_v1_warns_on_v2_only_plugin(tmp_project, monkeypatch):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])  # v2 plugin
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "is a v2 plugin" in out and "run nexus sync" in out
+
+
+def test_doctor_opencode_no_plugin_row_for_codegraph_project(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode", "--graph-backend", "codegraph"])
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "graphify plugin (OpenCode)" not in out
+
+
+def test_opencode_plugins_count_as_graphify_hook(tmp_project, monkeypatch):
+    from tools.epav import graph_backend
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert graph_backend.has_graphify_hook(tmp_project)  # v2 form
+
+    other = tmp_project / "v1"
+    other.mkdir()
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(other), "--tool", "opencode"])
+    assert graph_backend.has_graphify_hook(other)  # v1 form
+
+
+def test_opencode_install_command_is_the_v2_installer():
+    """https://opencode.ai/install only installs OpenCode 1; v2 has its own installer URL."""
+    from nexus_cli import _TOOL_CHECK
+    assert _TOOL_CHECK["opencode"]["install"] == "curl -fsSL https://opencode.ai/v2/install | bash"
+
+
+def test_doctor_opencode_not_found_hints_v2_installer(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: None if name == "opencode" else "/usr/bin/" + name)
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: None)
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "https://opencode.ai/v2/install" in out
+    assert "opencode.ai/install |" not in out

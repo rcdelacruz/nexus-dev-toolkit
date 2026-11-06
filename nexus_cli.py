@@ -23,7 +23,7 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.1.11"
+_VERSION = "3.1.12"
 
 
 def _fetch_latest_pypi_version() -> str | None:
@@ -187,6 +187,52 @@ export const GraphifyPlugin = async ({ directory }) => {
 }
 """
 
+# OpenCode v2 does not run the v1 plugin above ("Plugin must export a default definition with an
+# id and an effect or setup function"). A v2 local plugin is a directory with an index.ts that
+# default-exports { id, setup(ctx) }. The update runs async and coalesces overlapping calls:
+# v2 hooks run inside a shared background service, so a blocking execSync would stall every
+# session's tool calls for the duration of `graphify update`.
+_OPENCODE_GRAPHIFY_PLUGIN_V2 = """\
+// .opencode/plugins/graphify/index.ts
+// Auto-updates the graphify knowledge graph after every tool execution (OpenCode v2).
+import { execFile } from "node:child_process"
+
+export default {
+  id: "nexus.graphify",
+  async setup(ctx: any) {
+    const cwd = ctx.location.directory
+    let running = false
+    let queued = false
+
+    const update = () => {
+      if (running) {
+        queued = true
+        return
+      }
+      running = true
+      execFile("graphify", ["update", ".", "--force"], { cwd }, () => {
+        running = false
+        if (queued) {
+          queued = false
+          update()
+        }
+      })
+    }
+
+    await ctx.tool.hook("execute.after", async () => {
+      update()
+    })
+  },
+}
+"""
+
+_OPENCODE_PLUGIN_V1 = ".opencode/plugins/graphify.js"
+_OPENCODE_PLUGIN_V2 = ".opencode/plugins/graphify/index.ts"
+_OPENCODE_PLUGINS = {
+    _OPENCODE_PLUGIN_V1: _OPENCODE_GRAPHIFY_PLUGIN,
+    _OPENCODE_PLUGIN_V2: _OPENCODE_GRAPHIFY_PLUGIN_V2,
+}
+
 
 # ── Codex ─────────────────────────────────────────────────────────────────────
 
@@ -279,18 +325,40 @@ def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
     return created
 
 
+_FRONTMATTER_RE = re.compile(r"---[ \t]*\n(.*?)\n---[ \t]*(?:\n|$)", re.DOTALL)
+
+
 def _strip_claude_frontmatter(content: str) -> str:
-    """Remove Claude Code-only frontmatter fields (tools, model) for OpenCode compatibility."""
-    if not content.startswith("---"):
+    """Adapt a Claude Code subagent for OpenCode: drop the Claude-only fields (tools, model) and
+    mark it `mode: subagent` — OpenCode v2 otherwise registers it as a primary agent. The closing
+    `---` always lands on its own line; without it OpenCode v2 never loads the agent."""
+    match = _FRONTMATTER_RE.match(content)
+    if not match:
         return content
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        return content
-    lines = [
-        line for line in parts[1].splitlines()
-        if not line.startswith("tools:") and not line.startswith("model:")
-    ]
-    return "---" + "\n".join(lines) + "---" + parts[2]
+    lines = [line for line in match.group(1).splitlines() if not line.startswith(("tools:", "model:"))]
+    if not any(line.startswith("mode:") for line in lines):
+        at = next((i + 1 for i, line in enumerate(lines) if line.startswith("name:")), 0)
+        lines.insert(at, "mode: subagent")
+    return "---\n" + "\n".join(lines) + "\n---\n" + content[match.end():]
+
+
+def _opencode_major() -> int | None:
+    """Major version of the installed OpenCode (v1 prints e.g. 1.0.7, v2 prints `opencode v2.2.5`).
+    None if it isn't installed or its output can't be parsed."""
+    binary = shutil.which("opencode")
+    if not binary:
+        return None
+    try:
+        out = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return None
+    found = re.search(r"(\d+)\.\d+\.\d+", out)
+    return int(found.group(1)) if found else None
+
+
+def _opencode_plugin_relpath(major: int | None) -> str:
+    """Where the graphify plugin lives for this OpenCode major. Undetectable → v2, the current release."""
+    return _OPENCODE_PLUGIN_V1 if major is not None and major < 2 else _OPENCODE_PLUGIN_V2
 
 
 def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
@@ -298,7 +366,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
     nexus init --tool opencode — sets up:
       .opencode/commands/   ← built-in skills
       .opencode/agents/     ← built-in subagents
-      .opencode/plugins/    ← graphify PostToolUse hook (only when backend == "graphify")
+      .opencode/plugins/    ← graphify hook, v1 or v2 form by installed OpenCode (only when backend == "graphify")
       opencode.json         ← MCP server config
       knowledge/            ← empty scaffold
     """
@@ -324,16 +392,18 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
             dest.write_text(_strip_claude_frontmatter(src.read_text()), encoding="utf-8")
             created.append(f".opencode/agents/{agent_name}")
 
-    # .opencode/plugins/graphify.js — PostToolUse hook (codegraph syncs itself, no hook needed)
+    # graphify plugin — v1: .opencode/plugins/graphify.js, v2: .opencode/plugins/graphify/index.ts
+    # (codegraph syncs itself, no hook needed)
     if backend == "graphify":
-        plugins_dir = project_dir / ".opencode" / "plugins"
-        plugins_dir.mkdir(parents=True, exist_ok=True)
-        plugin_path = plugins_dir / "graphify.js"
+        plugin_rel = _opencode_plugin_relpath(_opencode_major())
+        plugin_path = project_dir / plugin_rel
         if not plugin_path.exists():
-            plugin_path.write_text(_OPENCODE_GRAPHIFY_PLUGIN, encoding="utf-8")
-            created.append(".opencode/plugins/graphify.js")
+            plugin_path.parent.mkdir(parents=True, exist_ok=True)
+            plugin_path.write_text(_OPENCODE_PLUGINS[plugin_rel], encoding="utf-8")
+            created.append(plugin_rel)
 
-    # opencode.json — MCP server config
+    # opencode.json — MCP server config. New files use the flat v1 `mcp` map, which v2 accepts and
+    # normalizes; an existing file already on the v2 `mcp.servers` shape is extended in that shape.
     opencode_json = project_dir / "opencode.json"
     existing: dict = {}
     if opencode_json.exists():
@@ -341,9 +411,13 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
             existing = json.loads(opencode_json.read_text())
         except Exception:
             pass
-    already_has_mcp = "nexus-mcp" in existing.get("mcp", {})
+    mcp_map = existing.setdefault("mcp", {})
+    servers = mcp_map.get("servers")
+    # A v1 server literally named "servers" has a "type" key; a v2 servers map never does.
+    target = servers if isinstance(servers, dict) and "type" not in servers else mcp_map
+    already_has_mcp = "nexus-mcp" in target
     existing.setdefault("$schema", "https://opencode.ai/config.json")
-    existing.setdefault("mcp", {}).update(_OPENCODE_MCP_BLOCK)
+    target.update(_OPENCODE_MCP_BLOCK)
     opencode_json.write_text(json.dumps(existing, indent=2))
     if not already_has_mcp:
         created.append("opencode.json")
@@ -514,7 +588,7 @@ _TOOL_CHECK = {
     "opencode": {
         "bin": "opencode",
         "name": "OpenCode",
-        "install": "curl -fsSL https://opencode.ai/install | bash",
+        "install": "curl -fsSL https://opencode.ai/v2/install | bash",  # /install only installs OpenCode 1
         "install_cmd": None,  # pipe install — run via shell
     },
     "codex": {
@@ -732,7 +806,13 @@ def _sync_project(root: Path) -> Table | None:
                 text = _strip_claude_frontmatter(src.read_text(encoding="utf-8"))
                 _sync_file(table, root / ".opencode" / "agents" / fname, text, f".opencode/agents/{fname}")
 
-        _sync_file(table, root / ".opencode" / "plugins" / "graphify.js", _OPENCODE_GRAPHIFY_PLUGIN, ".opencode/plugins/graphify.js")
+        # The plugin for the installed OpenCode major, plus any other stock plugin already on disk.
+        # Never deleted: a repo can have teammates on different OpenCode majors, and removing the
+        # other form would flip-flop it in git on every sync.
+        wanted = _opencode_plugin_relpath(_opencode_major())
+        for plugin_rel, plugin_text in _OPENCODE_PLUGINS.items():
+            if plugin_rel == wanted or (root / plugin_rel).exists():
+                _sync_file(table, root / plugin_rel, plugin_text, plugin_rel)
 
     if has_codex:
         for fname in _BUILTIN_SKILLS:
@@ -813,7 +893,9 @@ def doctor(
     has_opencode_bin = bool(shutil.which("opencode"))
     has_codex_bin = bool(shutil.which("codex"))
     table.add_row("Claude Code", ok("installed") if has_claude_bin else warn("not found — install: npm install -g @anthropic-ai/claude-code"))
-    table.add_row("OpenCode", ok("installed") if has_opencode_bin else warn("not found — install: curl -fsSL https://opencode.ai/install | bash"))
+    opencode_major = _opencode_major()  # None when not installed or unparseable
+    opencode_label = f"installed (v{opencode_major})" if opencode_major is not None else "installed"
+    table.add_row("OpenCode", ok(opencode_label) if has_opencode_bin else warn(f"not found — install: {_TOOL_CHECK['opencode']['install']}"))
     table.add_row("Codex", ok("installed") if has_codex_bin else warn("not found — install: npm install -g @openai/codex"))
 
     # ── Project ──────────────────────────────────────────────────────────────
@@ -851,12 +933,32 @@ def doctor(
         else:
             try:
                 oc_data = json.loads(oc_json.read_text())
-                if "nexus-mcp" in oc_data.get("mcp", {}):
+                oc_mcp = oc_data.get("mcp", {})
+                oc_servers = oc_mcp.get("servers")  # v2 shape: mcp.servers; v1 shape: flat mcp
+                if "nexus-mcp" in oc_mcp or (isinstance(oc_servers, dict) and "nexus-mcp" in oc_servers):
                     table.add_row("opencode.json", ok("nexus entry present"))
                 else:
                     table.add_row("opencode.json", warn("exists but no nexus-mcp entry"))
             except Exception:
                 table.add_row("opencode.json", warn("invalid JSON"))
+
+        # graphify plugin — judged from what's on disk, against the installed OpenCode major
+        has_plugin_v1 = (root / _OPENCODE_PLUGIN_V1).exists()
+        has_plugin_v2 = (root / _OPENCODE_PLUGIN_V2).exists()
+        if opencode_major is not None and opencode_major >= 2:
+            if has_plugin_v1 and not has_plugin_v2:
+                table.add_row("graphify plugin (OpenCode)", warn(f"{_OPENCODE_PLUGIN_V1} is a v1 plugin — OpenCode v2 doesn't run it, run nexus sync"))
+            elif has_plugin_v1:
+                table.add_row("graphify plugin (OpenCode)", warn(f"legacy {_OPENCODE_PLUGIN_V1} is ignored by OpenCode v2 (it logs a warning at startup) — safe to delete"))
+            elif has_plugin_v2:
+                table.add_row("graphify plugin (OpenCode)", ok("present (v2)"))
+        elif opencode_major is not None:
+            if has_plugin_v2 and not has_plugin_v1:
+                table.add_row("graphify plugin (OpenCode)", warn(f"{_OPENCODE_PLUGIN_V2} is a v2 plugin — OpenCode v{opencode_major} doesn't run it, run nexus sync"))
+            elif has_plugin_v1:
+                table.add_row("graphify plugin (OpenCode)", ok("present (v1)"))
+        elif has_plugin_v1 or has_plugin_v2:
+            table.add_row("graphify plugin (OpenCode)", ok("present"))
 
     # MCP config — Codex (text check: no tomllib on Python 3.10)
     if has_codex_dir:
