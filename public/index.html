@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nexus — Developer Workflow Toolkit</title>
   <link rel="icon" href="/favicon.ico" sizes="any" />
-  <meta name="description" content="Developer workflow toolkit for Claude Code and OpenCode. Day 0 scaffold + Day 1 EPAV methodology." />
+  <meta name="description" content="Developer workflow toolkit for Claude Code, OpenCode and Codex. Day 0 scaffold + Day 1 EPAV methodology." />
   <script>
     (function () {
       var t = localStorage.getItem('nexus-theme');
@@ -297,6 +297,7 @@
     <a href="/docs">docs</a>
     <a href="/workflow">workflow</a>
     <a href="/loop-guide">loop guide</a>
+    <a href="/cursor">cursor</a>
     <a href="https://github.com/rcdelacruz/nexus-dev-toolkit" target="_blank">GitHub</a>
     <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode"></button>
   </nav>
@@ -308,7 +309,7 @@
 ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
 ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝</pre>
 
-  <p class="subtitle">developer workflow toolkit &nbsp;·&nbsp; <span id="site-version">v3.1.9</span></p>
+  <p class="subtitle">developer workflow toolkit &nbsp;·&nbsp; <span id="site-version">v3.1.12</span></p>
 
   <div id="version-banner"></div>
 
@@ -331,6 +332,20 @@
         <span class="cmd"> curl -fsSL </span><span class="url">https://nexus.coderstudio.co/install.sh</span><span class="cmd"> | bash</span>
       </code>
       <button class="copy-btn" onclick="copy(this, 'curl -fsSL https://nexus.coderstudio.co/install.sh | bash')">copy</button>
+    </div>
+  </div>
+
+  <div class="install-box" style="border-color: var(--yellow);">
+    <div class="install-label" style="color: var(--yellow);">Experimental — TypeSafe/Jev build</div>
+    <div class="install-cmd">
+      <code>
+        <span class="prompt">$</span>
+        <span class="cmd"> uv tool install </span><span class="url">nexus-dev-toolkit-jev</span>
+      </code>
+      <button class="copy-btn" onclick="copy(this, 'uv tool install nexus-dev-toolkit-jev')">copy</button>
+    </div>
+    <div style="color: var(--muted); font-size: 0.7rem; margin-top: 0.6rem;">
+      Installs as <code style="color:var(--cyan)">nexus-jev</code> / <code style="color:var(--cyan)">nexus-jev-mcp</code> — a separate command, side by side with <code style="color:var(--cyan)">nexus</code>, never overwrites it. AI-judgment-powered arch-doc parsing, stack detection, and IaC (Terraform/OpenTofu/Helm/Ansible) support. <a href="/docs#jev" style="color: var(--cyan-dim);">→ full details</a>
     </div>
   </div>
 
@@ -372,6 +387,7 @@
       <div class="cmd-group-label">Project Setup</div>
       <div class="cmd-row"><span class="c">nexus init .</span><span class="d">Claude Code — sets up .claude/ + knowledge/ + .mcp.json</span></div>
       <div class="cmd-row"><span class="c">nexus init . --tool opencode</span><span class="d">OpenCode — sets up .opencode/ + knowledge/ + opencode.json</span></div>
+      <div class="cmd-row"><span class="c">nexus init . --tool codex</span><span class="d">Codex — sets up .agents/skills/ + .codex/ + knowledge/</span></div>
       <div class="cmd-row"><span class="c">nexus init . -g codegraph</span><span class="d">choose codegraph over graphify (default), skip the interactive prompt</span></div>
       <div class="cmd-row"><span class="c">nexus update</span><span class="d">update the CLI itself; asks whether to also sync in a real terminal</span></div>
       <div class="cmd-row"><span class="c">nexus update --sync</span><span class="d">skip the prompt, always sync the current project too</span></div>

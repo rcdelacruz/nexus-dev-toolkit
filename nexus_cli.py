@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,7 +14,7 @@ from rich.table import Table
 
 from tools.epav import graph_backend
 
-_VERSION = "3.1.11-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
+_VERSION = "3.1.12-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
 
 # This branch is published/installed under a distinct package + binary identity
 # from the real "nexus-dev-toolkit" so both can be installed side by side without
@@ -26,7 +27,7 @@ _PACKAGE_NAME = "nexus-dev-toolkit-jev"
 _CLI_BIN = "nexus-jev"
 _MCP_BIN = "nexus-jev-mcp"
 
-app = typer.Typer(name=_CLI_BIN, no_args_is_help=False, help="nexus-dev-toolkit (jev build) — Day 0 scaffold + Day 1 EPAV workflow for Claude Code and OpenCode")
+app = typer.Typer(name=_CLI_BIN, no_args_is_help=False, help="nexus-dev-toolkit (jev build) — Day 0 scaffold + Day 1 EPAV workflow for Claude Code, OpenCode and Codex")
 skill_app = typer.Typer(name="skill", no_args_is_help=True, help="Manage skills in .claude/commands/")
 rule_app = typer.Typer(name="rule", no_args_is_help=True, help="Manage rules in knowledge/rules/")
 agent_app = typer.Typer(name="agent", no_args_is_help=True, help="Manage subagents in .claude/agents/")
@@ -154,6 +155,19 @@ _KNOWLEDGE_DIRS = [
     "knowledge/retros",
 ]
 
+# ── docs/ scaffold ────────────────────────────────────────────────────────────
+# Where the workflow expects reference docs: arch_ingest reads docs/arch-docs/,
+# load_task and /evaluate read docs/dev-tasks/, /scaffold uses docs/designs/. docs/requirements/
+# (BRD, PRD) is deliberately separate from arch-docs/ — ingest_architecture_doc scans that whole
+# folder, so requirements docs there would be parsed as architecture.
+
+_DOCS_DIRS = [
+    "docs/arch-docs",
+    "docs/dev-tasks",
+    "docs/designs",
+    "docs/requirements",
+]
+
 # ── MCP config ────────────────────────────────────────────────────────────────
 
 def _mcp_package_spec(enable_typesafe: bool) -> str:
@@ -192,6 +206,99 @@ export const GraphifyPlugin = async ({ directory }) => {
   }
 }
 """
+
+# OpenCode v2 does not run the v1 plugin above ("Plugin must export a default definition with an
+# id and an effect or setup function"). A v2 local plugin is a directory with an index.ts that
+# default-exports { id, setup(ctx) }. The update runs async and coalesces overlapping calls:
+# v2 hooks run inside a shared background service, so a blocking execSync would stall every
+# session's tool calls for the duration of `graphify update`.
+_OPENCODE_GRAPHIFY_PLUGIN_V2 = """\
+// .opencode/plugins/graphify/index.ts
+// Auto-updates the graphify knowledge graph after every tool execution (OpenCode v2).
+import { execFile } from "node:child_process"
+
+export default {
+  id: "nexus.graphify",
+  async setup(ctx: any) {
+    const cwd = ctx.location.directory
+    let running = false
+    let queued = false
+
+    const update = () => {
+      if (running) {
+        queued = true
+        return
+      }
+      running = true
+      execFile("graphify", ["update", ".", "--force"], { cwd }, () => {
+        running = false
+        if (queued) {
+          queued = false
+          update()
+        }
+      })
+    }
+
+    await ctx.tool.hook("execute.after", async () => {
+      update()
+    })
+  },
+}
+"""
+
+_OPENCODE_PLUGIN_V1 = ".opencode/plugins/graphify.js"
+_OPENCODE_PLUGIN_V2 = ".opencode/plugins/graphify/index.ts"
+_OPENCODE_PLUGINS = {
+    _OPENCODE_PLUGIN_V1: _OPENCODE_GRAPHIFY_PLUGIN,
+    _OPENCODE_PLUGIN_V2: _OPENCODE_GRAPHIFY_PLUGIN_V2,
+}
+
+
+# ── Codex ─────────────────────────────────────────────────────────────────────
+
+def _codex_mcp_toml(enable_typesafe: bool) -> str:
+    return (
+        f"[mcp_servers.{_CLI_BIN}]\n"
+        'command = "uvx"\n'
+        f'args = ["--refresh", "--from", "{_mcp_package_spec(enable_typesafe)}", "{_MCP_BIN}"]\n'
+    )
+
+_CODEX_HOOKS = {
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Edit|Write",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "graphify update . --force 2>/dev/null || true"
+                    }
+                ]
+            }
+        ]
+    }
+}
+
+# EPAV steps are user-driven — Codex must never start /apply or /commit on its own.
+_CODEX_EXPLICIT_ONLY_YAML = """\
+policy:
+  allow_implicit_invocation: false
+"""
+
+
+def _create_scaffold_dirs(project_dir: Path) -> list[str]:
+    """Create knowledge/ and docs/ folders. Folders only — never writes a file, so an existing
+    docs/ is left exactly as it was. Returns the docs/ folders that didn't exist before."""
+    for d in _KNOWLEDGE_DIRS:
+        (project_dir / d).mkdir(parents=True, exist_ok=True)
+
+    created = []
+    for d in _DOCS_DIRS:
+        target = project_dir / d
+        if not target.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            created.append(f"{d}/")
+    return created
 
 
 def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
@@ -233,26 +340,46 @@ def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
             settings_path.write_text(json.dumps(_CLAUDE_SETTINGS, indent=2))
             created.append(".claude/settings.json")
 
-    # knowledge/ scaffold
-    for d in _KNOWLEDGE_DIRS:
-        target = project_dir / d
-        target.mkdir(parents=True, exist_ok=True)
+    # knowledge/ + docs/ scaffold
+    created += _create_scaffold_dirs(project_dir)
 
     return created
 
 
+_FRONTMATTER_RE = re.compile(r"---[ \t]*\n(.*?)\n---[ \t]*(?:\n|$)", re.DOTALL)
+
+
 def _strip_claude_frontmatter(content: str) -> str:
-    """Remove Claude Code-only frontmatter fields (tools, model) for OpenCode compatibility."""
-    if not content.startswith("---"):
+    """Adapt a Claude Code subagent for OpenCode: drop the Claude-only fields (tools, model) and
+    mark it `mode: subagent` — OpenCode v2 otherwise registers it as a primary agent. The closing
+    `---` always lands on its own line; without it OpenCode v2 never loads the agent."""
+    match = _FRONTMATTER_RE.match(content)
+    if not match:
         return content
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        return content
-    lines = [
-        line for line in parts[1].splitlines()
-        if not line.startswith("tools:") and not line.startswith("model:")
-    ]
-    return "---" + "\n".join(lines) + "---" + parts[2]
+    lines = [line for line in match.group(1).splitlines() if not line.startswith(("tools:", "model:"))]
+    if not any(line.startswith("mode:") for line in lines):
+        at = next((i + 1 for i, line in enumerate(lines) if line.startswith("name:")), 0)
+        lines.insert(at, "mode: subagent")
+    return "---\n" + "\n".join(lines) + "\n---\n" + content[match.end():]
+
+
+def _opencode_major() -> int | None:
+    """Major version of the installed OpenCode (v1 prints e.g. 1.0.7, v2 prints `opencode v2.2.5`).
+    None if it isn't installed or its output can't be parsed."""
+    binary = shutil.which("opencode")
+    if not binary:
+        return None
+    try:
+        out = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return None
+    found = re.search(r"(\d+)\.\d+\.\d+", out)
+    return int(found.group(1)) if found else None
+
+
+def _opencode_plugin_relpath(major: int | None) -> str:
+    """Where the graphify plugin lives for this OpenCode major. Undetectable → v2, the current release."""
+    return _OPENCODE_PLUGIN_V1 if major is not None and major < 2 else _OPENCODE_PLUGIN_V2
 
 
 def _init_opencode(project_dir: Path, backend: str = "graphify", enable_typesafe: bool = False) -> list[str]:
@@ -260,7 +387,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify", enable_typesafe
     nexus init --tool opencode — sets up:
       .opencode/commands/   ← built-in skills
       .opencode/agents/     ← built-in subagents
-      .opencode/plugins/    ← graphify PostToolUse hook (only when backend == "graphify")
+      .opencode/plugins/    ← graphify hook, v1 or v2 form by installed OpenCode (only when backend == "graphify")
       opencode.json         ← MCP server config
       knowledge/            ← empty scaffold
     """
@@ -286,16 +413,18 @@ def _init_opencode(project_dir: Path, backend: str = "graphify", enable_typesafe
             dest.write_text(_strip_claude_frontmatter(src.read_text()), encoding="utf-8")
             created.append(f".opencode/agents/{agent_name}")
 
-    # .opencode/plugins/graphify.js — PostToolUse hook (codegraph syncs itself, no hook needed)
+    # graphify plugin — v1: .opencode/plugins/graphify.js, v2: .opencode/plugins/graphify/index.ts
+    # (codegraph syncs itself, no hook needed)
     if backend == "graphify":
-        plugins_dir = project_dir / ".opencode" / "plugins"
-        plugins_dir.mkdir(parents=True, exist_ok=True)
-        plugin_path = plugins_dir / "graphify.js"
+        plugin_rel = _opencode_plugin_relpath(_opencode_major())
+        plugin_path = project_dir / plugin_rel
         if not plugin_path.exists():
-            plugin_path.write_text(_OPENCODE_GRAPHIFY_PLUGIN, encoding="utf-8")
-            created.append(".opencode/plugins/graphify.js")
+            plugin_path.parent.mkdir(parents=True, exist_ok=True)
+            plugin_path.write_text(_OPENCODE_PLUGINS[plugin_rel], encoding="utf-8")
+            created.append(plugin_rel)
 
-    # opencode.json — MCP server config
+    # opencode.json — MCP server config. New files use the flat v1 `mcp` map, which v2 accepts and
+    # normalizes; an existing file already on the v2 `mcp.servers` shape is extended in that shape.
     opencode_json = project_dir / "opencode.json"
     existing: dict = {}
     if opencode_json.exists():
@@ -303,16 +432,152 @@ def _init_opencode(project_dir: Path, backend: str = "graphify", enable_typesafe
             existing = json.loads(opencode_json.read_text())
         except Exception:
             pass
-    already_has_mcp = "nexus-jev-mcp" in existing.get("mcp", {})
+    mcp_map = existing.setdefault("mcp", {})
+    servers = mcp_map.get("servers")
+    # A v1 server literally named "servers" has a "type" key; a v2 servers map never does.
+    target = servers if isinstance(servers, dict) and "type" not in servers else mcp_map
+    already_has_mcp = "nexus-jev-mcp" in target
     existing.setdefault("$schema", "https://opencode.ai/config.json")
-    existing.setdefault("mcp", {}).update(_opencode_mcp_block(enable_typesafe))
+    target.update(_opencode_mcp_block(enable_typesafe))
     opencode_json.write_text(json.dumps(existing, indent=2))
     if not already_has_mcp:
         created.append("opencode.json")
 
-    # knowledge/ scaffold
-    for d in _KNOWLEDGE_DIRS:
-        (project_dir / d).mkdir(parents=True, exist_ok=True)
+    # knowledge/ + docs/ scaffold
+    created += _create_scaffold_dirs(project_dir)
+
+    return created
+
+
+def _split_frontmatter(content: str) -> tuple[dict[str, str], str]:
+    """Parse a simple `key: value` frontmatter block. ({}, content) if there isn't one."""
+    if not content.startswith("---"):
+        return {}, content
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return {}, content
+    fields = {}
+    for line in parts[1].splitlines():
+        key, sep, value = line.partition(":")
+        if sep:
+            fields[key.strip()] = value.strip()
+    return fields, parts[2].lstrip("\n")
+
+
+# "/plan" → "$plan": Codex invokes skills with $, and "/" belongs to its own built-in commands.
+# The lookbehind skips paths like docs/scaffold or ./plan.
+_SKILL_REF_RE = re.compile(r"(?<![\w/.])/(" + "|".join(re.escape(Path(s).stem) for s in _BUILTIN_SKILLS) + r")\b")
+
+
+def _to_codex_skill(skill_name: str, content: str) -> tuple[str, str | None]:
+    """Convert a nexus skill to a Codex SKILL.md. Skills without frontmatter are the user-driven
+    EPAV steps — they get generated frontmatter plus an openai.yaml that blocks implicit invocation."""
+    content = _SKILL_REF_RE.sub(r"$\1", content)
+    fields, body = _split_frontmatter(content)
+    if fields.get("name") and fields.get("description"):
+        return content, None
+    name = Path(skill_name).stem
+    description = next(
+        (line.replace("**", "").strip() for line in body.splitlines() if line.strip() and not line.startswith("#")),
+        f"nexus {name} skill",
+    )
+    frontmatter = f"---\nname: {name}\ndescription: {json.dumps(description, ensure_ascii=False)}\n---\n\n"
+    return frontmatter + body, _CODEX_EXPLICIT_ONLY_YAML
+
+
+def _to_codex_agent(agent_name: str, content: str) -> str:
+    """Convert a nexus subagent (markdown + frontmatter) to a Codex agent TOML. Claude Code-only
+    fields (tools, model) are dropped — the agent inherits the parent session's model."""
+    fields, body = _split_frontmatter(content)
+    name = fields.get("name") or Path(agent_name).stem
+    # Multi-line literal string keeps the prompt readable; fall back to an escaped basic string
+    # in the unlikely case the body itself contains '''.
+    instructions = json.dumps(body, ensure_ascii=False) if "'''" in body else f"'''\n{body}'''"
+    return (
+        f"name = {json.dumps(name, ensure_ascii=False)}\n"
+        f"description = {json.dumps(fields.get('description', ''), ensure_ascii=False)}\n"
+        f"developer_instructions = {instructions}\n"
+    )
+
+
+def _write_codex_mcp_config(project_dir: Path, enable_typesafe: bool = False) -> bool:
+    """Append the nexus-jev MCP block to .codex/config.toml. Text-level only — Python 3.10 has no
+    tomllib, and appending never rewrites the user's TOML. True if the block was added."""
+    config = project_dir / ".codex" / "config.toml"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    existing = config.read_text(encoding="utf-8") if config.exists() else ""
+    if f"[mcp_servers.{_CLI_BIN}]" in existing:
+        return False
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    if existing:
+        existing += "\n"
+    config.write_text(existing + _codex_mcp_toml(enable_typesafe), encoding="utf-8")
+    return True
+
+
+def _write_codex_hooks(project_dir: Path) -> bool:
+    """Merge the graphify PostToolUse hook into .codex/hooks.json. True if it was added."""
+    hooks_path = project_dir / ".codex" / "hooks.json"
+    hooks_path.parent.mkdir(parents=True, exist_ok=True)
+    existing: dict = {}
+    if hooks_path.exists():
+        try:
+            existing = json.loads(hooks_path.read_text())
+        except Exception:
+            return False  # never clobber a hooks file we can't parse
+    if "graphify update" in json.dumps(existing):
+        return False
+    existing.setdefault("hooks", {}).setdefault("PostToolUse", []).extend(_CODEX_HOOKS["hooks"]["PostToolUse"])
+    hooks_path.write_text(json.dumps(existing, indent=2))
+    return True
+
+
+def _init_codex(project_dir: Path, backend: str = "graphify", enable_typesafe: bool = False) -> list[str]:
+    """
+    nexus init --tool codex — sets up:
+      .agents/skills/<name>/ ← built-in skills (SKILL.md, plus agents/openai.yaml for EPAV steps)
+      .codex/agents/         ← built-in subagents as TOML
+      .codex/config.toml     ← MCP server config (appended, never rewritten)
+      .codex/hooks.json      ← graphify PostToolUse hook (only when backend == "graphify")
+      knowledge/             ← empty scaffold
+    """
+    created = []
+
+    # .agents/skills/<name>/SKILL.md — Codex's project skill location
+    skills_dir = project_dir / ".agents" / "skills"
+    for skill_name in _BUILTIN_SKILLS:
+        src = _SKILLS_SRC / skill_name
+        dest_dir = skills_dir / Path(skill_name).stem
+        dest = dest_dir / "SKILL.md"
+        if src.exists() and not dest.exists():
+            skill_md, openai_yaml = _to_codex_skill(skill_name, src.read_text(encoding="utf-8"))
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest.write_text(skill_md, encoding="utf-8")
+            if openai_yaml:
+                (dest_dir / "agents").mkdir(exist_ok=True)
+                (dest_dir / "agents" / "openai.yaml").write_text(openai_yaml, encoding="utf-8")
+            created.append(f".agents/skills/{dest_dir.name}/SKILL.md")
+
+    # .codex/agents/<name>.toml — built-in subagents converted to Codex's TOML format
+    agents_dir = project_dir / ".codex" / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    for agent_name in _BUILTIN_AGENTS:
+        src = _AGENTS_SRC / agent_name
+        dest = agents_dir / f"{Path(agent_name).stem}.toml"
+        if src.exists() and not dest.exists():
+            dest.write_text(_to_codex_agent(agent_name, src.read_text(encoding="utf-8")), encoding="utf-8")
+            created.append(f".codex/agents/{dest.name}")
+
+    if _write_codex_mcp_config(project_dir, enable_typesafe):
+        created.append(".codex/config.toml")
+
+    # .codex/hooks.json — graphify hook (codegraph syncs itself, no hook needed)
+    if backend == "graphify" and _write_codex_hooks(project_dir):
+        created.append(".codex/hooks.json")
+
+    # knowledge/ + docs/ scaffold
+    created += _create_scaffold_dirs(project_dir)
 
     return created
 
@@ -332,7 +597,7 @@ def _write_mcp_config(project_dir: Path, enable_typesafe: bool = False) -> str:
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 
-_SUPPORTED_TOOLS = ["claude", "opencode"]
+_SUPPORTED_TOOLS = ["claude", "opencode", "codex"]
 
 _TOOL_CHECK = {
     "claude": {
@@ -344,8 +609,14 @@ _TOOL_CHECK = {
     "opencode": {
         "bin": "opencode",
         "name": "OpenCode",
-        "install": "curl -fsSL https://opencode.ai/install | bash",
+        "install": "curl -fsSL https://opencode.ai/v2/install | bash",  # /install only installs OpenCode 1
         "install_cmd": None,  # pipe install — run via shell
+    },
+    "codex": {
+        "bin": "codex",
+        "name": "Codex",
+        "install": "npm install -g @openai/codex",
+        "install_cmd": ["npm", "install", "-g", "@openai/codex"],
     },
 }
 
@@ -449,6 +720,14 @@ def init(
             console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
             return
         console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in OpenCode and type [cyan]/scaffold[/cyan]\n")
+    elif tool == "codex":
+        created = _init_codex(root, backend, enable_typesafe)
+        for f in created:
+            console.print(f"  [green]✓[/green]  {f}")
+        if not created:
+            console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
+            return
+        console.print(f"\n  [bold green]Done.[/bold green] Run [bold]codex[/bold] in [bold]{root}[/bold], trust the project when asked (.codex/ config and hooks only load in trusted projects), and type [cyan]$scaffold[/cyan]\n")
     else:
         created = _init_project(root, backend)
         for f in created:
@@ -531,13 +810,24 @@ def update(
     console.print()
 
 
+def _sync_file(table: Table, dst: Path, text: str, label: str) -> None:
+    """Write text to dst unless it's already identical, and record the result in table."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists() and dst.read_text(encoding="utf-8") == text:
+        table.add_row(label, "[dim green]ok[/dim green]")
+    else:
+        dst.write_text(text, encoding="utf-8")
+        table.add_row(label, "[cyan]updated[/cyan]")
+
+
 def _sync_project(root: Path) -> Table | None:
-    """Sync built-in skills/agents into root. None if root isn't a nexus project (neither
-    .claude/ nor .opencode/ present) — callers decide how to handle that case."""
+    """Sync built-in skills/agents into root. None if root isn't a nexus project (none of
+    .claude/, .opencode/ or .codex/ present) — callers decide how to handle that case."""
     has_claude = (root / ".claude").is_dir()
     has_opencode = (root / ".opencode").is_dir()
+    has_codex = (root / ".codex").is_dir()
 
-    if not has_claude and not has_opencode:
+    if not has_claude and not has_opencode and not has_codex:
         return None
 
     table = Table(show_header=True, header_style="dim")
@@ -545,68 +835,58 @@ def _sync_project(root: Path) -> Table | None:
     table.add_column("Status")
 
     if has_claude:
-        (root / ".claude" / "commands").mkdir(parents=True, exist_ok=True)
-        (root / ".claude" / "agents").mkdir(parents=True, exist_ok=True)
-
         for fname in _BUILTIN_SKILLS:
             src = _SKILLS_SRC / fname
-            if not src.exists():
-                continue
-            dst = root / ".claude" / "commands" / fname
-            src_text = src.read_text(encoding="utf-8")
-            if dst.exists() and dst.read_text(encoding="utf-8") == src_text:
-                table.add_row(f".claude/commands/{fname}", "[dim green]ok[/dim green]")
-            else:
-                dst.write_text(src_text, encoding="utf-8")
-                table.add_row(f".claude/commands/{fname}", "[cyan]updated[/cyan]")
+            if src.exists():
+                _sync_file(table, root / ".claude" / "commands" / fname, src.read_text(encoding="utf-8"), f".claude/commands/{fname}")
 
         for fname in _BUILTIN_AGENTS:
             src = _AGENTS_SRC / fname
-            if not src.exists():
-                continue
-            dst = root / ".claude" / "agents" / fname
-            src_text = src.read_text(encoding="utf-8")
-            if dst.exists() and dst.read_text(encoding="utf-8") == src_text:
-                table.add_row(f".claude/agents/{fname}", "[dim green]ok[/dim green]")
-            else:
-                dst.write_text(src_text, encoding="utf-8")
-                table.add_row(f".claude/agents/{fname}", "[cyan]updated[/cyan]")
+            if src.exists():
+                _sync_file(table, root / ".claude" / "agents" / fname, src.read_text(encoding="utf-8"), f".claude/agents/{fname}")
 
     if has_opencode:
-        (root / ".opencode" / "commands").mkdir(parents=True, exist_ok=True)
-        (root / ".opencode" / "agents").mkdir(parents=True, exist_ok=True)
-        (root / ".opencode" / "plugins").mkdir(parents=True, exist_ok=True)
+        for fname in _BUILTIN_SKILLS:
+            src = _SKILLS_SRC / fname
+            if src.exists():
+                _sync_file(table, root / ".opencode" / "commands" / fname, src.read_text(encoding="utf-8"), f".opencode/commands/{fname}")
 
+        for fname in _BUILTIN_AGENTS:
+            src = _AGENTS_SRC / fname
+            if src.exists():
+                text = _strip_claude_frontmatter(src.read_text(encoding="utf-8"))
+                _sync_file(table, root / ".opencode" / "agents" / fname, text, f".opencode/agents/{fname}")
+
+        # The plugin for the installed OpenCode major, plus any other stock plugin already on disk.
+        # Never deleted: a repo can have teammates on different OpenCode majors, and removing the
+        # other form would flip-flop it in git on every sync.
+        wanted = _opencode_plugin_relpath(_opencode_major())
+        for plugin_rel, plugin_text in _OPENCODE_PLUGINS.items():
+            if plugin_rel == wanted or (root / plugin_rel).exists():
+                _sync_file(table, root / plugin_rel, plugin_text, plugin_rel)
+
+    if has_codex:
         for fname in _BUILTIN_SKILLS:
             src = _SKILLS_SRC / fname
             if not src.exists():
                 continue
-            dst = root / ".opencode" / "commands" / fname
-            src_text = src.read_text(encoding="utf-8")
-            if dst.exists() and dst.read_text(encoding="utf-8") == src_text:
-                table.add_row(f".opencode/commands/{fname}", "[dim green]ok[/dim green]")
-            else:
-                dst.write_text(src_text, encoding="utf-8")
-                table.add_row(f".opencode/commands/{fname}", "[cyan]updated[/cyan]")
+            stem = Path(fname).stem
+            skill_md, openai_yaml = _to_codex_skill(fname, src.read_text(encoding="utf-8"))
+            _sync_file(table, root / ".agents" / "skills" / stem / "SKILL.md", skill_md, f".agents/skills/{stem}/SKILL.md")
+            if openai_yaml:
+                _sync_file(table, root / ".agents" / "skills" / stem / "agents" / "openai.yaml", openai_yaml, f".agents/skills/{stem}/agents/openai.yaml")
 
         for fname in _BUILTIN_AGENTS:
             src = _AGENTS_SRC / fname
-            if not src.exists():
-                continue
-            dst = root / ".opencode" / "agents" / fname
-            src_text = _strip_claude_frontmatter(src.read_text(encoding="utf-8"))
-            if dst.exists() and dst.read_text(encoding="utf-8") == src_text:
-                table.add_row(f".opencode/agents/{fname}", "[dim green]ok[/dim green]")
-            else:
-                dst.write_text(src_text, encoding="utf-8")
-                table.add_row(f".opencode/agents/{fname}", "[cyan]updated[/cyan]")
+            if src.exists():
+                stem = Path(fname).stem
+                text = _to_codex_agent(fname, src.read_text(encoding="utf-8"))
+                _sync_file(table, root / ".codex" / "agents" / f"{stem}.toml", text, f".codex/agents/{stem}.toml")
 
-        plugin_dst = root / ".opencode" / "plugins" / "graphify.js"
-        if plugin_dst.exists() and plugin_dst.read_text(encoding="utf-8") == _OPENCODE_GRAPHIFY_PLUGIN:
-            table.add_row(".opencode/plugins/graphify.js", "[dim green]ok[/dim green]")
-        else:
-            plugin_dst.write_text(_OPENCODE_GRAPHIFY_PLUGIN, encoding="utf-8")
-            table.add_row(".opencode/plugins/graphify.js", "[cyan]updated[/cyan]")
+        # Only re-add the graphify hook where the project already opted into one.
+        if (root / ".codex" / "hooks.json").exists():
+            added = _write_codex_hooks(root)
+            table.add_row(".codex/hooks.json", "[cyan]updated[/cyan]" if added else "[dim green]ok[/dim green]")
 
     return table
 
@@ -662,16 +942,22 @@ def doctor(
     # ── Tool ─────────────────────────────────────────────────────────────────
     has_claude_bin = bool(shutil.which("claude"))
     has_opencode_bin = bool(shutil.which("opencode"))
+    has_codex_bin = bool(shutil.which("codex"))
     table.add_row("Claude Code", ok("installed") if has_claude_bin else warn("not found — install: npm install -g @anthropic-ai/claude-code"))
-    table.add_row("OpenCode", ok("installed") if has_opencode_bin else warn("not found — install: curl -fsSL https://opencode.ai/install | bash"))
+    opencode_major = _opencode_major()  # None when not installed or unparseable
+    opencode_label = f"installed (v{opencode_major})" if opencode_major is not None else "installed"
+    table.add_row("OpenCode", ok(opencode_label) if has_opencode_bin else warn(f"not found — install: {_TOOL_CHECK['opencode']['install']}"))
+    table.add_row("Codex", ok("installed") if has_codex_bin else warn("not found — install: npm install -g @openai/codex"))
 
     # ── Project ──────────────────────────────────────────────────────────────
     has_claude_dir = (root / ".claude").is_dir()
     has_opencode_dir = (root / ".opencode").is_dir()
-    initialized = has_claude_dir or has_opencode_dir
+    has_codex_dir = (root / ".codex").is_dir()
+    initialized = has_claude_dir or has_opencode_dir or has_codex_dir
+    tools_found = ['claude' if has_claude_dir else '', 'opencode' if has_opencode_dir else '', 'codex' if has_codex_dir else '']
     table.add_row(
         f"{_CLI_BIN} initialized",
-        ok(f"yes ({', '.join(filter(None, ['claude' if has_claude_dir else '', 'opencode' if has_opencode_dir else '']))})")
+        ok(f"yes ({', '.join(filter(None, tools_found))})")
         if initialized else fail(f"no — run {_CLI_BIN} init")
     )
 
@@ -698,12 +984,42 @@ def doctor(
         else:
             try:
                 oc_data = json.loads(oc_json.read_text())
-                if "nexus-jev-mcp" in oc_data.get("mcp", {}):
+                oc_mcp = oc_data.get("mcp", {})
+                oc_servers = oc_mcp.get("servers")  # v2 shape: mcp.servers; v1 shape: flat mcp
+                if "nexus-jev-mcp" in oc_mcp or (isinstance(oc_servers, dict) and "nexus-jev-mcp" in oc_servers):
                     table.add_row("opencode.json", ok("nexus-jev entry present"))
                 else:
                     table.add_row("opencode.json", warn("exists but no nexus-jev-mcp entry"))
             except Exception:
                 table.add_row("opencode.json", warn("invalid JSON"))
+
+        # graphify plugin — judged from what's on disk, against the installed OpenCode major
+        has_plugin_v1 = (root / _OPENCODE_PLUGIN_V1).exists()
+        has_plugin_v2 = (root / _OPENCODE_PLUGIN_V2).exists()
+        if opencode_major is not None and opencode_major >= 2:
+            if has_plugin_v1 and not has_plugin_v2:
+                table.add_row("graphify plugin (OpenCode)", warn(f"{_OPENCODE_PLUGIN_V1} is a v1 plugin — OpenCode v2 doesn't run it, run {_CLI_BIN} sync"))
+            elif has_plugin_v1:
+                table.add_row("graphify plugin (OpenCode)", warn(f"legacy {_OPENCODE_PLUGIN_V1} is ignored by OpenCode v2 (it logs a warning at startup) — safe to delete"))
+            elif has_plugin_v2:
+                table.add_row("graphify plugin (OpenCode)", ok("present (v2)"))
+        elif opencode_major is not None:
+            if has_plugin_v2 and not has_plugin_v1:
+                table.add_row("graphify plugin (OpenCode)", warn(f"{_OPENCODE_PLUGIN_V2} is a v2 plugin — OpenCode v{opencode_major} doesn't run it, run {_CLI_BIN} sync"))
+            elif has_plugin_v1:
+                table.add_row("graphify plugin (OpenCode)", ok("present (v1)"))
+        elif has_plugin_v1 or has_plugin_v2:
+            table.add_row("graphify plugin (OpenCode)", ok("present"))
+
+    # MCP config — Codex (text check: no tomllib on Python 3.10)
+    if has_codex_dir:
+        codex_config = root / ".codex" / "config.toml"
+        if not codex_config.exists():
+            table.add_row(".codex/config.toml", fail("missing"))
+        elif f"[mcp_servers.{_CLI_BIN}]" in codex_config.read_text(encoding="utf-8"):
+            table.add_row(".codex/config.toml", ok(f"{_CLI_BIN} entry present"))
+        else:
+            table.add_row(".codex/config.toml", warn(f"exists but no [mcp_servers.{_CLI_BIN}] entry"))
 
     # ── TypeSafe / Jev ───────────────────────────────────────────────────────
     typesafe_wired = False
@@ -717,6 +1033,12 @@ def doctor(
         try:
             cmd = json.loads((root / "opencode.json").read_text()).get("mcp", {}).get("nexus-jev-mcp", {}).get("command", [])
             typesafe_wired = typesafe_wired or "[typesafe]" in " ".join(cmd)
+        except Exception:
+            pass
+
+    if has_codex_dir and (root / ".codex" / "config.toml").exists():
+        try:
+            typesafe_wired = typesafe_wired or f"{_PACKAGE_NAME}[typesafe]" in (root / ".codex" / "config.toml").read_text(encoding="utf-8")
         except Exception:
             pass
 
@@ -763,12 +1085,35 @@ def doctor(
         else:
             table.add_row("Built-in agents (OpenCode)", warn(f"{missing_oc_ag} missing — run {_CLI_BIN} sync"))
 
+    if has_codex_dir:
+        cx_skills_dir = root / ".agents" / "skills"
+        present_cx = [f for f in _BUILTIN_SKILLS if (cx_skills_dir / Path(f).stem / "SKILL.md").exists()]
+        missing_cx = len(_BUILTIN_SKILLS) - len(present_cx)
+        if missing_cx == 0:
+            table.add_row("Built-in skills (Codex)", ok(f"all {len(_BUILTIN_SKILLS)} present"))
+        else:
+            table.add_row("Built-in skills (Codex)", warn(f"{missing_cx} missing — run {_CLI_BIN} sync"))
+
+        cx_ag_dir = root / ".codex" / "agents"
+        present_cx_ag = [f for f in _BUILTIN_AGENTS if (cx_ag_dir / f"{Path(f).stem}.toml").exists()]
+        missing_cx_ag = len(_BUILTIN_AGENTS) - len(present_cx_ag)
+        if missing_cx_ag == 0:
+            table.add_row("Built-in agents (Codex)", ok(f"all {len(_BUILTIN_AGENTS)} present"))
+        else:
+            table.add_row("Built-in agents (Codex)", warn(f"{missing_cx_ag} missing — run {_CLI_BIN} sync"))
+
     # ── Knowledge ────────────────────────────────────────────────────────────
     missing_dirs = [d for d in _KNOWLEDGE_DIRS if not (root / d).is_dir()]
     if not missing_dirs:
         table.add_row("Knowledge dirs", ok(f"all {len(_KNOWLEDGE_DIRS)} present"))
     else:
         table.add_row("Knowledge dirs", warn(f"missing: {', '.join(missing_dirs)}"))
+
+    missing_docs = [d for d in _DOCS_DIRS if not (root / d).is_dir()]
+    if not missing_docs:
+        table.add_row("Docs dirs", ok(f"all {len(_DOCS_DIRS)} present"))
+    else:
+        table.add_row("Docs dirs", warn(f"missing: {', '.join(missing_docs)} — run {_CLI_BIN} init"))
 
     # ── Knowledge graph backends ────────────────────────────────────────────
     has_graphify = graph_backend.backend_installed("graphify")

@@ -1,7 +1,7 @@
 # nexus-dev-toolkit
 
 
-Developer workflow toolkit for Claude Code and OpenCode. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
+Developer workflow toolkit for Claude Code, OpenCode and Codex. Gives any team a structured Day 0 scaffold and repeatable Day 1 feature cycle via the EPAV methodology.
 
 **[Documentation](https://nexus.coderstudio.co/docs)**
 
@@ -35,6 +35,13 @@ npm install -g @anthropic-ai/claude-code
 claude login
 ```
 
+**OpenCode v2** _(instead of, or alongside, Claude Code)_ — `https://opencode.ai/install` only installs v1:
+```bash
+curl -fsSL https://opencode.ai/v2/install | bash   # new install
+opencode upgrade --major                           # or: upgrade an existing v1 install
+```
+Remove a package-managed v1 (npm, brew, …) first. After upgrading, run `nexus sync` in each project — details under [What `nexus init` Creates](#what-nexus-init-creates).
+
 **graphify** _(strongly recommended)_ — builds a queryable knowledge graph of your codebase. EPAV skills query this graph to understand blast radius and cross-file dependencies before touching any code.
 
 | | With graphify | Without graphify |
@@ -62,15 +69,24 @@ codegraph install   # wires codegraph into Claude Code / OpenCode / etc.
 uv tool install nexus-dev-toolkit
 ```
 
+Check it installed:
+```bash
+nexus --version   # prints nexus-dev-toolkit vX.Y.Z
+uv tool list      # lists the nexus and nexus-mcp commands
+```
+`command not found`? Run `uv tool update-shell` and restart your terminal. If `--version` prints a different name, another package is providing a `nexus` command — `uv tool list` shows which.
+
 ### 3. Initialize your project
 
 ```bash
 cd my-project
 nexus init .                                        # Claude Code (default), prompts for graphify/codegraph/none + TypeSafe
 nexus init . --tool opencode                        # OpenCode
+nexus init . --tool codex                           # Codex
 nexus init . --graph-backend codegraph              # skip the graph-backend prompt, use codegraph
 nexus init . --typesafe                             # skip the TypeSafe prompt, enable it
 ```
+
 
 **TypeSafe/Jev** _(optional)_ — replaces a handful of hardcoded keyword-matching
 heuristics in the EPAV tools (which architecture-doc section is about auth vs.
@@ -85,17 +101,74 @@ with `--typesafe` (or answer `y` at the prompt), then set `TYPESAFE_API_KEY`
 it's wired up and whether the key is set. See `tools/README.md` for how it's
 implemented.
 
+**Quick try-out** (training and demos) — practise on a throwaway project first; nothing real is touched.
+
+1. **Create the project.** This also creates the folder, so there's nothing to set up first.
+2. **Describe the app to build.** `/scaffold` needs to know what it's building. In a real project that's your architecture document, saved in `docs/arch-docs/`. For this try-out, paste the sample below — it saves a short todo-app description into that folder.
+3. **Check the setup and open the project in OpenCode.** `nexus doctor` lists each item as working, missing or broken — a `⚠` is fine for optional things; a `✗` needs fixing before you go on.
+4. **Type `/scaffold` inside OpenCode.** It starts by reviewing the sample (the EVALUATE phase), then stops and waits — you check what it found, then type the next command.
+
+```bash
+# 1. create the project
+nexus init ~/nexus-test-opencode --tool opencode --graph-backend graphify
+
+# 2. save the sample as docs/arch-docs/ARCH.md
+cd ~/nexus-test-opencode
+cat > docs/arch-docs/ARCH.md <<'EOF'
+# Nexus Todo - Architecture
+
+A small three-tier todo app used for training.
+
+## Design goals
+A modern, minimal UI with a feature-rich UX: clean on screen, but with
+inline editing, filters (all / active / done), keyboard shortcuts and
+dark mode.
+
+## Tech stack
+- Presentation: React 19, Vite, TypeScript, Tailwind CSS (client/)
+- Application: Node.js, Express REST API (server/)
+- Data: SQLite via better-sqlite3 (migrations/)
+
+## Data model
+todos(id, title, completed, created_at)
+
+## API
+GET /api/todos, POST /api/todos
+PATCH /api/todos/:id, DELETE /api/todos/:id
+
+## Auth
+Single-user demo, no login.
+
+## Error handling
+JSON body { "error": { "code", "message" } } with the right HTTP status.
+
+## Security
+Validate every request body on the server. Parameterised SQL only.
+EOF
+
+# 3. check the setup, then open the project in OpenCode
+nexus doctor   # checks the setup (✓ ok, ⚠ optional, ✗ fix)
+opencode       # opens OpenCode in this project
+```
+Then, inside OpenCode (step 4):
+```
+/scaffold → (review) → /plan → (review) → /apply → (review) → /validate
+```
+Delete the folder when you're done.
+
 ### 4. Place your reference docs
 
-Before running `/scaffold`, put everything Claude needs in `docs/`:
+`nexus init` creates these folders for you (it never touches files already in `docs/`). Before running `/scaffold`, put everything Claude needs in them:
 
 ```
 docs/
 ├── arch-docs/   ← architecture doc, ADRs
-├── designs/     ← design export (Figma export ZIP, or a Claude-Design HTML mockup)
-├── brd/         ← Business Requirements Document
-└── prd/         ← Product Requirements Document
+├── dev-tasks/   ← task CSVs — read by /evaluate and the load_task MCP tool
+├── designs/     ← design exports (e.g. Figma export ZIP)
+└── requirements/ ← BRD, PRD, user stories — the what and why
 ```
+
+Keep requirements out of `arch-docs/`: `ingest_architecture_doc` scans that whole folder, so a PRD there gets parsed as architecture. See the [docs folder guide](https://nexus.coderstudio.co/docs#docs-folder) for what reads each folder.
 
 ### 5. Start Day 0
 
@@ -153,6 +226,7 @@ knowledge/
 ├── patterns/          ← reusable implementation patterns
 ├── prompts/dev/       ← task prompt templates
 └── retros/            ← retrospective notes
+docs/                  ← arch-docs/, dev-tasks/, designs/, requirements/ (empty folders, existing files untouched)
 .mcp.json              ← MCP server config
 ```
 
@@ -160,12 +234,38 @@ knowledge/
 ```
 .opencode/
 ├── commands/          ← same EPAV skills + reviewer skills
-├── agents/            ← same reviewer subagents (adapted for OpenCode)
+├── agents/            ← same reviewer subagents (adapted for OpenCode, marked `mode: subagent`)
 └── plugins/
-    └── graphify.js    ← tool.execute.after: graphify auto-update (graphify backend only)
+    └── graphify/index.ts  ← graphify auto-update after every tool run (graphify backend only)
 knowledge/             ← same structure
+docs/                  ← same structure
 opencode.json          ← MCP server config
 ```
+
+Verified on OpenCode v2.2.5; v1 projects keep the v1 layout. Commands, agents and `opencode.json` are written the same for both; only the graphify plugin differs — `nexus init`/`nexus sync` read `opencode --version` and write `.opencode/plugins/graphify/index.ts` for v2 or `.opencode/plugins/graphify.js` for v1 (v2 if it can't tell). `nexus sync` never deletes the other form, and `nexus doctor` flags a plugin your installed OpenCode won't run.
+
+**Installing or upgrading OpenCode** (see [OpenCode's migration guide](https://opencode.ai/v2/docs/migrate-v1/)):
+```bash
+curl -fsSL https://opencode.ai/v2/install | bash   # install v2 (https://opencode.ai/install only installs v1)
+opencode upgrade --major                           # upgrade an existing v1 install to v2
+nexus sync                                         # then, in each project: repairs agent files, adds the v2 plugin
+```
+The v2 installer replaces the v1 binary (both live in `~/.opencode/bin`); remove a package-managed v1 (npm, brew, …) first. v1 and v2 read the same config files, so don't point v1 at a config you've converted to v2's native shape.
+
+**Codex** (`nexus init . --tool codex`):
+```
+.agents/skills/<name>/
+├── SKILL.md           ← same EPAV + reviewer skills — invoke with $evaluate, $plan, …
+└── agents/openai.yaml ← EPAV steps only: blocks implicit invocation, so Codex never starts $apply on its own
+.codex/
+├── agents/*.toml      ← same reviewer subagents (converted to Codex TOML)
+├── config.toml        ← [mcp_servers.nexus] (appended — your existing config is never rewritten)
+└── hooks.json         ← PostToolUse: graphify auto-update (graphify backend only)
+knowledge/             ← same structure
+docs/                  ← same structure
+```
+
+Codex only loads project `.codex/` config and hooks for **trusted** projects — trust the project when Codex asks.
 
 ---
 
@@ -174,6 +274,7 @@ opencode.json          ← MCP server config
 ```bash
 nexus init .                      # Claude Code — set up .claude/ + knowledge/ + .mcp.json
 nexus init . --tool opencode      # OpenCode — set up .opencode/ + knowledge/ + opencode.json
+nexus init . --tool codex         # Codex — set up .agents/skills/ + .codex/ + knowledge/
 nexus --version                   # show installed version
 nexus update                      # update the CLI itself; asks whether to also sync in a real terminal
 nexus update --sync               # skip the prompt, always sync the current project's skills/agents too

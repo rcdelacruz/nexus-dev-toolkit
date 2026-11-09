@@ -120,7 +120,8 @@
     main {
       flex: 1;
       padding: 3rem 3rem 5rem;
-      max-width: 820px;
+      max-width: 1100px;
+      min-width: 0; /* let main shrink with the window; wide code blocks scroll inside their own box instead of widening the page */
     }
 
     h1 {
@@ -337,6 +338,7 @@
 
     .step-content {
       flex: 1;
+      min-width: 0; /* a flex item can't shrink below its widest child otherwise — a long code line widens the whole step */
     }
 
     .step-title {
@@ -414,7 +416,7 @@
   <nav>
     <div class="nav-logo">NEXUS</div>
 
-    <div class="nav-version">v3.1.9</div>
+    <div class="nav-version">v3.1.12</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
@@ -422,6 +424,8 @@
     <a href="#init">nexus init</a>
     <a href="#init-claude" class="sub">→ Claude Code</a>
     <a href="#init-opencode" class="sub">→ OpenCode</a>
+    <a href="#init-codex" class="sub">→ Codex</a>
+    <a href="#docs-folder">The docs/ folder</a>
 
     <div class="nav-section">Day 0</div>
     <a href="#day0">Overview</a>
@@ -455,10 +459,16 @@
     <a href="#commands" class="sub">→ nexus doctor</a>
     <a href="#knowledge">knowledge/ layout</a>
 
+    <div class="nav-section" style="color: var(--yellow);">Experimental</div>
+    <a href="#jev">nexus-jev (TypeSafe)</a>
+    <a href="#jev-install" class="sub">→ Install</a>
+    <a href="#jev-usage" class="sub">→ Usage</a>
+
     <div class="nav-section">Links</div>
     <a href="/">← Home</a>
     <a href="/workflow">Workflow diagram</a>
     <a href="/loop-guide">Loop guide</a>
+    <a href="/cursor">Cursor guide</a>
     <a href="https://github.com/rcdelacruz/nexus-dev-toolkit" target="_blank">GitHub</a>
   </nav>
 
@@ -519,6 +529,13 @@
           <pre
             style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">npm install -g</span> @anthropic-ai/claude-code
 <span class="prompt">$</span> <span class="cmd">claude login</span></code><button class="copy-btn" onclick="copy(this, 'npm install -g @anthropic-ai/claude-code && claude login')">copy</button></pre>
+          <div class="step-desc" style="margin-top:0.75rem"><strong>Using OpenCode instead?</strong> Install OpenCode v2 — the older
+            <code>opencode.ai/install</code> script only installs v1. Already on v1? <code>opencode upgrade --major</code>
+            upgrades it (remove a package-managed v1 first; see
+            <a href="https://opencode.ai/v2/docs/migrate-v1/">OpenCode's migration guide</a>).</div>
+          <pre
+            style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">curl</span> -fsSL https://opencode.ai/v2/install | bash   <span class="comment"># new install</span>
+<span class="prompt">$</span> <span class="cmd">opencode upgrade --major</span>                           <span class="comment"># or: upgrade v1</span></code><button class="copy-btn" onclick="copy(this, 'curl -fsSL https://opencode.ai/v2/install | bash')">copy</button></pre>
         </div>
       </div>
       <div class="step">
@@ -551,6 +568,82 @@
           <div class="step-title">Install nexus-dev-toolkit</div>
           <pre
             style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> nexus-dev-toolkit</code><button class="copy-btn" onclick="copy(this, 'uv tool install nexus-dev-toolkit')">copy</button></pre>
+          <div class="step-desc" style="margin-top:0.75rem"><strong>Check it installed:</strong></div>
+          <pre
+            style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">nexus --version</span>     <span class="comment"># prints nexus-dev-toolkit vX.Y.Z</span>
+<span class="prompt">$</span> <span class="cmd">uv tool list</span>        <span class="comment"># lists the nexus and nexus-mcp commands</span></code><button class="copy-btn" onclick="copy(this, 'nexus --version && uv tool list')">copy</button></pre>
+          <div class="step-desc">If you get <code>command not found</code>, run <code>uv tool update-shell</code> and restart your
+            terminal. If <code>--version</code> prints a different name, another package is providing a <code>nexus</code>
+            command &mdash; <code>uv tool list</code> shows which.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Try it on a sample app <span
+              style="color:var(--muted);font-weight:normal;font-size:0.8em">(training and quick setup)</span></div>
+          <div class="step-desc">Practise on a throwaway project first &mdash; nothing real is touched. Four short parts:
+            create the project, give it a sample app to build, open it in OpenCode, then run <code>/scaffold</code>.
+            Delete the folder when you're done.</div>
+
+          <div class="step-desc" style="margin-top:0.75rem"><strong>1. Create the project.</strong> This also creates the
+            folder, so there's nothing to set up first.</div>
+          <pre
+            style="margin-top:0.5rem"><code><span class="comment"># creates ~/nexus-test-opencode and sets nexus up in it</span>
+<span class="prompt">$</span> <span class="cmd">nexus init</span> ~/nexus-test-opencode <span class="arg">--tool opencode --graph-backend graphify</span></code><button class="copy-btn" onclick="copy(this, &quot;nexus init ~/nexus-test-opencode --tool opencode --graph-backend graphify&quot;)">copy</button></pre>
+
+          <div class="step-desc" style="margin-top:0.75rem"><strong>2. Describe the app to build.</strong>
+            <code>/scaffold</code> needs to know what it's building. In a real project that's your architecture document,
+            saved in <code>docs/arch-docs/</code>. For this try-out, paste the block below &mdash; it saves a short sample
+            (a tiny todo app) into that folder.</div>
+          <pre
+            style="margin-top:0.5rem"><code><span class="comment"># saves the sample as docs/arch-docs/ARCH.md</span>
+<span class="prompt">$</span> <span class="cmd">cd</span> ~/nexus-test-opencode
+<span class="prompt">$</span> <span class="cmd">cat</span> &gt; docs/arch-docs/ARCH.md &lt;&lt;'EOF'
+# Nexus Todo - Architecture
+
+A small three-tier todo app used for training.
+
+## Design goals
+A modern, minimal UI with a feature-rich UX: clean on screen, but with
+inline editing, filters (all / active / done), keyboard shortcuts and
+dark mode.
+
+## Tech stack
+- Presentation: React 19, Vite, TypeScript, Tailwind CSS (client/)
+- Application: Node.js, Express REST API (server/)
+- Data: SQLite via better-sqlite3 (migrations/)
+
+## Data model
+todos(id, title, completed, created_at)
+
+## API
+GET /api/todos, POST /api/todos
+PATCH /api/todos/:id, DELETE /api/todos/:id
+
+## Auth
+Single-user demo, no login.
+
+## Error handling
+JSON body { "error": { "code", "message" } } with the right HTTP status.
+
+## Security
+Validate every request body on the server. Parameterised SQL only.
+EOF</code><button class="copy-btn" onclick="copy(this, &quot;cd ~/nexus-test-opencode\ncat &gt; docs/arch-docs/ARCH.md &lt;&lt;&#x27;EOF&#x27;\n# Nexus Todo - Architecture\n\nA small three-tier todo app used for training.\n\n## Design goals\nA modern, minimal UI with a feature-rich UX: clean on screen, but with\ninline editing, filters (all / active / done), keyboard shortcuts and\ndark mode.\n\n## Tech stack\n- Presentation: React 19, Vite, TypeScript, Tailwind CSS (client/)\n- Application: Node.js, Express REST API (server/)\n- Data: SQLite via better-sqlite3 (migrations/)\n\n## Data model\ntodos(id, title, completed, created_at)\n\n## API\nGET /api/todos, POST /api/todos\nPATCH /api/todos/:id, DELETE /api/todos/:id\n\n## Auth\nSingle-user demo, no login.\n\n## Error handling\nJSON body { \&quot;error\&quot;: { \&quot;code\&quot;, \&quot;message\&quot; } } with the right HTTP status.\n\n## Security\nValidate every request body on the server. Parameterised SQL only.\nEOF\n&quot;)">copy</button></pre>
+
+          <div class="step-desc" style="margin-top:0.75rem"><strong>3. Check the setup, then open the project in OpenCode.</strong>
+            <code>nexus doctor</code> checks what nexus set up and lists each item as working, missing or broken. A
+            <code>⚠</code> is fine for optional things; a <code>✗</code> needs fixing before you go on.</div>
+          <pre
+            style="margin-top:0.5rem"><code><span class="prompt">$</span> <span class="cmd">nexus doctor</span>        <span class="comment"># checks the setup (✓ ok, ⚠ optional, ✗ fix)</span>
+<span class="prompt">$</span> <span class="cmd">opencode</span>            <span class="comment"># opens OpenCode in this project</span></code><button class="copy-btn" onclick="copy(this, 'nexus doctor &amp;&amp; opencode')">copy</button></pre>
+
+          <div class="step-desc" style="margin-top:0.75rem"><strong>4. Inside OpenCode, type <code>/scaffold</code>.</strong>
+            It starts by reviewing the sample (the EVALUATE phase), then <strong>stops and waits</strong> &mdash; you check
+            what it found, then type the next command to continue:</div>
+          <pre
+            style="margin-top:0.5rem"><code><span class="skill">/scaffold</span> &rarr; (review) &rarr; <span class="skill">/plan</span> &rarr; (review) &rarr; <span class="skill">/apply</span> &rarr; (review) &rarr; <span class="skill">/validate</span></code><button class="copy-btn" onclick="copy(this, '/scaffold')">copy</button></pre>
+          <div class="step-desc">What each phase does is covered in <a href="#day0">Day 0</a> below.</div>
         </div>
       </div>
     </div>
@@ -568,7 +661,20 @@
 
     <pre><code><span class="prompt">$</span> <span class="cmd">cd</span> my-project
 <span class="prompt">$</span> <span class="cmd">nexus init</span> .                        <span class="comment"># Claude Code (default)</span>
-<span class="prompt">$</span> <span class="cmd">nexus init</span> . <span class="arg">--tool opencode</span>       <span class="comment"># OpenCode</span></code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
+<span class="prompt">$</span> <span class="cmd">nexus init</span> . <span class="arg">--tool opencode</span>       <span class="comment"># OpenCode</span>
+<span class="prompt">$</span> <span class="cmd">nexus init</span> . <span class="arg">--tool codex</span>          <span class="comment"># Codex</span></code><button class="copy-btn" onclick="copy(this, 'nexus init .')">copy</button></pre>
+
+    <div class="callout">
+      <strong>First time opening this project in Claude Code</strong>, you'll see a one-time prompt:
+      "New MCP server found in this project: nexus" — choose <code>Use this MCP server</code> (or
+      <code>Use this and all future MCP servers in this project</code>). Picking
+      <code>Continue without using this MCP server</code> means none of the EPAV tools
+      (<code>ingest_architecture_doc</code>, <code>resolve_package_versions</code>, etc.) will actually
+      be available during that session, even though <code>.mcp.json</code> is configured correctly.
+    </div>
+
+    <img src="/img/mcp-trust-prompt.png" alt="Claude Code's MCP trust prompt: 'New MCP server found in this project: nexus-jev' with three options — Use this MCP server, Use this and all future MCP servers in this project, Continue without using this MCP server"
+      style="max-width:100%;display:block;border:1px solid var(--border);border-radius:6px;margin-bottom:1.5rem;" />
 
     <h3 id="init-claude">Claude Code (default)</h3>
 
@@ -602,17 +708,38 @@ knowledge/
 ├── patterns/                <span class="comment">← reusable implementation patterns</span>
 ├── prompts/dev/             <span class="comment">← task prompt templates</span>
 └── retros/                  <span class="comment">← retrospective notes</span>
+docs/                        <span class="comment">← arch-docs/, dev-tasks/, designs/, requirements/</span>
 .mcp.json                    <span class="comment">← MCP server config</span></code></pre>
 
     <h3 id="init-opencode">OpenCode</h3>
 
     <div class="callout">
       Agents are automatically adapted for OpenCode compatibility — Claude Code-specific frontmatter fields
-      (<code>tools</code>, <code>model</code>) are stripped on copy. The graphify plugin fires on every tool execution
-      via <code>tool.execute.after</code> — only scaffolded if you picked graphify at <code>nexus init</code>'s
-      <code>--graph-backend</code> prompt. Pick codegraph instead and nothing is scaffolded here; codegraph wires
-      and syncs itself via <code>codegraph install &amp;&amp; codegraph init</code>.
+      (<code>tools</code>, <code>model</code>) are stripped on copy and each agent is marked <code>mode: subagent</code>.
+      The graphify plugin runs after every tool execution — only scaffolded if you picked graphify at
+      <code>nexus init</code>'s <code>--graph-backend</code> prompt. Pick codegraph instead and nothing is scaffolded
+      here; codegraph wires and syncs itself via <code>codegraph install &amp;&amp; codegraph init</code>.
     </div>
+
+    <div class="callout">
+      <strong>OpenCode v1 and v2.</strong> Commands, agents and <code>opencode.json</code> are identical for both. Only
+      the graphify plugin differs, because v2 doesn't run v1 plugins: <code>nexus init</code> and <code>nexus sync</code>
+      read <code>opencode --version</code> and write <code>.opencode/plugins/graphify/index.ts</code> for v2 or
+      <code>.opencode/plugins/graphify.js</code> for v1 (v2 if the version can't be detected). <code>nexus sync</code>
+      never deletes the other form — a repo can have teammates on different versions — and <code>nexus doctor</code>
+      warns when the plugin on disk is one your installed OpenCode won't run. Existing v1-era projects: run
+      <code>nexus sync</code> to repair agent files and add the v2 plugin.
+    </div>
+
+    <h3>Installing or upgrading OpenCode</h3>
+    <pre><code><span class="prompt">$</span> <span class="cmd">curl</span> -fsSL https://opencode.ai/v2/install | bash   <span class="comment"># install v2</span>
+<span class="prompt">$</span> <span class="cmd">opencode upgrade --major</span>                           <span class="comment"># upgrade an existing v1</span>
+<span class="prompt">$</span> <span class="cmd">nexus sync</span>                                         <span class="comment"># then, per project</span></code><button class="copy-btn" onclick="copy(this, 'curl -fsSL https://opencode.ai/v2/install | bash')">copy</button></pre>
+    <p>Use the v2 installer — <code>opencode.ai/install</code> only installs v1. It replaces the v1 binary (both live in
+      <code>~/.opencode/bin</code>); remove a package-managed
+      v1 (npm, brew, …) first. After upgrading, run <code>nexus sync</code> in each project — it repairs the agent files
+      and adds the v2 plugin. v1 and v2 read the same config files, so don't point v1 at a config you've converted to
+      v2's native shape. See <a href="https://opencode.ai/v2/docs/migrate-v1/">OpenCode's migration guide</a>.</p>
 
     <pre><code>.opencode/
 ├── commands/
@@ -639,13 +766,91 @@ knowledge/
 │   ├── monitoring-reviewer.md
 │   └── pr-verifier.md
 └── plugins/
-│   └── graphify.js          <span class="comment">← tool.execute.after: graphify auto-update (graphify backend only)</span>
+    └── graphify/index.ts    <span class="comment">← graphify auto-update after every tool run (graphify backend only; v1: graphify.js)</span>
 knowledge/
 ├── rules/
 ├── patterns/
 ├── prompts/dev/
 └── retros/
+docs/                        <span class="comment">← arch-docs/, dev-tasks/, designs/, requirements/</span>
 opencode.json                <span class="comment">← MCP server config</span></code></pre>
+
+    <h3 id="init-codex">Codex</h3>
+
+    <div class="callout">
+      Skills go to <code>.agents/skills/&lt;name&gt;/SKILL.md</code> — invoke them with <code>$evaluate</code>, <code>$plan</code>, … or <code>/skills</code>.
+      The EPAV steps also get <code>agents/openai.yaml</code> with <code>allow_implicit_invocation: false</code>, so Codex never starts
+      <code>$apply</code> or <code>$commit</code> on its own. Agents are converted to Codex TOML (Claude Code-only <code>tools</code>/<code>model</code> are dropped;
+      they inherit your session model). The nexus MCP block is <em>appended</em> to <code>.codex/config.toml</code> — existing config is never rewritten.
+      Codex only loads project <code>.codex/</code> config and hooks for <strong>trusted</strong> projects — trust it when asked.
+    </div>
+
+    <pre><code>.agents/skills/
+├── evaluate/
+│   ├── SKILL.md             <span class="comment">← $evaluate — orient on task</span>
+│   └── agents/openai.yaml   <span class="comment">← explicit-only (EPAV steps)</span>
+├── plan/ apply/ validate/ epav/ scaffold/ commit/ create-pr/ dev-tasks-planner/
+└── code-review/ database-review/ … pr-review/   <span class="comment">← reviewer skills (implicit allowed)</span>
+.codex/
+├── agents/
+│   ├── code-reviewer.toml
+│   └── …                    <span class="comment">← all 6 reviewer subagents</span>
+├── config.toml              <span class="comment">← [mcp_servers.nexus]</span>
+└── hooks.json               <span class="comment">← PostToolUse: graphify auto-update (graphify backend only)</span>
+knowledge/                   <span class="comment">← same structure</span>
+docs/                        <span class="comment">← arch-docs/, dev-tasks/, designs/, requirements/</span></code></pre>
+
+    <!-- docs folder -->
+    <h2 id="docs-folder">The docs/ folder</h2>
+
+    <p><code>docs/</code> is where your project's reference material lives — the documents Claude reads to understand
+      what you're building and how. <code>nexus init</code> creates the four folders below for every tool (Claude Code,
+      OpenCode, Codex). It only creates folders: if <code>docs/</code> already exists, nothing inside it is moved,
+      renamed or overwritten, and re-running <code>nexus init</code> just adds any folder that's missing.</p>
+
+    <pre><code>docs/
+├── arch-docs/       <span class="comment">← HOW: architecture doc, ADRs</span>
+├── dev-tasks/       <span class="comment">← WHAT TO DO NEXT: task CSVs, one row per task</span>
+├── designs/         <span class="comment">← WHAT IT LOOKS LIKE: design exports (e.g. Figma ZIP)</span>
+└── requirements/    <span class="comment">← WHAT &amp; WHY: BRD, PRD, user stories</span></code></pre>
+
+    <table>
+      <thead><tr><th>Folder</th><th>Put here</th><th>Read by</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>arch-docs/</code></td>
+          <td>Your architecture document and ADRs, as markdown. Stack, data model, auth, error format, security rules.</td>
+          <td><code>ingest_architecture_doc</code> (scans this folder by default), <code>/scaffold</code>, <code>/evaluate</code>, <code>/dev-tasks-planner</code></td>
+        </tr>
+        <tr>
+          <td><code>dev-tasks/</code></td>
+          <td>Task CSVs with columns <code>task_id</code>, <code>user_story</code>, <code>description</code>, <code>acceptance_criteria</code>, <code>dependencies</code>. Usually one file per module or epic.</td>
+          <td><code>load_task</code> (scans this folder by default), <code>/evaluate</code>. Written by <code>/dev-tasks-planner</code>.</td>
+        </tr>
+        <tr>
+          <td><code>designs/</code></td>
+          <td>Design exports — a Figma export ZIP, screens, a design-system spec.</td>
+          <td><code>/scaffold</code> (design system + UI shell), <code>/dev-tasks-planner</code></td>
+        </tr>
+        <tr>
+          <td><code>requirements/</code></td>
+          <td>Business and product requirements: BRD, PRD, user stories, acceptance notes.</td>
+          <td>No step loads it automatically yet — point Claude at it (e.g. <code>/evaluate</code> a task "per docs/requirements/prd.md") when requirements matter.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Why requirements and architecture are separate folders:</strong> <code>ingest_architecture_doc</code> scans
+      all of <code>docs/arch-docs/</code> and extracts stack, data model and security rules from whatever it finds. A PRD
+      dropped in there would be parsed as architecture and pollute those results. Requirements answer <em>what and why</em>;
+      architecture answers <em>how</em> — keep them apart.
+    </div>
+
+    <div class="callout warn">
+      Git doesn't track empty folders. They show up in your repo once you add a file — teammates who clone before then
+      get them by running <code>nexus init .</code> themselves.
+    </div>
 
     <!-- Day 0 -->
     <h2 id="day0">Day 0 — /scaffold <span style="color:var(--muted);font-weight:normal;font-size:0.8em">(one-time, reference)</span></h2>
@@ -668,13 +873,9 @@ opencode.json                <span class="comment">← MCP server config</span><
         <div class="step-content">
           <div class="step-title">Place all reference documents in <code>docs/</code></div>
           <div class="step-desc">
-            Keep everything Claude needs in one place:
-            <ul style="margin-top:0.5rem;padding-left:1.25rem;line-height:1.8">
-              <li><code>docs/arch-docs/</code> — architecture doc, ADRs</li>
-              <li><code>docs/figma/</code> — Figma export ZIP</li>
-              <li><code>docs/brd/</code> — Business Requirements Document</li>
-              <li><code>docs/prd/</code> — Product Requirements Document</li>
-            </ul>
+            <code>nexus init</code> already created the folders. For Day 0 you need at least your architecture doc in
+            <code>docs/arch-docs/</code> and your design export in <code>docs/designs/</code>. See
+            <a href="#docs-folder">The docs/ folder</a> for what goes where and which step reads it.
           </div>
         </div>
       </div>
@@ -1026,8 +1227,8 @@ opencode.json                <span class="comment">← MCP server config</span><
     </table>
 
     <p>graphify auto-updates after every file edit — via the PostToolUse hook in <code>.claude/settings.json</code>
-      (Claude Code) or the <code>tool.execute.after</code> plugin in <code>.opencode/plugins/graphify.js</code>
-      (OpenCode). Both are installed automatically by <code>nexus init</code> if you picked graphify. codegraph
+      (Claude Code) or the graphify plugin in <code>.opencode/plugins/graphify/index.ts</code>
+      (OpenCode v2; <code>graphify.js</code> on v1) or the <code>PostToolUse</code> hook in <code>.codex/hooks.json</code> (Codex). All are installed automatically by <code>nexus init</code> if you picked graphify. codegraph
       updates itself via its own background sync daemon — no hook needed, and none is scaffolded.</p>
 
     <h3 id="validate">/validate</h3>
@@ -1109,7 +1310,9 @@ opencode.json                <span class="comment">← MCP server config</span><
 }</code><button class="copy-btn" onclick="copy(this, '{&quot;mcpServers&quot;:{&quot;nexus&quot;:{&quot;command&quot;:&quot;uvx&quot;,&quot;args&quot;:[&quot;--refresh&quot;,&quot;--from&quot;,&quot;nexus-dev-toolkit&quot;,&quot;nexus-mcp&quot;]}}}')">copy</button></pre>
 
     <h3>OpenCode (project-level)</h3>
-    <p><code>nexus init . --tool opencode</code> writes <code>opencode.json</code> automatically. To add manually:</p>
+    <p><code>nexus init . --tool opencode</code> writes <code>opencode.json</code> automatically. OpenCode v2 reads this
+      flat <code>mcp</code> form and normalizes it to its own <code>mcp.servers</code> shape; if your existing file is
+      already on <code>mcp.servers</code>, <code>nexus init</code> adds the entry there. To add manually:</p>
     <pre><code><span class="comment">// opencode.json</span>
 {
   "$schema": "https://opencode.ai/config.json",
@@ -1120,6 +1323,13 @@ opencode.json                <span class="comment">← MCP server config</span><
     }
   }
 }</code><button class="copy-btn" onclick="copy(this, '{&quot;$schema&quot;:&quot;https://opencode.ai/config.json&quot;,&quot;mcp&quot;:{&quot;nexus-mcp&quot;:{&quot;type&quot;:&quot;local&quot;,&quot;command&quot;:[&quot;uvx&quot;,&quot;--refresh&quot;,&quot;--from&quot;,&quot;nexus-dev-toolkit&quot;,&quot;nexus-mcp&quot;]}}}')">copy</button></pre>
+
+    <h3>Codex (project-level)</h3>
+    <p><code>nexus init . --tool codex</code> appends this to <code>.codex/config.toml</code> automatically (trusted projects only). To add manually:</p>
+    <pre><code><span class="comment"># .codex/config.toml</span>
+[mcp_servers.nexus]
+command = "uvx"
+args = ["--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"]</code><button class="copy-btn" onclick="copy(this, '[mcp_servers.nexus]\ncommand = &quot;uvx&quot;\nargs = [&quot;--refresh&quot;, &quot;--from&quot;, &quot;nexus-dev-toolkit&quot;, &quot;nexus-mcp&quot;]')">copy</button></pre>
 
     <h2 id="mcp-tools">MCP Tool Reference</h2>
 
@@ -1372,6 +1582,10 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
           <td>Initialize for OpenCode</td>
         </tr>
         <tr>
+          <td><code>nexus init [dir] --tool codex</code></td>
+          <td>Initialize for Codex</td>
+        </tr>
+        <tr>
           <td><code>nexus update</code></td>
           <td>Update the nexus CLI itself to latest — does not touch any project's .claude/.opencode files. In a real terminal, asks whether to also sync the current directory; scripted/CI runs skip the prompt automatically</td>
         </tr>
@@ -1444,6 +1658,103 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
 │   └── implement-and-test.md <span class="comment">← E→P→A→V pattern</span>
 ├── prompts/dev/             <span class="comment">← task prompt templates</span>
 └── retros/                  <span class="comment">← [BACKLOG] items from /validate</span></code></pre>
+
+    <!-- nexus-jev -->
+    <h2 id="jev">nexus-jev — Experimental TypeSafe/Jev Build</h2>
+
+    <div class="callout warn">
+      <strong>nexus-dev-toolkit-jev</strong> is a separate, independently-versioned package from
+      <code>nexus-dev-toolkit</code> — different name, different commands (<code>nexus-jev</code> /
+      <code>nexus-jev-mcp</code>), its own release history on PyPI. Installing it never touches your
+      existing <code>nexus</code> install.
+    </div>
+
+    <p>Replaces a handful of hardcoded keyword-matching heuristics in the EPAV tools with an actual AI
+      judgment call via <a href="https://docs.typesafe.ai" target="_blank"
+        style="color:var(--cyan-dim);">TypeSafe</a>'s Jev model — which architecture-doc section is about
+      auth vs. security, which of ~30 stack tags an arch doc mentions, which package manager or IaC tool
+      fits a free-text hint, which CSV column means "acceptance criteria," which design-token name maps to
+      which role. Every tool works exactly the same without it: TypeSafe is off by default, and every
+      judgment falls back to the original heuristic if it isn't enabled or the API call fails.</p>
+
+    <p>Also adds support for infrastructure-shaped projects: <code>project_shape</code> (web_app /
+      mobile_app / backend_api / infrastructure / data_pipeline / cli_or_library) and
+      <code>has_infrastructure_component</code>, so <code>/scaffold</code> can generate
+      Terraform/OpenTofu, Helm, or Ansible deliverables instead of — or alongside — application
+      boilerplate.</p>
+
+    <h3 id="jev-install">Install</h3>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> nexus-dev-toolkit-jev</code><button class="copy-btn" onclick="copy(this, 'uv tool install nexus-dev-toolkit-jev')">copy</button></pre>
+
+    <p>Installs <code>nexus-jev</code> and <code>nexus-jev-mcp</code> as real, separate commands — run them
+      side by side with <code>nexus</code> / <code>nexus-mcp</code> on the same machine, no conflict.</p>
+
+    <h3 id="jev-usage">Usage</h3>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">cd</span> my-project
+<span class="prompt">$</span> <span class="cmd">nexus-jev init</span> . --typesafe    <span class="comment"># prompts if --typesafe/--no-typesafe omitted</span></code><button class="copy-btn" onclick="copy(this, 'nexus-jev init . --typesafe')">copy</button></pre>
+
+    <div class="callout">
+      <strong>First time opening this project in Claude Code</strong>, you'll see a one-time prompt:
+      "New MCP server found in this project: nexus-jev" — choose <code>Use this MCP server</code> (or
+      <code>Use this and all future MCP servers in this project</code>). Picking
+      <code>Continue without using this MCP server</code> means none of the EPAV tools
+      (<code>ingest_architecture_doc</code>, <code>resolve_package_versions</code>, etc.) will actually
+      be available, even though <code>.mcp.json</code> is configured correctly — this applies to the
+      regular <code>nexus</code> MCP server the same way, not just <code>nexus-jev</code>.
+    </div>
+
+    <img src="/img/mcp-trust-prompt.png" alt="Claude Code's MCP trust prompt: 'New MCP server found in this project: nexus-jev' with three options — Use this MCP server, Use this and all future MCP servers in this project, Continue without using this MCP server"
+      style="max-width:100%;display:block;border:1px solid var(--border);border-radius:6px;margin-bottom:1.5rem;" />
+
+    <p>Enabling TypeSafe needs one more step: set a <code>TYPESAFE_API_KEY</code> (get one at
+      <a href="https://console.typesafe.ai/" target="_blank" style="color:var(--cyan-dim);">console.typesafe.ai</a>).
+      Without it, every tool below falls back to its original heuristic automatically — nothing breaks,
+      you just don't get the smarter detection.</p>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">export</span> TYPESAFE_API_KEY=your-key-here
+<span class="prompt">$</span> <span class="cmd">nexus-jev doctor</span>    <span class="comment"># reports whether TypeSafe is wired up and the key is set</span></code><button class="copy-btn" onclick="copy(this, 'nexus-jev doctor')">copy</button></pre>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>TypeSafe-powered judgment</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ingest_architecture_doc</code></td>
+          <td>Which category a doc section belongs to; <code>project_shape</code> /
+            <code>has_infrastructure_component</code></td>
+        </tr>
+        <tr>
+          <td><code>generate_project_rules</code></td>
+          <td>Which of ~30 stack tags an arch doc mentions (Next.js, Django, Terraform/OpenTofu,
+            Kubernetes, ...)</td>
+        </tr>
+        <tr>
+          <td><code>resolve_package_versions</code></td>
+          <td>Which package manager or IaC tool (npm/pnpm/yarn/pub/go/cargo/maven/gradle/pip,
+            Terraform/OpenTofu, Helm, Ansible) fits a free-text stack hint</td>
+        </tr>
+        <tr>
+          <td><code>load_task</code></td>
+          <td>Which canonical task field a CSV column maps to, regardless of header naming</td>
+        </tr>
+        <tr>
+          <td><code>ingest_design_export</code> <span style="color:var(--yellow);font-size:0.75em;">(new)</span></td>
+          <td>Which design-token role a CSS custom property plays (primary, error, spacing, ...) — accepts
+            a Figma export or a standalone HTML mockup (e.g. from Claude's Design artifact type)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="margin-top:1.5rem;">Full write-up — including the Terraform/OpenTofu/Helm/Ansible support
+      and version-resolution mechanics — lives in the repo:
+      <a href="https://github.com/rcdelacruz/nexus-dev-toolkit/tree/experimental-jev" target="_blank"
+        style="color:var(--cyan-dim);">experimental-jev branch</a> and its <code>tools/README.md</code>.</p>
 
     <div
       style="margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.7rem;">

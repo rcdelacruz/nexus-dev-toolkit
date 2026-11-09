@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from nexus_cli import app, _BUILTIN_SKILLS, _BUILTIN_AGENTS, _KNOWLEDGE_DIRS
+from nexus_cli import app, _BUILTIN_SKILLS, _BUILTIN_AGENTS, _KNOWLEDGE_DIRS, _DOCS_DIRS
 
 runner = CliRunner()
 
@@ -21,6 +21,14 @@ def _no_real_pypi_calls(monkeypatch):
     """doctor()/update() check PyPI for the latest version — never let tests hit the real
     network; tests that care about the version-check behavior override this locally."""
     monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _opencode_v2_by_default(monkeypatch):
+    """init/sync/doctor pick the OpenCode plugin form from the installed version. Pin it so tests
+    don't depend on (or shell out to) whatever `opencode` the dev machine has; tests that care
+    about v1 or 'not installed' override this locally."""
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 2)
 
 
 @pytest.fixture()
@@ -189,9 +197,10 @@ def test_init_opencode_creates_agents(tmp_project):
 
 def test_init_opencode_creates_plugin(tmp_project):
     runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
-    plugin = tmp_project / ".opencode" / "plugins" / "graphify.js"
+    plugin = tmp_project / ".opencode" / "plugins" / "graphify" / "index.ts"
     assert plugin.exists()
-    assert "tool.execute.after" in plugin.read_text()
+    assert "execute.after" in plugin.read_text()
+    assert not (tmp_project / ".opencode" / "plugins" / "graphify.js").exists()
 
 
 def test_init_opencode_creates_opencode_json(tmp_project):
@@ -242,6 +251,7 @@ def test_init_opencode_codegraph_backend_skips_plugin(tmp_project):
     result = runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode", "--graph-backend", "codegraph"])
     assert result.exit_code == 0
     assert not (tmp_project / ".opencode" / "plugins" / "graphify.js").exists()
+    assert not (tmp_project / ".opencode" / "plugins" / "graphify").exists()
 
 
 def test_init_unknown_graph_backend(tmp_project):
@@ -643,3 +653,425 @@ def test_doctor_stale_graphify_hook_warns(tmp_project, monkeypatch):
     assert result.exit_code == 0
     assert "Stale hook" in output
     assert "codegraph is the active backend" in output
+
+
+# ── init --tool codex ────────────────────────────────────────────────────────
+
+import tomllib  # noqa: E402 — test-only; runtime code stays 3.10-compatible
+
+_EPAV_SKILLS_WITHOUT_FRONTMATTER = [
+    s for s in _BUILTIN_SKILLS
+    if not (Path(__file__).parent.parent / "tools" / "epav" / "skills" / s).read_text().startswith("---")
+]
+
+
+def _frontmatter(text: str) -> dict:
+    assert text.startswith("---"), "SKILL.md must start with frontmatter"
+    fields = {}
+    for line in text.split("---", 2)[1].splitlines():
+        key, sep, value = line.partition(":")
+        if sep:
+            fields[key.strip()] = value.strip().strip('"')
+    return fields
+
+
+def test_init_codex_creates_skills(tmp_project):
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    assert result.exit_code == 0
+    for skill in _BUILTIN_SKILLS:
+        stem = Path(skill).stem
+        skill_md = tmp_project / ".agents" / "skills" / stem / "SKILL.md"
+        assert skill_md.exists(), f"Missing skill: {stem}"
+        fields = _frontmatter(skill_md.read_text())
+        assert fields.get("name") == stem
+        assert fields.get("description"), f"{stem} has an empty description"
+
+
+def test_init_codex_epav_skills_are_explicit_only(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    assert _EPAV_SKILLS_WITHOUT_FRONTMATTER, "expected some frontmatter-less EPAV skills"
+    for skill in _BUILTIN_SKILLS:
+        yaml_path = tmp_project / ".agents" / "skills" / Path(skill).stem / "agents" / "openai.yaml"
+        if skill in _EPAV_SKILLS_WITHOUT_FRONTMATTER:
+            assert "allow_implicit_invocation: false" in yaml_path.read_text()
+        else:
+            assert not yaml_path.exists(), f"{skill} should stay implicitly invocable"
+
+
+def test_init_codex_creates_agent_tomls(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    for agent in _BUILTIN_AGENTS:
+        toml_path = tmp_project / ".codex" / "agents" / f"{Path(agent).stem}.toml"
+        assert toml_path.exists(), f"Missing agent: {agent}"
+        data = tomllib.loads(toml_path.read_text())
+        assert data["name"] and data["description"] and data["developer_instructions"]
+        assert "model" not in data and "tools" not in data
+
+
+def test_init_codex_creates_config_toml(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    data = tomllib.loads((tmp_project / ".codex" / "config.toml").read_text())
+    assert data["mcp_servers"]["nexus-jev"]["command"] == "uvx"
+    assert data["mcp_servers"]["nexus-jev"]["args"] == ["--refresh", "--from", "nexus-dev-toolkit-jev", "nexus-jev-mcp"]
+
+
+def test_init_codex_preserves_existing_config_toml(tmp_project):
+    existing = 'model = "gpt-5"\n\n[mcp_servers.other]\ncommand = "other"'
+    (tmp_project / ".codex").mkdir()
+    (tmp_project / ".codex" / "config.toml").write_text(existing)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    text = (tmp_project / ".codex" / "config.toml").read_text()
+    assert text.startswith(existing)
+    data = tomllib.loads(text)
+    assert set(data["mcp_servers"]) == {"other", "nexus-jev"}
+
+
+def test_init_codex_does_not_duplicate_nexus_mcp_entry(tmp_project):
+    (tmp_project / ".codex").mkdir()
+    (tmp_project / ".codex" / "config.toml").write_text('[mcp_servers.nexus-jev]\ncommand = "custom"\n')
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    text = (tmp_project / ".codex" / "config.toml").read_text()
+    assert text.count("[mcp_servers.nexus-jev]") == 1
+    assert 'command = "custom"' in text
+
+
+def test_init_codex_creates_graphify_hook(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    data = json.loads((tmp_project / ".codex" / "hooks.json").read_text())
+    entry = data["hooks"]["PostToolUse"][0]
+    assert entry["matcher"] == "Edit|Write"
+    assert "graphify update" in entry["hooks"][0]["command"]
+
+
+def test_init_codex_merges_existing_hooks(tmp_project):
+    (tmp_project / ".codex").mkdir()
+    mine = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "echo done"}]}]}}
+    (tmp_project / ".codex" / "hooks.json").write_text(json.dumps(mine))
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    data = json.loads((tmp_project / ".codex" / "hooks.json").read_text())
+    assert data["hooks"]["Stop"] == mine["hooks"]["Stop"]
+    assert "PostToolUse" in data["hooks"]
+
+
+def test_init_codex_codegraph_backend_skips_hook(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex", "--graph-backend", "codegraph"])
+    assert not (tmp_project / ".codex" / "hooks.json").exists()
+    assert (tmp_project / ".codex" / "config.toml").exists()
+
+
+def test_init_codex_idempotent(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    assert result.exit_code == 0
+    assert "Already initialized" in result.output
+
+
+def test_sync_codex_updates_modified_skill(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    skill_md = tmp_project / ".agents" / "skills" / "evaluate" / "SKILL.md"
+    skill_md.write_text("stale")
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "updated" in result.output
+    assert skill_md.read_text() != "stale"
+    assert _frontmatter(skill_md.read_text())["name"] == "evaluate"
+
+
+def test_doctor_codex_project(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    result = runner.invoke(app, ["doctor", str(tmp_project)])
+    out = _flat(result.output)
+    assert "yes (codex)" in out
+    assert "nexus-jev entry present" in out
+    assert f"all {len(_BUILTIN_SKILLS)} present" in out
+    assert f"all {len(_BUILTIN_AGENTS)} present" in out
+
+
+def test_codex_hook_counts_as_graphify_hook(tmp_project):
+    from tools.epav import graph_backend
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    assert graph_backend.has_graphify_hook(tmp_project)
+
+
+def test_init_codex_rewrites_skill_refs_to_dollar_syntax(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    apply_md = (tmp_project / ".agents" / "skills" / "apply" / "SKILL.md").read_text()
+    assert "$validate" in apply_md and "`/validate`" not in apply_md
+    # Claude Code output must keep the slash syntax
+    runner.invoke(app, ["init", str(tmp_project)])
+    assert "`/validate`" in (tmp_project / ".claude" / "commands" / "apply.md").read_text()
+
+
+# ── init: docs/ scaffold ─────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("tool", ["claude", "opencode", "codex"])
+def test_init_creates_docs_dirs(tmp_project, tool):
+    result = runner.invoke(app, ["init", str(tmp_project), "--tool", tool])
+    assert result.exit_code == 0
+    for d in _DOCS_DIRS:
+        assert (tmp_project / d).is_dir(), f"Missing {d} for --tool {tool}"
+        assert f"{d}/" in result.output
+
+
+def test_init_preserves_existing_docs(tmp_project):
+    arch = tmp_project / "docs" / "arch-docs"
+    arch.mkdir(parents=True)
+    (arch / "ARCH.md").write_text("# my architecture\n")
+    result = runner.invoke(app, ["init", str(tmp_project)])
+    assert result.exit_code == 0
+    assert (arch / "ARCH.md").read_text() == "# my architecture\n"
+    assert list(arch.iterdir()) == [arch / "ARCH.md"]
+    assert "docs/arch-docs/" not in result.output
+    assert "docs/dev-tasks/" in result.output
+
+
+def test_init_on_existing_project_adds_docs_dirs(tmp_project):
+    import shutil
+    runner.invoke(app, ["init", str(tmp_project)])
+    shutil.rmtree(tmp_project / "docs")
+    result = runner.invoke(app, ["init", str(tmp_project)])
+    assert result.exit_code == 0
+    assert "docs/arch-docs/" in result.output
+    assert "Already initialized" not in result.output
+    result = runner.invoke(app, ["init", str(tmp_project)])
+    assert "Already initialized" in result.output
+
+
+def test_doctor_docs_dirs_row(tmp_project):
+    import shutil
+    runner.invoke(app, ["init", str(tmp_project)])
+    assert f"all {len(_DOCS_DIRS)} present" in _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    shutil.rmtree(tmp_project / "docs" / "requirements")
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "Docs dirs" in out and "docs/requirements" in out
+
+
+# ── OpenCode v2 ──────────────────────────────────────────────────────────────
+
+from nexus_cli import _opencode_major as _real_opencode_major, _strip_claude_frontmatter  # noqa: E402
+
+_PLUGIN_V1 = Path(".opencode") / "plugins" / "graphify.js"
+_PLUGIN_V2 = Path(".opencode") / "plugins" / "graphify" / "index.ts"
+
+
+def _closed_frontmatter(text: str) -> tuple[list[str], str]:
+    """Strict check: opening `---`, closing `---` on its own line. Returns (field lines, body)."""
+    match = re.match(r"---\n(.*?)\n---\n(.*)", text, re.DOTALL)
+    assert match, "frontmatter must be opened and closed with --- on their own lines"
+    return match.group(1).splitlines(), match.group(2)
+
+
+def test_opencode_agents_have_closed_frontmatter_and_subagent_mode(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    for agent in _BUILTIN_AGENTS:
+        fields, body = _closed_frontmatter((tmp_project / ".opencode" / "agents" / agent).read_text())
+        assert any(line.startswith("name:") for line in fields), agent
+        assert "mode: subagent" in fields, agent
+        assert not any(line.startswith(("tools:", "model:")) for line in fields), agent
+        assert body.strip(), f"{agent} lost its prompt body"
+
+
+def test_strip_claude_frontmatter_is_idempotent_and_keeps_existing_mode():
+    src = "---\nname: x\ndescription: d\ntools: Read\nmodel: sonnet\n---\n\nBody\n"
+    once = _strip_claude_frontmatter(src)
+    assert once == "---\nname: x\nmode: subagent\ndescription: d\n---\n\nBody\n"
+    assert _strip_claude_frontmatter(once) == once
+    assert "mode: primary" in _strip_claude_frontmatter("---\nname: x\nmode: primary\n---\n\nBody\n")
+    assert _strip_claude_frontmatter("no frontmatter here") == "no frontmatter here"
+
+
+def test_init_opencode_v1_writes_v1_plugin(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert "tool.execute.after" in (tmp_project / _PLUGIN_V1).read_text()
+    assert not (tmp_project / _PLUGIN_V2).exists()
+
+
+def test_init_opencode_undetectable_version_defaults_to_v2(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: None)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert (tmp_project / _PLUGIN_V2).exists()
+    assert not (tmp_project / _PLUGIN_V1).exists()
+
+
+def test_v2_plugin_is_a_default_export_with_id_and_setup(tmp_project):
+    """v2 rejects plugins without a default { id, setup } export; the v1 named-export shape fails."""
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    text = (tmp_project / _PLUGIN_V2).read_text()
+    assert "export default {" in text and 'id: "nexus.graphify"' in text and "setup(ctx" in text
+    assert "ctx.location.directory" in text and 'ctx.tool.hook("execute.after"' in text
+    assert "execSync" not in text  # must not block the shared v2 service
+
+
+@pytest.mark.parametrize("version_output, expected", [
+    ("opencode v2.2.5\n", 2),
+    ("1.0.7\n", 1),
+    ("0.15.3\n", 0),
+    ("garbage\n", None),
+])
+def test_opencode_major_parses_version_output(monkeypatch, version_output, expected):
+    import types
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: "/fake/opencode")
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: types.SimpleNamespace(stdout=version_output))
+    assert _real_opencode_major() == expected
+
+
+def test_opencode_major_none_when_not_installed_or_failing(monkeypatch):
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: None)
+    assert _real_opencode_major() is None
+
+    def boom(*a, **k):
+        raise OSError("exec failed")
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: "/fake/opencode")
+    monkeypatch.setattr("nexus_cli.subprocess.run", boom)
+    assert _real_opencode_major() is None
+
+
+def test_sync_opencode_repairs_broken_agent_frontmatter(tmp_project):
+    """Pre-fix versions glued the closing --- onto the last field, so OpenCode v2 never loaded the agent."""
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    agent = tmp_project / ".opencode" / "agents" / "code-reviewer.md"
+    agent.write_text("---\nname: code-reviewer\ndescription: Reviews code.---\n\nBroken body\n")
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    _closed_frontmatter(agent.read_text())
+    assert "mode: subagent" in agent.read_text()
+    assert "Broken body" not in agent.read_text()
+
+
+def test_sync_opencode_v2_adds_v2_plugin_and_keeps_legacy(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert (tmp_project / _PLUGIN_V1).exists() and not (tmp_project / _PLUGIN_V2).exists()
+
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 2)
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert result.exit_code == 0
+    assert (tmp_project / _PLUGIN_V2).exists()
+    assert (tmp_project / _PLUGIN_V1).exists(), "sync must never delete the other form"
+
+
+def test_sync_opencode_v1_does_not_create_v2_plugin(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert (tmp_project / _PLUGIN_V1).exists()
+    assert not (tmp_project / _PLUGIN_V2).exists()
+
+
+def test_init_opencode_extends_existing_mcp_servers_shape(tmp_project):
+    (tmp_project / "opencode.json").write_text(json.dumps(
+        {"mcp": {"servers": {"other": {"type": "local", "command": ["x"]}}}}
+    ))
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    mcp = json.loads((tmp_project / "opencode.json").read_text())["mcp"]
+    assert set(mcp["servers"]) == {"other", "nexus-jev-mcp"}
+    assert "nexus-jev-mcp" not in mcp, "must not create a mixed flat + servers shape"
+
+
+def test_init_opencode_flat_server_named_servers_stays_flat(tmp_project):
+    """A v1 server literally named 'servers' has a 'type' key — it is not a v2 servers map."""
+    (tmp_project / "opencode.json").write_text(json.dumps(
+        {"mcp": {"servers": {"type": "local", "command": ["x"]}}}
+    ))
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    mcp = json.loads((tmp_project / "opencode.json").read_text())["mcp"]
+    assert "nexus-jev-mcp" in mcp
+    assert mcp["servers"] == {"type": "local", "command": ["x"]}
+
+
+def test_doctor_opencode_accepts_mcp_servers_shape(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    (tmp_project / "opencode.json").write_text(json.dumps(
+        {"mcp": {"servers": {"nexus-jev-mcp": {"type": "local", "command": ["uvx"]}}}}
+    ))
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "opencode.json" in out and "nexus-jev entry present" in out
+
+
+def test_doctor_opencode_v2_plugin_present(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "graphify plugin (OpenCode)" in out and "present (v2)" in out
+
+
+def test_doctor_opencode_v2_warns_on_legacy_v1_plugin(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 2)
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "OpenCode v2 doesn't run it" in out
+
+    runner.invoke(app, ["sync", str(tmp_project)])  # adds the v2 plugin; the legacy file stays
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "ignored by OpenCode v2" in out and "safe to delete" in out
+
+
+def test_doctor_opencode_v1_warns_on_v2_only_plugin(tmp_project, monkeypatch):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])  # v2 plugin
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "is a v2 plugin" in out and "run nexus-jev sync" in out
+
+
+def test_doctor_opencode_no_plugin_row_for_codegraph_project(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode", "--graph-backend", "codegraph"])
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "graphify plugin (OpenCode)" not in out
+
+
+def test_opencode_plugins_count_as_graphify_hook(tmp_project, monkeypatch):
+    from tools.epav import graph_backend
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    assert graph_backend.has_graphify_hook(tmp_project)  # v2 form
+
+    other = tmp_project / "v1"
+    other.mkdir()
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    runner.invoke(app, ["init", str(other), "--tool", "opencode"])
+    assert graph_backend.has_graphify_hook(other)  # v1 form
+
+
+def test_opencode_install_command_is_the_v2_installer():
+    """https://opencode.ai/install only installs OpenCode 1; v2 has its own installer URL."""
+    from nexus_cli import _TOOL_CHECK
+    assert _TOOL_CHECK["opencode"]["install"] == "curl -fsSL https://opencode.ai/v2/install | bash"
+
+
+def test_doctor_opencode_not_found_hints_v2_installer(tmp_project, monkeypatch):
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: None if name == "opencode" else "/usr/bin/" + name)
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: None)
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "https://opencode.ai/v2/install" in out
+    assert "opencode.ai/install |" not in out
+
+
+# ── Codex + jev identity ─────────────────────────────────────────────────────
+
+def test_init_codex_typesafe_flag_adds_extra_to_config_toml(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex", "--typesafe"])
+    data = tomllib.loads((tmp_project / ".codex" / "config.toml").read_text())
+    assert data["mcp_servers"]["nexus-jev"]["args"][2] == "nexus-dev-toolkit-jev[typesafe]"
+
+
+def test_doctor_codex_typesafe_wired_but_no_api_key(tmp_project, monkeypatch):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex", "--typesafe"])
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "TypeSafe / Jev" in out and "TYPESAFE_API_KEY not set" in out
+
+
+def test_no_tool_scaffolds_the_real_package_identity(tmp_project):
+    """This build installs beside the real nexus-dev-toolkit; no generated config may point at it,
+    or the real package's server would silently start in a jev project. Checked for every tool."""
+    for tool in ("claude", "opencode", "codex"):
+        runner.invoke(app, ["init", str(tmp_project), "--tool", tool, "--graph-backend", "none"])
+    blobs = [
+        (tmp_project / ".mcp.json").read_text(),
+        (tmp_project / "opencode.json").read_text(),
+        (tmp_project / ".codex" / "config.toml").read_text(),
+    ]
+    for blob in blobs:
+        assert "nexus-dev-toolkit-jev" in blob
+        assert "nexus-dev-toolkit\"" not in blob and '"nexus-mcp"' not in blob
