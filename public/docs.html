@@ -1695,6 +1695,18 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
     <pre><code><span class="prompt">$</span> <span class="cmd">cd</span> my-project
 <span class="prompt">$</span> <span class="cmd">nexus-jev init</span> . --typesafe    <span class="comment"># prompts if --typesafe/--no-typesafe omitted</span></code><button class="copy-btn" onclick="copy(this, 'nexus-jev init . --typesafe')">copy</button></pre>
 
+    <p>Claude Code is the default. <code>nexus-jev</code> also sets up OpenCode (v1 and v2) and Codex —
+      same <code>--tool</code> flag as <code>nexus</code>, and <code>--typesafe</code> works with each:</p>
+
+    <pre><code><span class="prompt">$</span> <span class="cmd">nexus-jev init</span> . --tool opencode --typesafe
+<span class="prompt">$</span> <span class="cmd">nexus-jev init</span> . --tool codex --typesafe</code><button class="copy-btn" onclick="copy(this, 'nexus-jev init . --tool opencode --typesafe\nnexus-jev init . --tool codex --typesafe')">copy</button></pre>
+
+    <p>The generated MCP config (<code>.mcp.json</code>, <code>opencode.json</code>,
+      <code>.codex/config.toml</code>) always points at <code>nexus-dev-toolkit-jev</code> /
+      <code>nexus-jev-mcp</code>, never at the regular <code>nexus</code> package. Already have a
+      project? Run <code>nexus-jev sync</code> after <code>nexus-jev update</code> to pick up the new
+      skills and agents.</p>
+
     <div class="callout">
       <strong>First time opening this project in Claude Code</strong>, you'll see a one-time prompt:
       "New MCP server found in this project: nexus-jev" — choose <code>Use this MCP server</code> (or
