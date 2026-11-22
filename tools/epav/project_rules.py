@@ -4,6 +4,8 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from tools.epav import stack_catalog
+
 logger = logging.getLogger(__name__)
 
 _KNOWLEDGE_DIRS = [
@@ -80,24 +82,7 @@ def _load_arch_summary() -> dict:
 
 
 def _infer_stack(arch_text: str) -> str:
-    text_lower = arch_text.lower()
-    parts = []
-    if "next.js" in text_lower or "nextjs" in text_lower:
-        parts.append("Next.js")
-    if "react native" in text_lower:
-        parts.append("React Native")
-    if "flutter" in text_lower:
-        parts.append("Flutter")
-    if "trpc" in text_lower or "t3" in text_lower:
-        parts.append("tRPC / T3")
-    if "prisma" in text_lower:
-        parts.append("Prisma")
-    if "postgres" in text_lower or "postgresql" in text_lower:
-        parts.append("PostgreSQL")
-    if "tailwind" in text_lower:
-        parts.append("Tailwind CSS")
-    if "supabase" in text_lower:
-        parts.append("Supabase")
+    parts = stack_catalog.detect(arch_text)
     return ", ".join(parts) if parts else "(update with your stack)"
 
 

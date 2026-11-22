@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.2.0] - 2026-11-22
+
+### Added
+- Stack detection for most of the world's stacks: `generate_project_rules` now reads the stack from a data catalog (`tools/epav/stack_catalog.json`, 221 technologies across languages, frameworks, databases, mobile, cloud, IaC and more) instead of 8 hardcoded tags. Adding a stack is a JSON entry, not code. Matching is whole-word, so "t3" no longer matches inside other words and "go" never matches inside "mongo". Names that are also English words (Go, Rails, Swift) match only when capitalised. The stack line lists technologies in the order the doc mentions them.
+- `resolve_package_versions` supports 22 package managers: npm, pnpm, yarn, bun, pip, uv, poetry, pipenv, composer, bundler, dotnet, swiftpm, cocoapods, mix, cabal, conan, maven, gradle, sbt, pub, go, cargo. Each one runs the real tool in a temp directory and reads the lock file it writes; maven, gradle and sbt read Maven Central, and CocoaPods reads its trunk API. All 22 resolved a real package before release.
+- The result now carries a `status`: `resolved`, `partial`, `failed`, `unsupported` (unknown package manager or a stack it can't detect — it no longer falls back to npm) or `tool_missing` (with the install hint). In every non-resolved case the instructions say to stop and never write versions from memory.
+- `/scaffold` is stack-neutral: an Ecosystem reference table (manifest, lock file, install, build, lint, pre-commit hooks per ecosystem) and design-token formats per UI stack replace the Next.js-only steps.
+
+### Fixed
+- `resolve_package_versions` returned no versions for Go and Dart/Flutter (no module/project was initialised in the temp directory). Both now resolve.
+- Version specs: `~5.1` and exact `5.2.3` pins are read correctly for Python, and pre-releases (alpha, beta, RC, milestone, snapshot) are skipped when picking the newest version.
+
 ## [3.1.12] - 2026-11-06
 
 ### Added

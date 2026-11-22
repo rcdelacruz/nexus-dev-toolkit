@@ -300,7 +300,7 @@ nexus rule add api-standards      # create a project rule
 | `ingest_architecture_doc` | Load arch doc → `knowledge/rules/arch-summary.md` |
 | `load_task` | Load a CSV task row into context |
 | `generate_project_rules` | Generate `AGENTS.md` from arch doc |
-| `resolve_package_versions` | Resolve exact package versions via real package manager |
+| `resolve_package_versions` | Resolve exact package versions via the real package manager (22 supported, from npm to cargo, cabal and conan) |
 
 ---
 

@@ -1,0 +1,12 @@
+lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    dependencies:
+      react:
+        specifier: ^19
+        version: 19.3.1
+      '@scope/pkg':
+        specifier: ^2
+        version: 2.0.4(react@19.3.1)

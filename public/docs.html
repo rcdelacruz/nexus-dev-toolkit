@@ -416,7 +416,7 @@
   <nav>
     <div class="nav-logo">NEXUS</div>
 
-    <div class="nav-version">v3.1.12</div>
+    <div class="nav-version">v3.2.0</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
@@ -1018,7 +1018,7 @@ docs/                        <span class="comment">← arch-docs/, dev-tasks/, d
   packages: ["next@16", "react@19", "@supabase/supabase-js@2"],
   stack_hint: "Next.js 16 TypeScript"
 })
-<span class="comment">// → { "versions": { "next": "16.3.2", "react": "19.1.0", ... } }</span></code><button class="copy-btn" onclick="copy(this, 'resolve_package_versions')">copy</button></pre>
+<span class="comment">// → { "status": "resolved", "package_manager": "npm", "versions": { "next": "16.3.2", "react": "19.1.0", ... } }</span></code><button class="copy-btn" onclick="copy(this, 'resolve_package_versions')">copy</button></pre>
 
     <p>Then generates everything in one scaffold:</p>
 
@@ -1354,12 +1354,12 @@ args = ["--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"]</code><button c
         </tr>
         <tr>
           <td><code>generate_project_rules</code></td>
-          <td>Generate AGENTS.md + knowledge/ structure from arch doc</td>
+          <td>Generate AGENTS.md + knowledge/ structure from arch doc. The stack line comes from a catalog of 221 technologies (whole-word matching)</td>
           <td>Day 0 PLAN — before writing files</td>
         </tr>
         <tr>
           <td><code>resolve_package_versions</code></td>
-          <td>Run real package manager in temp dir → exact pinned versions</td>
+          <td>Run the real package manager in a temp dir → exact pinned versions. 22 supported: npm, pnpm, yarn, bun, pip, uv, poetry, pipenv, composer, bundler, dotnet, swiftpm, cocoapods, mix, cabal, conan, maven, gradle, sbt, pub, go, cargo. An unknown stack returns <code>unsupported</code>, a missing tool returns <code>tool_missing</code>, never a guessed version</td>
           <td>Day 0 APPLY — must be first step</td>
         </tr>
       </tbody>

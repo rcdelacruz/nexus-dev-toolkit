@@ -1,0 +1,14 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    actionpack (7.2.4)
+      rack (>= 2.2.4)
+    nokogiri (1.18.9-arm64-darwin)
+    rails (7.2.4)
+      actionpack (= 7.2.4)
+
+PLATFORMS
+  arm64-darwin
+
+DEPENDENCIES
+  rails (~> 7)

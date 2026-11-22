@@ -1,0 +1,10 @@
+# World stack support (catalog + resolver) — backlog
+
+- [FIXED] `go`, `pub` returned no versions on main before this change (measured: "go.mod file not found", "Expected to find project root"); `cargo` had the same missing init step (not installed on the dev machine, so not run). All three now create their project first.
+- [FIXED] `pip` never returned versions (no lock file, packages weren't even appended to the command); now parses `pip install --dry-run --report -`.
+- [FIXED] maven/gradle ran a resolve command that can't work in an empty dir; now resolved from Maven Central metadata (also used for sbt).
+- [VERIFIED] Every one of the 22 package managers resolved for real at least once (2026-11-22): on the dev machine npm, pnpm, uv, bundler, swiftpm, go, pub, maven, gradle, sbt, cocoapods; in official Docker images cargo (rust:1), dotnet (dotnet/sdk:8.0), composer (composer:2), yarn + bun + npm (node:22), pip + poetry + pipenv + conan (python:3.12), mix (elixir:1.17), cabal (haskell:9). Pattern: when a tool isn't installed locally, `docker run --rm` its official image with the repo mounted read-only and copy it to /tmp (exclude .git — a live graphify write broke a plain `cp -R`).
+- [BACKLOG] The `network` real-run tests run in CI wherever ubuntu-latest has the tool (npm, yarn, go, cargo, dotnet, composer, pip…). One composer run failed transiently in a container (network), then passed 2/2 — CI may flake on registry blips. test.yml doesn't gate publish.yml, so check `gh run list` after the push.
+- [BACKLOG] `uv` resolves against `requires-python = ">=3.10"`, so a package whose newest major needs a newer Python resolves to an older version. Pass the project's Python if the arch doc states one.
+- [BACKLOG] main's `/scaffold` still tells the agent to call `ingest_figma_zip`, which does not exist on main (jev has `ingest_design_export`).
+- [BACKLOG] `resolve_package_versions` is still a sync tool (see 2026-11-06 retro); multi-step resolvers (`cabal update` + `freeze`) can run longer than npm. Each command is capped at 120 s.
