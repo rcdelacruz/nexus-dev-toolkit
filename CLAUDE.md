@@ -9,13 +9,16 @@ When bumping the version, update ALL of these — every single time, no exceptio
 3. `public/index.html` — `<span>vX.Y.Z</span>`
 4. `public/docs.html` — `<div class="nav-version">vX.Y.Z</div>`
 5. `CHANGELOG.md` — add new section `## [X.Y.Z] - YYYY-MM-DD`
-6. Commit and push → GitHub Actions auto-publishes to PyPI
-7. Deploy Cloudflare Pages: `wrangler pages deploy public/ --project-name nexus-coderstudio --branch main --commit-dirty=true`
-8. Create GitHub release: `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."`
+6. `python3 scripts/build_changelog.py` — rebuilds `public/changelog.html` and the docs "What's new" blocks (`tests/test_changelog_page.py` fails CI if skipped)
+7. Commit and push → GitHub Actions auto-publishes to PyPI
+8. Deploy Cloudflare Pages: `wrangler pages deploy public/ --project-name nexus-coderstudio --branch main --commit-dirty=true`
+9. Create GitHub release: `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."`
+
+After a nexus-jev release (its `## [jev X.Y.Z]` entry is on the `experimental-jev` branch): on main, `git fetch origin experimental-jev`, run `python3 scripts/build_changelog.py`, update the `#jev` section of `public/docs.html` if needed, commit, push, deploy (step 8).
 
 ## After Every Commit
 
-- If `public/` changed → deploy Cloudflare Pages immediately (step 7 above)
+- If `public/` changed → deploy Cloudflare Pages immediately (step 8 above)
 - Never commit and stop — always run the full sequence
 
 ## Key Facts

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Changelog</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta name="description" content="Every release of nexus-dev-toolkit and nexus-dev-toolkit-jev — what was added, changed and fixed." />
+  <script>
+    (function () {
+      var t = localStorage.getItem('nexus-theme');
+      if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 110%; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #161616;
+      --border: #222222;
+      --cyan: #06b6d4;
+      --cyan-dim: #0e7490;
+      --white: #f8fafc;
+      --muted: #64748b;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --text2: #94a3b8;
+      --row-border: #1a1a1a;
+      --red: #ef4444;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #eef2f6;
+      --border: #d9e2ec;
+      --cyan: #0e7490;
+      --cyan-dim: #0891b2;
+      --white: #0f172a;
+      --green: #15803d;
+      --yellow: #a16207;
+      --text2: #475569;
+      --row-border: #e5eaf0;
+      --red: #b91c1c;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      transition: background 0.2s, color 0.2s;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    nav {
+      width: 220px;
+      min-height: 100vh;
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .nav-logo { color: var(--cyan); font-size: 1rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .nav-version { color: var(--muted); font-size: 0.65rem; margin-bottom: 2rem; }
+
+    .nav-section {
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 0.3rem 0;
+      transition: color 0.15s;
+    }
+
+    nav a:hover, nav a.active { color: var(--cyan); }
+    nav a.sub { padding-left: 1rem; font-size: 0.7rem; }
+
+    main {
+      flex: 1;
+      padding: 3rem 3rem 5rem;
+      max-width: 820px;
+    }
+
+    h1 { color: var(--white); font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+    h2 {
+      color: var(--white);
+      font-size: 1rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 { color: var(--cyan); font-size: 0.85rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+
+    p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 1rem; }
+
+    .lead { color: var(--text2); font-size: 0.85rem; margin-bottom: 2rem; }
+
+    ul { margin: 0 0 1rem 1.25rem; }
+    li { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 0.35rem; }
+    li strong { color: var(--text2); font-weight: normal; }
+
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    pre code { color: var(--white); font-size: 0.8rem; line-height: 1.6; }
+
+    .prompt { color: var(--muted); }
+    .cmd { color: var(--cyan); }
+    .comment { color: var(--muted); }
+    .str { color: var(--green); }
+    .skill { color: var(--yellow); }
+    .fail { color: var(--red); }
+    .pass { color: var(--green); }
+
+    .callout {
+      background: var(--surface);
+      border-left: 3px solid var(--cyan);
+      border-radius: 0 6px 6px 0;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.78rem;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    .callout.warn { border-color: var(--yellow); }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: 0.78rem; }
+
+    th {
+      color: var(--muted);
+      text-align: left;
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: normal;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.65rem;
+    }
+
+    td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--row-border);
+      color: var(--text2);
+      vertical-align: top;
+    }
+
+    td code, p code, li code { color: var(--cyan); font-size: 0.78rem; }
+    tr:last-child td { border-bottom: none; }
+
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.72rem;
+      margin-bottom: 2rem;
+      transition: color 0.15s;
+    }
+
+    .back:hover { color: var(--cyan); }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--yellow);
+      color: var(--yellow);
+      border-radius: 4px;
+      padding: 0.15rem 0.55rem;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    .theme-btn {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 20;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    .theme-btn::after { content: "light"; }
+    :root[data-theme="light"] .theme-btn::after { content: "dark"; }
+
+    @media (max-width: 640px) {
+      nav { display: none; }
+      main { padding: 2rem 1.25rem 4rem; }
+    }
+
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .tab { background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.9rem; font-family: inherit; font-size: 0.75rem; cursor: pointer; }
+    .tab:hover { color: var(--cyan); }
+    .tab[aria-selected="true"] { color: var(--cyan); border-color: var(--cyan); }
+    .panel[hidden] { display: none; }
+    .release-date { color: var(--muted); font-weight: normal; font-size: 0.75rem; margin-left: 0.5rem; }
+    li ul { margin: 0.35rem 0 0.35rem 1.25rem; }
+    li a, p a { color: var(--cyan-dim); }
+    main { min-width: 0; }
+    code { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+
+  <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode"></button>
+
+  <nav>
+    <div class="nav-logo">NEXUS</div>
+    <div class="nav-version">v3.2.0</div>
+
+    <div class="nav-section">Changelog</div>
+    <a href="#nexus" onclick="showTab('nexus')">nexus-dev-toolkit</a>
+    <a href="#nexus-3.2.0" class="sub" onclick="showTab('nexus')">→ v3.2.0</a>
+    <a href="#nexus-3.1.12" class="sub" onclick="showTab('nexus')">→ v3.1.12</a>
+    <a href="#nexus-3.1.11" class="sub" onclick="showTab('nexus')">→ v3.1.11</a>
+    <a href="#nexus-3.1.10" class="sub" onclick="showTab('nexus')">→ v3.1.10</a>
+    <a href="#nexus-3.1.9" class="sub" onclick="showTab('nexus')">→ v3.1.9</a>
+    <a href="#nexus-3.1.8" class="sub" onclick="showTab('nexus')">→ v3.1.8</a>
+    <a href="#jev" onclick="showTab('jev')">nexus-jev</a>
+    <a href="#jev-3.2.0" class="sub" onclick="showTab('jev')">→ v3.2.0</a>
+    <a href="#jev-3.1.12" class="sub" onclick="showTab('jev')">→ v3.1.12</a>
+
+    <div class="nav-section">Links</div>
+    <a href="/">← Home</a>
+    <a href="/docs">Docs</a>
+    <a href="/docs#whats-new">What's new</a>
+    <a href="https://github.com/rcdelacruz/nexus-dev-toolkit/releases" target="_blank">GitHub releases</a>
+  </nav>
+
+  <main>
+    <a href="/" class="back">← back to home</a>
+
+    <h1>Changelog</h1>
+    <p class="lead">Every release, newest first. nexus-dev-toolkit and nexus-dev-toolkit-jev are separate packages with their own version numbers.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-nexus" aria-controls="nexus" aria-selected="true" onclick="showTab('nexus')">nexus-dev-toolkit</button>
+      <button class="tab" role="tab" id="tab-jev" aria-controls="jev" aria-selected="false" onclick="showTab('jev')">nexus-jev</button>
+    </div>
+
+    <section class="panel" id="nexus" role="tabpanel" aria-labelledby="tab-nexus">
+<!-- changelog:nexus:start -->
+      <h2 id="nexus-3.2.0">v3.2.0<span class="release-date">2026-11-22</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li>Stack detection for most of the world's stacks: <code>generate_project_rules</code> now reads the stack from a data catalog (<code>tools/epav/stack_catalog.json</code>, 221 technologies across languages, frameworks, databases, mobile, cloud, IaC and more) instead of 8 hardcoded tags. Adding a stack is a JSON entry, not code. Matching is whole-word, so "t3" no longer matches inside other words and "go" never matches inside "mongo". Names that are also English words (Go, Rails, Swift) match only when capitalised. The stack line lists technologies in the order the doc mentions them.</li>
+        <li><code>resolve_package_versions</code> supports 22 package managers: npm, pnpm, yarn, bun, pip, uv, poetry, pipenv, composer, bundler, dotnet, swiftpm, cocoapods, mix, cabal, conan, maven, gradle, sbt, pub, go, cargo. Each one runs the real tool in a temp directory and reads the lock file it writes; maven, gradle and sbt read Maven Central, and CocoaPods reads its trunk API. All 22 resolved a real package before release.</li>
+        <li>The result now carries a <code>status</code>: <code>resolved</code>, <code>partial</code>, <code>failed</code>, <code>unsupported</code> (unknown package manager or a stack it can't detect — it no longer falls back to npm) or <code>tool_missing</code> (with the install hint). In every non-resolved case the instructions say to stop and never write versions from memory.</li>
+        <li><code>/scaffold</code> is stack-neutral: an Ecosystem reference table (manifest, lock file, install, build, lint, pre-commit hooks per ecosystem) and design-token formats per UI stack replace the Next.js-only steps.</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li><code>resolve_package_versions</code> returned no versions for Go and Dart/Flutter (no module/project was initialised in the temp directory). Both now resolve.</li>
+        <li>Version specs: <code>~5.1</code> and exact <code>5.2.3</code> pins are read correctly for Python, and pre-releases (alpha, beta, RC, milestone, snapshot) are skipped when picking the newest version.</li>
+      </ul>
+
+      <h2 id="nexus-3.1.12">v3.1.12<span class="release-date">2026-11-06</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li>OpenCode v2 support, verified on v2.2.5 (v1 keeps its layout). Commands, agents and <code>opencode.json</code> are written the same for v1 and v2; the graphify plugin is the one piece that differs, because v2 doesn't run v1 plugins. <code>nexus init</code> / <code>nexus sync</code> read <code>opencode --version</code> and write <code>.opencode/plugins/graphify/index.ts</code> for v2 or <code>.opencode/plugins/graphify.js</code> for v1 (v2 when the version can't be detected). <code>nexus sync</code> never deletes the other form. The v2 plugin runs <code>graphify update</code> asynchronously and coalesces overlapping runs, so it can't stall OpenCode v2's shared background service.</li>
+        <li><code>nexus init</code> extends an existing <code>opencode.json</code> that is already on v2's <code>mcp.servers</code> shape instead of creating a mixed flat + <code>servers</code> file. New files keep the flat <code>mcp</code> map, which v2 accepts.</li>
+        <li><code>nexus doctor</code>: shows the installed OpenCode major version, accepts both <code>mcp</code> and <code>mcp.servers</code> for the <code>nexus-mcp</code> entry, and warns when the graphify plugin on disk is one your installed OpenCode won't run (or a legacy <code>graphify.js</code> v2 ignores).</li>
+        <li>README and docs: a "Quick try-out" for training and demos — <code>nexus init ~/nexus-test-opencode --tool opencode --graph-backend graphify</code> (creates the folder, no prompts), a small sample architecture doc for <code>/scaffold</code> to read, then <code>nexus doctor</code>, <code>opencode</code> and the <code>/scaffold</code> flow.</li>
+        <li>README and docs: how to install or upgrade to OpenCode v2 (<code>curl -fsSL https://opencode.ai/v2/install | bash</code>, <code>opencode upgrade --major</code>) — in the Setup steps and next to the OpenCode layout — and to run <code>nexus sync</code> in each project afterwards. The nexus-dev-toolkit Setup step also gets install-check commands (<code>nexus --version</code>, <code>uv tool list</code>), since other packages (e.g. <code>nexus-toolkit</code>) install a <code>nexus</code> command too.</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li>Docs page layout: a wide code line no longer pushes a whole Setup step (and its code blocks) past the column edge — the "Install graphify" and "Build the knowledge graph" steps had the same overflow before this release. The content column is also wider (max 820px → 1100px) and now shrinks with the window instead of forcing a sideways scroll.</li>
+        <li><code>nexus init --tool opencode</code> offered to install OpenCode with <code>https://opencode.ai/install</code>, and <code>nexus doctor</code> hinted the same command — that installer only installs OpenCode 1. Both now use <code>https://opencode.ai/v2/install</code>.</li>
+        <li>OpenCode reviewer subagents never loaded on v2: the frontmatter written to <code>.opencode/agents/*.md</code> had its closing <code>---</code> glued onto the last field (<code>…after code changes.---</code>), so it was never closed — 0 of the 6 agents registered on OpenCode v2.2.5. The closing delimiter now sits on its own line. Run <code>nexus sync</code> in existing projects to repair them.</li>
+        <li>OpenCode agents are now marked <code>mode: subagent</code>. Without it, v2 registers them as primary agents rather than subagents.</li>
+        <li>The graphify auto-update hook was silently dead on OpenCode v2 (<code>failed to load plugin: Plugin must export a default definition with an id and an effect or setup function</code>).</li>
+      </ul>
+
+      <h2 id="nexus-3.1.11">v3.1.11<span class="release-date">2026-10-29</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li><code>nexus init</code> (all tools) creates <code>docs/arch-docs/</code>, <code>docs/dev-tasks/</code>, <code>docs/designs/</code> and <code>docs/requirements/</code> — the folders the workflow reads reference docs from. Folders only: existing files in <code>docs/</code> are never touched. Re-running <code>init</code> on an existing project adds any missing ones. <code>nexus doctor</code> shows a warn-only "Docs dirs" row.</li>
+      </ul>
+
+      <h2 id="nexus-3.1.10">v3.1.10<span class="release-date">2026-10-29</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li><code>nexus init --tool codex</code> — sets up nexus for OpenAI Codex: skills in <code>.agents/skills/&lt;name&gt;/SKILL.md</code> (EPAV steps get <code>agents/openai.yaml</code> with <code>allow_implicit_invocation: false</code> so Codex never starts <code>$apply</code>/<code>$commit</code> on its own), reviewer subagents converted to <code>.codex/agents/*.toml</code>, the nexus MCP server appended to <code>.codex/config.toml</code> (existing config never rewritten), and a graphify <code>PostToolUse</code> hook in <code>.codex/hooks.json</code>. <code>nexus sync</code> and <code>nexus doctor</code> understand Codex projects.</li>
+      </ul>
+      <h3>Changed</h3>
+      <ul>
+        <li><code>code-reviewer</code> agent and <code>/code-review</code> skill fall back to printing findings as a numbered list when the Claude Code-only <code>ReportFindings</code> tool isn't available (OpenCode, Codex).</li>
+      </ul>
+
+      <h2 id="nexus-3.1.9">v3.1.9<span class="release-date">2026-09-15</span></h2>
+      <h3>Fixed</h3>
+      <ul>
+        <li><code>nexus update --sync</code> (and the interactive "also sync?" prompt) silently missed any skill/agent added in the exact version just installed. Root cause: after the upgrade subprocess completed, sync ran in the same process using <code>_BUILTIN_SKILLS</code>/<code>_BUILTIN_AGENTS</code> as they were imported at process start — i.e. the pre-upgrade list — so a just-added built-in never got copied even though the on-disk package was already correct. <code>update</code> now re-execs <code>nexus sync</code> as a fresh process after a real upgrade, so it always reflects the version actually installed. A plain <code>nexus sync</code> (no preceding upgrade) was never affected.</li>
+      </ul>
+
+      <h2 id="nexus-3.1.8">v3.1.8<span class="release-date">2026-09-15</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li><code>pr-review</code> skill and <code>pr-verifier</code> agent — deep-verify a specific commit/PR by SHA or GitHub URL against its own claims: reads every changed file's real diff, cross-references project specs/docs, and actually builds/tests the code in an isolated git worktree instead of trusting the commit message or a green CI badge.</li>
+        <li><code>dev-tasks-planner</code> skill — generates or reconciles <code>docs/dev-tasks/*.csv</code> files for a module/epic from its architecture doc + ADRs, following the same EVALUATE → PLAN → APPLY → VALIDATE cycle as <code>/scaffold</code>, with STATUS values reconciled against real repo state rather than the ARCH doc in the abstract.</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li><code>tests/test_cli.py::test_doctor_healthy_project</code> asserted a hardcoded built-in skill/agent count; now derives the expected counts from <code>_BUILTIN_SKILLS</code>/<code>_BUILTIN_AGENTS</code> so it can't drift again.</li>
+      </ul>
+
+      <h2 id="nexus-3.1.7">v3.1.7<span class="release-date">2026-08-20</span></h2>
+      <h3>Fixed</h3>
+      <ul>
+        <li><code>nexus install</code>/<code>nexus update --sync</code>/<code>nexus sync</code>/<code>nexus doctor</code> now recognize <code>commit.md</code> and <code>create-pr.md</code> as built-in skills. They were added to <code>tools/epav/skills/</code> in v3.1.5 but never added to <code>nexus_cli.py</code>'s <code>_BUILTIN_SKILLS</code> list, so they were silently skipped during install/sync and not detected by <code>nexus doctor</code>.</li>
+      </ul>
+
+      <h2 id="nexus-3.1.6">v3.1.6<span class="release-date">2026-08-13</span></h2>
+      <h3>Fixed</h3>
+      <ul>
+        <li><strong>Critical:</strong> pin <code>mcp[cli]</code> to <code>&lt;2.0.0</code>. <code>mcp</code> 2.0.0 (published 2026-07-28) removed/relocated <code>mcp.server.fastmcp</code>, which <code>tools/epav/__init__.py</code> imports — this broke <code>nexus</code> for anyone doing a fresh install or running <code>nexus update</code>/<code>uvx --refresh</code> on or after that date, with <code>ModuleNotFoundError: No module named &#x27;mcp.server.fastmcp&#x27;</code>. v3.1.5 shipped with this dependency unpinned; upgrade to v3.1.6 to fix. Migrating to the <code>mcp</code> 2.0.0 API is tracked as follow-up work.</li>
+      </ul>
+
+      <h2 id="nexus-3.1.5">v3.1.5<span class="release-date">2026-08-12</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li><code>/commit</code> and <code>/create-pr</code> skills (<code>tools/epav/skills/commit.md</code>, <code>create-pr.md</code>) — staged, well-formed commit creation and PR opening (with a mandatory <code>/code-review</code> gate before opening the PR). Documented in <code>public/docs.html</code> under Built-in Skills → Git.</li>
+      </ul>
+      <h3>Changed</h3>
+      <ul>
+        <li><code>code-reviewer</code> agent and <code>/code-review</code> skill are now read-only: the agent reports findings via <code>ReportFindings</code> instead of editing files, defaults to scoping the review to what actually changed (git diff / commits ahead of base) instead of the whole repo, and verifies each finding against a concrete failure scenario before reporting it.</li>
+      </ul>
+
+      <h2 id="nexus-3.1.4">v3.1.4<span class="release-date">2026-07-18</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li><strong>codegraph support</strong> — nexus now supports <a href="https://github.com/colbymchenry/codegraph" target="_blank">codegraph</a> as an alternative to graphify for EPAV's knowledge-graph blast-radius checks. Pick one at <code>nexus init</code>'s interactive <code>--graph-backend</code> prompt (or pass <code>--graph-backend graphify|codegraph|none</code> to skip it); <code>nexus doctor</code> detects and reports which is active, and warns if both are installed/built in the same project (graphify wins ties by default; override with <code>NEXUS_GRAPH_BACKEND=codegraph</code>).</li>
+        <li><code>tools/epav/graph_backend.py</code> — shared detection/query-dispatch module used by <code>nexus doctor</code>, <code>load_task</code>, and the EPAV skill instructions.</li>
+        <li>EPAV skills (<code>/evaluate</code>, <code>/plan</code>, <code>/apply</code>, <code>/validate</code>, <code>/epav</code>) now branch their knowledge-graph instructions between graphify and codegraph depending on which is active.</li>
+        <li><code>nexus doctor</code> and <code>nexus update</code> now check PyPI for the latest published version and flag when you're outdated; <code>public/index.html</code> and <code>public/docs.html</code> show the same reminder as a banner, checked client-side against PyPI directly.</li>
+        <li><code>nexus update --sync</code> / <code>-s</code> — also syncs the current directory's built-in skills/agents right after upgrading the CLI (skipped gracefully if the current directory isn't a nexus project). Without the flag, <code>nexus update</code> asks interactively whether to sync too (in a real terminal — scripted/CI runs skip the prompt and just print the reminder, same as <code>nexus init</code>'s existing prompts).</li>
+      </ul>
+      <h3>Changed</h3>
+      <ul>
+        <li><code>nexus init</code> no longer unconditionally scaffolds the graphify <code>PostToolUse</code> hook — only when graphify is the chosen backend. codegraph manages its own sync daemon, so nothing is scaffolded for it.</li>
+      </ul>
+
+      <h2 id="nexus-3.1.3">v3.1.3<span class="release-date">2026-07-01</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li><code>nexus sync</code> — sync built-in skills and agents to latest versions in an existing project; custom files are never touched</li>
+        <li><code>nexus doctor</code> — validate project setup: checks tool binaries, MCP config, built-in skills/agents, knowledge dirs, graphify install and graph</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li><code>_check_and_offer_install()</code> now skips interactive prompt in non-interactive/CI environments (<code>sys.stdin.isatty()</code> check) — fixes GitHub Actions test failures</li>
+      </ul>
+
+      <h2 id="nexus-3.1.2">v3.1.2<span class="release-date">2026-07-01</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li><code>nexus init --tool opencode</code> — full OpenCode support:<ul><li>Copies skills to <code>.opencode/commands/</code></li><li>Copies subagents to <code>.opencode/agents/</code> (Claude Code-only frontmatter stripped)</li><li>Writes <code>.opencode/plugins/graphify.js</code> for auto knowledge graph updates via <code>tool.execute.after</code></li><li>Writes <code>opencode.json</code> with MCP server config</li></ul></li>
+        <li>Tool installation check: <code>nexus init</code> detects if Claude Code / OpenCode is missing and offers to install before proceeding</li>
+        <li>Docs: OpenCode MCP config example, graphify plugin note in <code>/apply</code> section</li>
+      </ul>
+
+      <h2 id="nexus-3.1.1">v3.1.1<span class="release-date">2026-06-21</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li><code>nexus --version</code> / <code>-V</code> flag to show installed version</li>
+        <li><code>nexus agent add &lt;name&gt;</code> — create a custom subagent in <code>.claude/agents/</code></li>
+        <li><code>nexus agent list</code> — list all subagents in <code>.claude/agents/</code></li>
+        <li>Docs: "run inside your project folder" guidance in nexus init section</li>
+        <li>Docs: commands table updated with agent subcommands and <code>--version</code></li>
+        <li>Docs: <code>nexus init</code> output tree now shows all reviewer skills and agents</li>
+      </ul>
+
+      <h2 id="nexus-3.1.0">v3.1.0<span class="release-date">2026-06-21</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li>5 built-in reviewer skills: <code>/code-review</code>, <code>/database-review</code>, <code>/deployment-review</code>, <code>/performance-review</code>, <code>/monitoring-review</code> — copied to <code>.claude/commands/</code> on <code>nexus init</code></li>
+        <li>5 built-in subagents copied to <code>.claude/agents/</code> on <code>nexus init</code> — stack-agnostic, review-focused</li>
+        <li>Documentation URL added to PyPI project metadata</li>
+      </ul>
+      <h3>Changed</h3>
+      <ul>
+        <li>Package description updated to reflect Claude Code specificity (not LLM-agnostic)</li>
+        <li>README aligned with docs.html: Day 0 flow, reference docs step, graphify step</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li>CI workflows upgraded to Node.js 24 native action versions (checkout@v7, setup-python@v6, setup-uv@v8.2.0)</li>
+      </ul>
+
+      <h2 id="nexus-3.0.1">v3.0.1<span class="release-date">2026-06-21</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li>ASCII logo displays when running <code>nexus</code> — cyan branded header with version</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li>graphify documented as prerequisite in README and docs with pros/cons trade-off</li>
+        <li>install.sh: interactive graphify setup prompt with graceful non-interactive fallback</li>
+        <li>CHANGELOG: corrected 3.0.0 entries to reflect actual v3 architecture</li>
+      </ul>
+
+      <h2 id="nexus-3.0.0">v3.0.0<span class="release-date">2026-06-21</span></h2>
+      <h3>Added</h3>
+      <ul>
+        <li>Initial release — Claude Code workflow toolkit, Day 0 + Day 1 EPAV methodology</li>
+        <li><code>nexus init</code> — writes <code>.claude/commands/</code>, <code>.claude/settings.json</code> (graphify PostToolUse hook), <code>knowledge/</code>, <code>.mcp.json</code> directly into any project</li>
+        <li><code>nexus skill add/list</code> — manage custom skills in <code>.claude/commands/</code></li>
+        <li><code>nexus rule add/list</code> — manage project rules in <code>knowledge/rules/</code></li>
+        <li><code>nexus update</code> — self-update via uv or pip</li>
+        <li>Built-in skills: <code>/scaffold</code>, <code>/evaluate</code>, <code>/plan</code>, <code>/apply</code>, <code>/validate</code>, <code>/epav</code></li>
+        <li>MCP server with 4 tools: <code>ingest_architecture_doc</code>, <code>load_task</code>, <code>generate_project_rules</code>, <code>resolve_package_versions</code></li>
+        <li><code>install.sh</code> — interactive installer with optional graphify setup prompt</li>
+        <li>graphify integration: PostToolUse hook auto-updates knowledge graph after every file edit; EPAV skills query graph for blast radius and cross-file context</li>
+      </ul>
+<!-- changelog:nexus:end -->
+    </section>
+
+    <section class="panel" id="jev" role="tabpanel" aria-labelledby="tab-jev" hidden>
+      <div class="callout warn">nexus-dev-toolkit-jev (<code>nexus-jev</code> / <code>nexus-jev-mcp</code>) is the experimental TypeSafe/Jev build. Install: <code>uv tool install nexus-dev-toolkit-jev</code>. <a href="/docs#jev">Details</a></div>
+<!-- changelog:jev:start -->
+      <h2 id="jev-3.2.0">v3.2.0<span class="release-date">2026-11-22</span></h2>
+      <p><code>nexus-dev-toolkit-jev</code> (commands <code>nexus-jev</code> / <code>nexus-jev-mcp</code>). This build has its own version line.</p>
+      <h3>Added</h3>
+      <ul>
+        <li>Stack detection for most of the world's stacks: a data catalog (<code>tools/epav/stack_catalog.json</code>, 221 technologies) replaces the ~30 hardcoded stack tags. Adding a stack is a JSON entry. Jev now judges only the technologies the catalog actually finds in the doc ("does the project use X, or only mention it?"), so a rejected option (e.g. "we considered MongoDB") is dropped. Without TypeSafe, the catalog's whole-word match is used directly.</li>
+        <li><code>resolve_package_versions</code> supports 25 tools: npm, pnpm, yarn, bun, pip, uv, poetry, pipenv, composer, bundler, dotnet, swiftpm, cocoapods, mix, cabal, conan, maven, gradle, sbt, pub, go, cargo, plus terraform, helm and ansible for IaC. Each runs the real tool (or reads Maven Central / CocoaPods trunk) and reads the result; all resolved a real package before release.</li>
+        <li>The result carries a <code>status</code>: <code>resolved</code>, <code>partial</code>, <code>failed</code>, <code>unsupported</code> or <code>tool_missing</code>. An unknown stack no longer falls back to npm.</li>
+        <li><code>/scaffold</code> is stack-neutral: an Ecosystem reference table (manifest, lock file, install, build, lint, hooks per ecosystem, plus Terraform/Helm/Ansible) replaces the Next.js-only steps.</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li>Go and Dart/Flutter returned no versions; both now resolve.</li>
+        <li>Python version specs <code>~5.1</code> and exact <code>5.2.3</code> pins are read correctly; pre-releases are skipped when picking the newest version.</li>
+      </ul>
+
+      <h2 id="jev-3.1.12">v3.1.12<span class="release-date">2026-11-09</span></h2>
+      <p><code>nexus-dev-toolkit-jev</code> (commands <code>nexus-jev</code> / <code>nexus-jev-mcp</code>) catches up with the stable <code>nexus-dev-toolkit</code> 3.1.10 – 3.1.12. This build has its own version line; the number happens to match the stable release it was synced with.</p>
+      <h3>Added</h3>
+      <ul>
+        <li>OpenCode v2 support: the graphify plugin is written as <code>.opencode/plugins/graphify/index.ts</code> on v2 (<code>graphify.js</code> on v1, chosen from <code>opencode --version</code>); <code>init</code> extends an existing <code>opencode.json</code> already on v2's <code>mcp.servers</code> shape (as <code>nexus-jev-mcp</code>); <code>doctor</code> reports the OpenCode version, accepts both MCP shapes and warns about a plugin the installed OpenCode won't run.</li>
+        <li><code>nexus-jev init --tool codex</code> — skills in <code>.agents/skills/</code>, reviewer subagents as <code>.codex/agents/*.toml</code>, the MCP server appended to <code>.codex/config.toml</code> as <code>[mcp_servers.nexus-jev]</code> (installs <code>nexus-dev-toolkit-jev</code>, with the <code>[typesafe]</code> extra under <code>--typesafe</code>), and a graphify <code>PostToolUse</code> hook. <code>doctor</code> reports TypeSafe wiring found in the Codex config too.</li>
+        <li><code>init</code> creates <code>docs/arch-docs/</code>, <code>docs/dev-tasks/</code>, <code>docs/designs/</code> and <code>docs/requirements/</code> (folders only; existing files untouched), with a <code>doctor</code> row.</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li>OpenCode reviewer subagents never loaded on v2 (closing frontmatter <code>---</code> glued onto the last field) and registered as primary agents; they are now written correctly and marked <code>mode: subagent</code>. Run <code>nexus-jev sync</code> in existing projects.</li>
+        <li>The OpenCode install hint pointed at the v1-only installer; it now uses <code>https://opencode.ai/v2/install</code>.</li>
+      </ul>
+      <h3>Changed</h3>
+      <ul>
+        <li>Codex and OpenCode generated config never reference the stable package (<code>nexus-dev-toolkit</code> / <code>nexus-mcp</code>); a test now checks every tool's config for that.</li>
+      </ul>
+      <p>Entries below are the shared history from the stable package up to the fork point, followed by its later releases as they were merged.</p>
+<!-- changelog:jev:end -->
+    </section>
+
+    <div style="margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.7rem;">
+      built by <a href="https://coderstudio.co" target="_blank" style="color:var(--cyan-dim);text-decoration:none;">CoderStudio Labs</a>
+    </div>
+  </main>
+
+  <script>
+    function toggleTheme() {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      if (next === 'light') { root.setAttribute('data-theme', 'light'); }
+      else { root.removeAttribute('data-theme'); }
+      try { localStorage.setItem('nexus-theme', next); } catch (e) {}
+    }
+    function showTab(name) {
+      ['nexus', 'jev'].forEach(function (n) {
+        document.getElementById(n).hidden = n !== name;
+        document.getElementById('tab-' + n).setAttribute('aria-selected', String(n === name));
+      });
+    }
+    (function () {
+      var h = location.hash.slice(1);
+      if (h === 'jev' || h.indexOf('jev-') === 0) showTab('jev');
+      window.addEventListener('hashchange', function () {
+        var k = location.hash.slice(1);
+        showTab(k === 'jev' || k.indexOf('jev-') === 0 ? 'jev' : 'nexus');
+      });
+    })();
+  </script>
+</body>
+</html>

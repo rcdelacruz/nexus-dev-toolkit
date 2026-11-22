@@ -241,6 +241,14 @@
       line-height: 1.6;
     }
 
+    .callout ul {
+      margin: 0.25rem 0 0.75rem 1.25rem;
+    }
+
+    .callout ul:last-child, .callout p:last-child {
+      margin-bottom: 0;
+    }
+
     .callout.warn {
       border-color: var(--yellow);
     }
@@ -420,6 +428,7 @@
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
+    <a href="#whats-new">What's new</a>
     <a href="#install">Install</a>
     <a href="#init">nexus init</a>
     <a href="#init-claude" class="sub">→ Claude Code</a>
@@ -458,9 +467,11 @@
     <a href="#commands" class="sub">→ nexus sync</a>
     <a href="#commands" class="sub">→ nexus doctor</a>
     <a href="#knowledge">knowledge/ layout</a>
+    <a href="/changelog">Changelog</a>
 
     <div class="nav-section" style="color: var(--yellow);">Experimental</div>
     <a href="#jev">nexus-jev (TypeSafe)</a>
+    <a href="#jev-whats-new" class="sub">→ What's new</a>
     <a href="#jev-install" class="sub">→ Install</a>
     <a href="#jev-usage" class="sub">→ Usage</a>
 
@@ -469,6 +480,7 @@
     <a href="/workflow">Workflow diagram</a>
     <a href="/loop-guide">Loop guide</a>
     <a href="/cursor">Cursor guide</a>
+    <a href="/changelog">Changelog</a>
     <a href="https://github.com/rcdelacruz/nexus-dev-toolkit" target="_blank">GitHub</a>
   </nav>
 
@@ -508,6 +520,28 @@
     <div class="callout milestone">
       First time in this project? You need install and a one-time Day 0 scaffold before Day 1 applies — both
       covered next, in order: <a href="#install">Setup</a> → <a href="#day0">Day 0</a> → <a href="#day1">Day 1</a>.
+    </div>
+
+    <!-- What's new -->
+    <h2 id="whats-new">What's new</h2>
+
+    <div class="callout">
+<!-- whats-new:nexus:start -->
+    <p class="whats-new-title"><strong>v3.2.0</strong> (2026-11-22)</p>
+    <p><strong>Added</strong></p>
+    <ul>
+      <li>Stack detection for most of the world's stacks</li>
+      <li><code>resolve_package_versions</code> supports 22 package managers</li>
+      <li>The result now carries a <code>status</code></li>
+      <li><code>/scaffold</code> is stack-neutral</li>
+    </ul>
+    <p><strong>Fixed</strong></p>
+    <ul>
+      <li><code>resolve_package_versions</code> returned no versions for Go and Dart/Flutter (no module/project was initialised in the temp directory).</li>
+      <li>Version specs: <code>~5.1</code> and exact <code>5.2.3</code> pins are read correctly for Python, and pre-releases (alpha, beta, RC, milestone, snapshot) are skipped when picking the newest version.</li>
+    </ul>
+    <p><a href="/changelog#nexus-3.2.0">Full 3.2.0 notes →</a> · <a href="/changelog">all releases</a></p>
+<!-- whats-new:nexus:end -->
     </div>
 
     <!-- Install -->
@@ -1669,10 +1703,31 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
       existing <code>nexus</code> install.
     </div>
 
+    <h3 id="jev-whats-new">What's new in nexus-jev</h3>
+
+    <div class="callout">
+<!-- whats-new:jev:start -->
+    <p class="whats-new-title"><strong>v3.2.0</strong> (2026-11-22)</p>
+    <p><strong>Added</strong></p>
+    <ul>
+      <li>Stack detection for most of the world's stacks</li>
+      <li><code>resolve_package_versions</code> supports 25 tools</li>
+      <li>The result carries a <code>status</code></li>
+      <li><code>/scaffold</code> is stack-neutral</li>
+    </ul>
+    <p><strong>Fixed</strong></p>
+    <ul>
+      <li>Go and Dart/Flutter returned no versions; both now resolve.</li>
+      <li>Python version specs <code>~5.1</code> and exact <code>5.2.3</code> pins are read correctly; pre-releases are skipped when picking the newest version.</li>
+    </ul>
+    <p><a href="/changelog#jev-3.2.0">Full 3.2.0 notes →</a> · <a href="/changelog#jev">all releases</a></p>
+<!-- whats-new:jev:end -->
+    </div>
+
     <p>Replaces a handful of hardcoded keyword-matching heuristics in the EPAV tools with an actual AI
       judgment call via <a href="https://docs.typesafe.ai" target="_blank"
         style="color:var(--cyan-dim);">TypeSafe</a>'s Jev model — which architecture-doc section is about
-      auth vs. security, which of ~30 stack tags an arch doc mentions, which package manager or IaC tool
+      auth vs. security, which technologies an arch doc actually uses (not just mentions), which package manager or IaC tool
       fits a free-text hint, which CSV column means "acceptance criteria," which design-token name maps to
       which role. Every tool works exactly the same without it: TypeSafe is off by default, and every
       judgment falls back to the original heuristic if it isn't enabled or the API call fails.</p>
@@ -1743,12 +1798,12 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
         </tr>
         <tr>
           <td><code>generate_project_rules</code></td>
-          <td>Which of ~30 stack tags an arch doc mentions (Next.js, Django, Terraform/OpenTofu,
-            Kubernetes, ...)</td>
+          <td>Which of the technologies the stack catalog (221) finds in an arch doc the project actually uses,
+            not just mentions (e.g. "we considered MongoDB" is dropped)</td>
         </tr>
         <tr>
           <td><code>resolve_package_versions</code></td>
-          <td>Which package manager or IaC tool (npm/pnpm/yarn/pub/go/cargo/maven/gradle/pip,
+          <td>Which of the 25 package managers and IaC tools (npm to cargo, cabal and conan, plus
             Terraform/OpenTofu, Helm, Ansible) fits a free-text stack hint</td>
         </tr>
         <tr>
