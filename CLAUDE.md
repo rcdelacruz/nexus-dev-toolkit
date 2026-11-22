@@ -7,7 +7,7 @@ When bumping the version, update ALL of these — every single time, no exceptio
 1. `pyproject.toml` — `version = "X.Y.Z"`
 2. `nexus_cli.py` — `_VERSION = "X.Y.Z"`
 3. `public/index.html` — `<span>vX.Y.Z</span>`
-4. `public/docs.html` — `<div class="nav-version">vX.Y.Z</div>`
+4. `public/docs.html`, `public/cursor.html`, `public/loop-guide.html` — `<div class="nav-version">vX.Y.Z</div>` (`changelog.html` is rebuilt in step 6; a test checks every page)
 5. `CHANGELOG.md` — add new section `## [X.Y.Z] - YYYY-MM-DD`
 6. `python3 scripts/build_changelog.py` — rebuilds `public/changelog.html` and the docs "What's new" blocks (`tests/test_changelog_page.py` fails CI if skipped)
 7. Commit and push → GitHub Actions auto-publishes to PyPI

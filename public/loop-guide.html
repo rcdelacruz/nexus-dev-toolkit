@@ -96,7 +96,8 @@
     main {
       flex: 1;
       padding: 3rem 3rem 5rem;
-      max-width: 820px;
+      max-width: 1100px;
+      min-width: 0; /* wide code blocks scroll inside their own box instead of widening the page */
     }
 
     h1 { color: var(--white); font-size: 1.5rem; margin-bottom: 0.5rem; }
@@ -220,6 +221,10 @@
     .theme-btn::after { content: "light"; }
     :root[data-theme="light"] .theme-btn::after { content: "dark"; }
 
+    .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1.25rem; overflow-x: auto; }
+    .diagram pre.mermaid { background: none; border: 0; padding: 0; margin: 0; color: var(--muted); font-size: 0.75rem; white-space: pre; }
+    .diagram svg { display: block; margin: 0 auto; }
+
     @media (max-width: 640px) {
       nav { display: none; }
       main { padding: 2rem 1.25rem 4rem; }
@@ -232,7 +237,7 @@
 
   <nav>
     <div class="nav-logo">NEXUS</div>
-    <div class="nav-version">v3.1.7</div>
+    <div class="nav-version">v3.2.0</div>
 
     <div class="nav-section">Loop Guide</div>
     <a href="#why">Why a loop</a>
@@ -259,19 +264,22 @@
     <a href="/">← Home</a>
     <a href="/docs">Docs</a>
     <a href="/workflow">Workflow diagram</a>
+    <a href="/cursor">Cursor guide</a>
+    <a href="/changelog">Changelog</a>
     <a href="https://github.com/rcdelacruz/nexus-dev-toolkit" target="_blank">GitHub</a>
   </nav>
 
   <main>
     <a href="/" class="back">← back to home</a>
 
-    <div class="badge">Proposal — targeted for a future release</div>
+    <div class="badge">Proposal — not shipped yet (as of v3.2.0)</div>
     <h1>EPAV as an Autonomous Loop</h1>
-    <p class="lead">Loop engineering is the discipline of designing the loop an AI agent runs inside — act, observe, decide, repeat — until a verifier says done. EPAV is already an engineered loop with a human gate and a hard verifier. This guide shows how to close it, so the apply ↔ validate cycle retries itself within an approved plan instead of waiting for a human to crank every phase.</p>
+    <p class="lead">Loop engineering is the discipline of designing the loop an AI agent runs inside — act, observe, decide, repeat — until a verifier says done. EPAV is already an engineered loop with a human gate and a verifier step. This guide shows how to close it, so the apply ↔ validate cycle retries itself within an approved plan instead of waiting for a human to crank every phase.</p>
 
     <!-- why -->
     <h2 id="why">Why a Loop</h2>
-    <p>Today, every phase transition in EPAV is a human action. If <code>/validate</code> fails, a human reads the failures and manually restarts. That works — but the agent is capable of consuming its own validation failures and fixing them, and the whole point of a verifier is that it can be trusted to say "not done yet" without a human re-reading everything.</p>
+    <div class="callout warn"><strong>Status:</strong> nothing on this page is in nexus yet. In v3.2.0, <code>/validate</code> fixes BLOCKERs and FIX NOWs in the same pass, but there is no retry budget, no structured failure list for <code>/apply</code>, and no escalation report. This page is the design for when it ships; the <a href="/changelog" style="color:var(--cyan)">changelog</a> will say when it does.</div>
+    <p>Today, every phase transition in EPAV is a human action. <code>/validate</code> tries to fix what it finds in the same pass, but when that doesn't converge there is no defined next step — no retry budget, no structured failure list, no escalation — so a human reads the output and restarts. That works — but the agent is capable of consuming its own validation failures and fixing them, and the whole point of a verifier is that it can be trusted to say "not done yet" without a human re-reading everything.</p>
     <p>Two principles from loop engineering drive this design:</p>
     <ul>
       <li><strong>The verifier is the bottleneck, not the model.</strong> A loop is only as trustworthy as its exit condition — so before granting autonomy, the verifier gets hardened.</li>
@@ -282,33 +290,45 @@
     <!-- idea -->
     <h2 id="idea">The Idea in One Picture</h2>
 
-    <h3>Today — open cycle, human cranks each turn</h3>
-    <pre><code><span class="skill">/evaluate</span> → <span class="skill">/plan</span> → <span class="str">[human approves]</span> → <span class="skill">/apply</span> → <span class="skill">/validate</span> → done
-                                                    │
-                                                  <span class="fail">fail</span> → human reads, human re-runs</code></pre>
+    <h3>Today — human cranks each turn</h3>
+    <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  E["/evaluate → /plan"] --> G{{"human approves plan"}}
+  G --> A["/apply"] --> V["/validate<br>fixes what it finds, once"]
+  V -->|passes| D(["done"])
+  V -->|"doesn't converge"| H(["human reads output, re-runs by hand"])
+  class V,A,E step
+  class G gate
+  class H human
+</pre>
+    </div>
 
     <h3>Target — human approves the plan, inner loop closes itself</h3>
-    <pre><code><span class="skill">/evaluate</span> → <span class="skill">/plan</span> → <span class="str">[human approves plan]</span> ──► INNER LOOP (autonomous)
-                                              ┌──────────────────────┐
-                                              │ <span class="skill">/apply</span>               │
-                                              │    ↓                 │
-                                              │ <span class="skill">/validate</span>            │
-                                              │    ├─ <span class="pass">PASS</span> → done ───┼──► report to human
-                                              │    └─ <span class="fail">FAIL</span>           │
-                                              │        ↓             │
-                                              │ retry budget left?   │
-                                              │    ├─ yes → <span class="skill">/apply</span>   │
-                                              │    │   (failures as  │
-                                              │    │    new context) │
-                                              │    └─ no → escalate ─┼──► human decides
-                                              └──────────────────────┘</code></pre>
+    <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  E["/evaluate → /plan"] --> G{{"human approves plan"}}
+  G --> A
+  subgraph LOOP ["inner loop (autonomous)"]
+    A["/apply"] --> V["/validate"]
+    V -->|FAIL| B{{"retry budget left?"}}
+    B -->|"yes, with the failures"| A
+  end
+  V -->|PASS| R(["report to human"])
+  B -->|no| X(["escalate: human decides"])
+  class V,A,E step
+  class G,B gate
+  class R,X human
+</pre>
+    </div>
 
     <!-- already -->
     <h2 id="already">What EPAV Already Does Well as a Loop</h2>
     <ul>
       <li><strong>A hard human gate</strong> — <code>/plan</code> stops and waits for approval. That's the developer feedback loop done deliberately.</li>
-      <li><strong>A real verifier</strong> — <code>/validate</code> requires the build to pass and checks acceptance criteria. Most agent workflows have no exit condition at all.</li>
-      <li><strong>Context refresh each iteration</strong> — graphify rebuilds after <code>/apply</code>, so the next iteration sees current reality, not a stale mental model.</li>
+      <li><strong>A verifier step</strong> — <code>/validate</code> checks every acceptance criterion and the knowledge-graph blast radius, and blocks on BLOCKER / FIX NOW issues. Most agent workflows have no exit condition at all. (It doesn't run the build or tests itself yet; change 2 below adds that. Only Day 0 <code>/scaffold</code> runs a build gate today.)</li>
+      <li><strong>Context refresh each iteration</strong> — the knowledge graph stays current as files change (graphify's hook after every edit, or codegraph's sync daemon), so the next iteration sees current reality, not a stale mental model.</li>
       <li><strong>Scope discipline</strong> — one task at a time, extra work goes to <code>knowledge/retros/</code>.</li>
     </ul>
     <p>What's missing is only the <strong>re-entry logic</strong> — the loop doesn't close itself, the verifier could be deeper, and nothing measures the loop. The changes below fix exactly that.</p>
@@ -351,10 +371,13 @@ Set iteration = 1, MAX_ITERATIONS = 3.
 
     <h3 id="validate-md">2. validate.md — harden the verifier</h3>
     <p><strong>(a) Make verification mechanical, not optional.</strong> The check stack always runs in order:</p>
-    <pre><code>1. Build:        npm run build (or equivalent)   — must exit 0
-2. Tests:        npm test (or equivalent)        — must exit 0;
+    <pre><code>1. Build:        the project's build command      — must exit 0
+                 (npm run build, cargo build, go build ./...,
+                 dotnet build, mvn -q package, flutter build ...)
+2. Tests:        the project's test command       — must exit 0;
                  new behavior needs a covering test
-3. Type check:   tsc --noEmit / mypy, if present
+3. Type check:   tsc --noEmit / mypy / cargo check / go vet,
+                 if the stack has one
 4. Review:       run /code-review on the diff;
                  its blockers are [BLOCKER]s
 5. Criteria:     each acceptance criterion — PASS / FAIL / PARTIAL</code></pre>
@@ -412,7 +435,7 @@ If a VALIDATION FAILURES block is provided as context:
       <thead><tr><th>#</th><th>Step</th></tr></thead>
       <tbody>
         <tr><td>1</td><td>Edit the three skill files in <code>tools/epav/skills/</code></td></tr>
-        <tr><td>2</td><td>Bump the version and publish to PyPI</td></tr>
+        <tr><td>2</td><td>Release: version bump, CHANGELOG, <code>scripts/build_changelog.py</code>, publish to PyPI (the release checklist in <code>CLAUDE.md</code>)</td></tr>
         <tr><td>3</td><td>Consuming projects pick it up with <code>nexus update</code> + <code>nexus sync</code></td></tr>
         <tr><td>4</td><td>Dogfood on one low-risk task with <code>MAX_ITERATIONS = 3</code> and review the first escalation report before trusting it on real work</td></tr>
       </tbody>
@@ -458,7 +481,35 @@ Task complete. Ready for the next /evaluate.</code></pre>
       if (next === 'light') { root.setAttribute('data-theme', 'light'); }
       else { root.removeAttribute('data-theme'); }
       localStorage.setItem('nexus-theme', next);
+      if (window.renderDiagrams) window.renderDiagrams();
     }
+  </script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+    var blocks = Array.prototype.slice.call(document.querySelectorAll('pre.mermaid'));
+    blocks.forEach(function (b) { b.dataset.src = b.textContent; });
+    function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+    window.renderDiagrams = async function () {
+      var font = getComputedStyle(document.body).fontFamily;
+      mermaid.initialize({
+        startOnLoad: false, theme: 'base', securityLevel: 'strict',
+        flowchart: { curve: 'basis', htmlLabels: true, padding: 10, useMaxWidth: false, nodeSpacing: 30, rankSpacing: 35 },
+        themeVariables: {
+          fontFamily: font, fontSize: '13px',
+          background: css('--surface'), primaryColor: css('--surface2'), primaryTextColor: css('--white'),
+          primaryBorderColor: css('--border'), lineColor: css('--muted'), textColor: css('--text2'),
+          clusterBkg: css('--bg'), clusterBorder: css('--cyan-dim'), edgeLabelBackground: css('--surface'),
+          titleColor: css('--cyan')
+        },
+        themeCSS: '.node.step rect{stroke:' + css('--cyan') + ';}' +
+                  '.node.gate polygon{stroke:' + css('--yellow') + ';}' +
+                  '.node.human rect{stroke:' + css('--green') + ';}' +
+                  '.edgeLabel{color:' + css('--text2') + ';}'
+      });
+      blocks.forEach(function (b) { b.removeAttribute('data-processed'); b.innerHTML = ''; b.textContent = b.dataset.src; });
+      try { await mermaid.run({ nodes: blocks }); } catch (e) { /* CDN or parse failure: the diagram source stays visible as text */ }
+    };
+    window.renderDiagrams();
   </script>
 </body>
 </html>

@@ -413,6 +413,12 @@
       main {
         padding: 2rem 1.25rem 4rem;
       }
+
+      /* wide tables scroll inside their own box instead of widening the page */
+      table {
+        display: block;
+        overflow-x: auto;
+      }
     }
   </style>
 </head>
@@ -513,8 +519,8 @@
       <code>/code-review</code> isn't one of the four EPAV phases — it's a separate reviewer skill — but it's the
       recommended last step before calling a task done. 4 more reviewer skills (database, deployment, performance,
       monitoring) are also available any time — see <a href="#skills">built-in skills</a>.<br><br>
-      <strong>Autonomous loop</strong> — apply ↔ validate can retry itself without a human cranking every turn. See
-      the <a href="/loop-guide">loop guide</a>.
+      <strong>Autonomous loop (proposal, not shipped yet)</strong> — a design for apply ↔ validate to retry itself
+      without a human cranking every turn. See the <a href="/loop-guide">loop guide</a>.
     </div>
 
     <div class="callout milestone">
@@ -1164,8 +1170,8 @@ docs/                        <span class="comment">← arch-docs/, dev-tasks/, d
 
     <pre><code>/evaluate &lt;task&gt;  →  /plan  →  /apply  →  /validate  →  /code-review</code></pre>
 
-    <p style="margin-top:0.75rem">Want apply ↔ validate to retry itself automatically instead of waiting on a human
-      each turn? See the <a href="/loop-guide">autonomous loop guide</a>.</p>
+    <p style="margin-top:0.75rem">Today <code>/validate</code> fixes what it finds in one pass, with no retry budget or escalation. A design for
+      apply ↔ validate to retry itself automatically is in the <a href="/loop-guide">autonomous loop guide</a> (proposal, not shipped yet).</p>
 
     <h3 id="evaluate">/evaluate</h3>
 

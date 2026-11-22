@@ -77,3 +77,10 @@ def test_highlight_shortens():
         "Stack detection for most of the world's stacks"
     assert bc._highlight("Short: x. More.") == "Short: x."
     assert len(bc._highlight("word " * 100)) <= 180
+
+
+def test_every_page_shows_the_current_version():
+    version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
+    for page in sorted((ROOT / "public").glob("*.html")):
+        for shown in re.findall(r'<div class="nav-version">v([^<]+)</div>', page.read_text(encoding="utf-8")):
+            assert shown == version, f"{page.name} shows v{shown}, pyproject is {version}"
