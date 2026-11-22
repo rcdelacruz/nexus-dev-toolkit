@@ -27,18 +27,18 @@
     }
 
     :root {
-      --bg: #0a0a0a;
-      --surface: #111111;
-      --surface2: #161616;
-      --border: #222222;
-      --cyan: #06b6d4;
-      --cyan-dim: #0e7490;
-      --white: #f8fafc;
-      --muted: #64748b;
-      --green: #22c55e;
-      --yellow: #eab308;
-      --text2: #94a3b8;
-      --row-border: #1a1a1a;
+      --bg: #121419;
+      --surface: #181b22;
+      --surface2: #1e222b;
+      --border: #2b303b;
+      --cyan: #22c3dc;
+      --cyan-dim: #4fb3c8;
+      --white: #e4e8ee;
+      --muted: #8a94a3;
+      --green: #3fd47a;
+      --yellow: #e8b931;
+      --text2: #aab3c0;
+      --row-border: #20242c;
     }
 
     :root[data-theme="light"] {
@@ -47,12 +47,13 @@
       --surface2: #eef2f6;
       --border: #d9e2ec;
       --cyan: #0e7490;
-      --cyan-dim: #0891b2;
+      --cyan-dim: #0b6578;
       --white: #0f172a;
       --green: #15803d;
-      --yellow: #a16207;
-      --text2: #475569;
+      --yellow: #946200;
+      --text2: #3d4a5c;
       --row-border: #e5eaf0;
+      --muted: #556275;
     }
 
     body {
@@ -332,7 +333,7 @@
 
     .step-num {
       background: var(--cyan-dim);
-      color: var(--white);
+      color: var(--bg);
       width: 1.5rem;
       height: 1.5rem;
       border-radius: 50%;
@@ -420,6 +421,13 @@
         overflow-x: auto;
       }
     }
+    /* Readability: paragraphs in a text font, body text at ~8.5:1 contrast in both themes
+       (was 4.2:1 dark / 4.5:1 light), monospace kept for code, commands and headings. */
+    p, li, td, .lead, .callout { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    p, li { color: var(--text2); font-size: 0.875rem; }
+    td { font-size: 0.82rem; }
+    p strong, li strong { color: var(--white); }
+    code, pre, kbd, samp { font-family: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, monospace; }
   </style>
 </head>
 
