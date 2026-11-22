@@ -1,6 +1,6 @@
 [project]
 name = "nexus-dev-toolkit-jev"
-version = "3.1.12"
+version = "3.2.0"
 description = "Developer workflow toolkit for Claude Code — Day 0 scaffold + Day 1 EPAV (experimental TypeSafe/Jev build -- installs as nexus-jev/nexus-jev-mcp, side by side with the real nexus-dev-toolkit)"
 authors = [
     {name = "Ronald dela Cruz", email = "rcdelacruz@users.noreply.github.com"}
@@ -46,9 +46,10 @@ where = ["."]
 include = ["tools*"]
 
 [tool.setuptools.package-data]
-"tools.epav" = ["skills/*.md"]
+"tools.epav" = ["skills/*.md", "stack_catalog.json"]
 "tools.agents" = ["*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["network: runs a real package manager / registry lookup (needs network; skipped when the tool is missing)"]

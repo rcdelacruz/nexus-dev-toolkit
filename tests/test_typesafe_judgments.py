@@ -78,6 +78,28 @@ async def test_infer_stack_uses_typesafe_nouls(monkeypatch):
     assert await project_rules._infer_stack("Django backend, nothing else") == "Django"
 
 
+async def test_infer_stack_only_asks_about_catalog_candidates(monkeypatch):
+    asked = {}
+
+    async def fake_system_one_async(state, questions):
+        asked.update(questions)
+        nouls = {tag: _FakeNoulAnswer(0.9 if tag != "MongoDB" else 0.05) for tag in questions}
+        return _FakeResponse(nouls=nouls)
+
+    monkeypatch.setattr(judgment, "system_one_async", fake_system_one_async)
+    result = await project_rules._infer_stack("Laravel 11 on PHP. We evaluated MongoDB but rejected it.")
+    assert set(asked) == {"Laravel", "PHP", "MongoDB"}
+    assert result == "Laravel, PHP"
+
+
+async def test_infer_stack_skips_typesafe_when_no_candidates(monkeypatch):
+    async def fail_if_called(*a, **k):
+        raise AssertionError("no catalog candidates -> no TypeSafe call")
+
+    monkeypatch.setattr(judgment, "system_one_async", fail_if_called)
+    assert await project_rules._infer_stack("nothing technical here") == "(update with your stack)"
+
+
 async def test_infer_stack_falls_back_when_typesafe_unavailable(monkeypatch):
     monkeypatch.setattr(judgment, "system_one_async", _returns_none)
     result = await project_rules._infer_stack("Next.js app with Supabase")
@@ -114,7 +136,9 @@ def test_detect_package_manager_falls_back_on_low_confidence(monkeypatch):
         judgment, "system_one",
         lambda **kwargs: _FakeResponse(choices={"package_manager": _FakeChoiceAnswer("cargo", 0.5)}),
     )
-    assert package_resolver._detect_package_manager("some obscure elixir thing") == "npm"
+    # low confidence -> catalog fallback (Elixir -> mix), never a blind "npm"
+    assert package_resolver._detect_package_manager("some obscure elixir thing") == "mix"
+    assert package_resolver._detect_package_manager("a proprietary in-house stack") == ""
 
 
 def test_detect_package_manager_falls_back_when_typesafe_unavailable(monkeypatch):

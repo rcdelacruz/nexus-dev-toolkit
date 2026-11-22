@@ -4,7 +4,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from tools.epav import judgment
+from tools.epav import judgment, stack_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -81,82 +81,41 @@ def _load_arch_summary() -> dict:
     return {}
 
 
-_STACK_TAGS = {
-    "Next.js": "The Next.js React framework",
-    "React Native": "React Native for mobile",
-    "Flutter": "Flutter/Dart for mobile",
-    "tRPC / T3": "tRPC or the T3 stack",
-    "Prisma": "Prisma ORM",
-    "PostgreSQL": "PostgreSQL database",
-    "Tailwind CSS": "Tailwind CSS",
-    "Supabase": "Supabase (auth/db/storage backend)",
-    "Django": "Django Python framework",
-    "FastAPI": "FastAPI Python framework",
-    "Ruby on Rails": "Ruby on Rails",
-    "NestJS": "NestJS Node.js framework",
-    "Express": "Express.js Node.js framework",
-    "Vue.js": "Vue.js frontend framework",
-    "Angular": "Angular frontend framework",
-    "Swift / iOS native": "Native iOS development with Swift",
-    "Kotlin / Android native": "Native Android development with Kotlin",
-    "MongoDB": "MongoDB database",
-    "MySQL": "MySQL or MariaDB database",
-    "Redis": "Redis cache or in-memory store",
-    "GraphQL": "GraphQL API layer",
-    "Docker": "Docker/container-based deployment",
-    "AWS": "AWS cloud infrastructure",
-    "GCP": "Google Cloud Platform infrastructure",
-    "Azure": "Microsoft Azure infrastructure",
-    "Terraform / OpenTofu": "Terraform or OpenTofu for infrastructure as code",
-    "Ansible": "Ansible for provisioning or configuration management",
-    "Kubernetes": "Kubernetes for container orchestration",
-    "Helm": "Helm charts for Kubernetes deployments",
-}
-
-
 async def _infer_stack(arch_text: str) -> str:
+    """Catalog keyword match finds the candidates; TypeSafe then keeps only the
+    ones the doc says the project actually uses (not merely mentions, evaluates
+    or rejected). Only candidates are asked about, so the question count scales
+    with the doc, not with the size of the catalog."""
+    candidates = [tech for _, tech in stack_catalog.find(arch_text)]
+    if not candidates:
+        return "(update with your stack)"
     if judgment.Noul is None:
         return _infer_stack_fallback(arch_text)
 
     result = await judgment.system_one_async(
         state={"architecture_document": arch_text},
         questions={
-            tag: judgment.Noul(
+            tech["name"]: judgment.Noul(
                 instructions=(
                     f"Does `architecture_document` state that the project currently uses "
-                    f"{tag} ({desc}), as opposed to merely mentioning, evaluating, or "
-                    f"having rejected it?"
+                    f"{tech['name']} (a {tech['category']} technology), as opposed to merely "
+                    f"mentioning, evaluating, or having rejected it?"
                 ),
             )
-            for tag, desc in _STACK_TAGS.items()
+            for tech in candidates
         },
     )
     if result is not None:
-        parts = [tag for tag in _STACK_TAGS if result.nouls[tag].noul >= 0.5]
+        used = {name for name in result.nouls if result.nouls[name].noul >= 0.5}
+        parts = [name for name in stack_catalog.detect(arch_text) if name in used]
         return ", ".join(parts) if parts else "(update with your stack)"
 
     return _infer_stack_fallback(arch_text)
 
 
 def _infer_stack_fallback(arch_text: str) -> str:
-    text_lower = arch_text.lower()
-    parts = []
-    if "next.js" in text_lower or "nextjs" in text_lower:
-        parts.append("Next.js")
-    if "react native" in text_lower:
-        parts.append("React Native")
-    if "flutter" in text_lower:
-        parts.append("Flutter")
-    if "trpc" in text_lower or "t3" in text_lower:
-        parts.append("tRPC / T3")
-    if "prisma" in text_lower:
-        parts.append("Prisma")
-    if "postgres" in text_lower or "postgresql" in text_lower:
-        parts.append("PostgreSQL")
-    if "tailwind" in text_lower:
-        parts.append("Tailwind CSS")
-    if "supabase" in text_lower:
-        parts.append("Supabase")
+    """Keyword-only result, used when TypeSafe is unavailable."""
+    parts = stack_catalog.detect(arch_text)
     return ", ".join(parts) if parts else "(update with your stack)"
 
 

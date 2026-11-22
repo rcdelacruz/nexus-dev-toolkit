@@ -36,7 +36,43 @@ accounts in Day 0.
 - **`web_app` / `mobile_app` only — Auth = mock only** — login form redirects to dashboard, no real provider calls (no Supabase Auth, no NextAuth, no OAuth). Real auth is wired in Day 1.
 - **Data = mock only** — all components use local mock data, no live DB queries. (Not applicable to `infrastructure`: there's no application data layer to mock — a database showing up in the arch doc there is a provisioned resource, e.g. an RDS instance, not something to fake.)
 - **No external service dependency** — the project must build and run (for `infrastructure`: `terraform plan` / `helm template` / `ansible-playbook --check` must succeed) without any credentials or live cloud resources.
-- The install + dev command must work out of the box (e.g. `npm install && npm run dev` for Next.js, `flutter pub get && flutter run` for Flutter, `terraform init && terraform plan` for Terraform).
+- The install + dev command must work out of the box — use the stack's row in **Ecosystem reference** below.
+
+---
+
+## Ecosystem reference
+
+Nexus is stack-agnostic: use the row for the stack the arch doc prescribes. If the stack is not listed, apply the same columns using that ecosystem's own official tooling — look the tools up, never guess from memory.
+
+| Ecosystem | `package_manager` | Manifest → lock file | Install + dev | Build (VALIDATE gate) | Lint / format | Pre-commit hooks |
+|---|---|---|---|---|---|---|
+| Node / TS (Next.js, Vite, Nuxt, SvelteKit, Angular, NestJS, Express…) | npm / pnpm / yarn / bun | `package.json` → `package-lock.json` / `pnpm-lock.yaml` / `yarn.lock` / `bun.lock` | `npm install && npm run dev` | `npm run build` | ESLint + Prettier (or Biome) | husky + lint-staged + commitlint |
+| Python (Django, FastAPI, Flask…) | uv / poetry / pipenv / pip | `pyproject.toml` → `uv.lock` / `poetry.lock`; `Pipfile` → `Pipfile.lock` | `uv sync && uv run <server>` | `uv build` or `python -m compileall .` + tests | ruff (lint + format) + mypy/pyright | pre-commit framework |
+| Java / Kotlin (Spring Boot, Quarkus, Micronaut, Ktor, Android) | maven / gradle | `pom.xml` / `build.gradle(.kts)` (+ `gradle.lockfile` with locking on) | `./mvnw spring-boot:run` / `./gradlew run` | `./mvnw package -DskipTests` / `./gradlew build -x test` | Checkstyle or Spotless; ktlint/detekt for Kotlin | pre-commit framework or Gradle/Maven git-hook plugin |
+| Scala (Play, Akka/Pekko) | sbt | `build.sbt` | `sbt run` | `sbt compile` | scalafmt + scalafix | pre-commit framework |
+| .NET (ASP.NET Core, Blazor, MAUI) | dotnet | `*.csproj` → `packages.lock.json` (`RestorePackagesWithLockFile`) | `dotnet restore && dotnet run` | `dotnet build -c Release` | `dotnet format` + analyzers | Husky.Net or pre-commit framework |
+| Go (Gin, Echo, Fiber, Chi) | go | `go.mod` → `go.sum` | `go mod download && go run ./cmd/<app>` | `go build ./...` | gofmt + golangci-lint | pre-commit framework or Makefile hook |
+| Rust (Axum, Actix, Tauri) | cargo | `Cargo.toml` → `Cargo.lock` | `cargo run` | `cargo build` | rustfmt + clippy | pre-commit framework or cargo-husky |
+| PHP (Laravel, Symfony) | composer | `composer.json` → `composer.lock` | `composer install && php artisan serve` / `symfony serve` | `composer validate && php -l` + tests | PHP-CS-Fixer or Pint + PHPStan/Psalm | GrumPHP or pre-commit framework |
+| Ruby (Rails, Sinatra) | bundler | `Gemfile` → `Gemfile.lock` | `bundle install && bin/rails server` | `bin/rails zeitwerk:check` + `bin/rails assets:precompile` | RuboCop | lefthook or overcommit |
+| Elixir (Phoenix) | mix | `mix.exs` → `mix.lock` | `mix deps.get && mix phx.server` | `mix compile --warnings-as-errors` | `mix format` + Credo | pre-commit framework or git_hooks |
+| Swift (SwiftUI, Vapor) | swiftpm / cocoapods | `Package.swift` → `Package.resolved`; `Podfile` → `Podfile.lock` | `swift run` / open in Xcode | `swift build` / `xcodebuild build` | SwiftFormat + SwiftLint | pre-commit framework |
+| Dart / Flutter | pub | `pubspec.yaml` → `pubspec.lock` | `flutter pub get && flutter run` | `flutter build apk --debug` (or `web` / `ios --no-codesign`) | `dart format` + `flutter analyze` | lefthook or pre-commit framework |
+| React Native / Expo | npm / pnpm / yarn / bun | `package.json` → lock file | `npx expo start` | `npx expo export` (or a debug native build) | ESLint + Prettier | husky + lint-staged |
+| C / C++ (Qt, native) | conan (or vcpkg) | `conanfile.txt`/`conanfile.py` → `conan.lock` | `conan install . && cmake --preset default && cmake --build` | `cmake --build --preset default` | clang-format + clang-tidy | pre-commit framework |
+| Terraform / OpenTofu | terraform | `versions.tf` (required_providers) → `.terraform.lock.hcl` | `terraform init && terraform plan` | `terraform validate && terraform plan` | `terraform fmt` + tflint | pre-commit-terraform |
+| Helm | helm | `Chart.yaml` → `Chart.lock` | `helm dependency update && helm template .` | `helm lint . && helm template .` | `helm lint` | pre-commit framework |
+| Ansible | ansible | `requirements.yml` (no lock file — the pinned version is the pin) | `ansible-galaxy collection install -r requirements.yml` | `ansible-lint` (or `ansible-playbook --syntax-check`) | ansible-lint + yamllint | pre-commit framework |
+| Haskell | cabal | `*.cabal` → `cabal.project.freeze` | `cabal run` | `cabal build` | ormolu/fourmolu + hlint | pre-commit framework |
+
+**Design token format by UI stack** (never copy oklch/hex from a design export raw):
+- Web with Tailwind v4: `hsl()` — never oklch, hex, or rgb
+- Web without Tailwind: CSS custom properties in `hsl()`
+- Flutter: `Color(0xFF...)` in a generated `color_theme.dart` / `ThemeData`
+- React Native: hex strings in a `colors.ts` theme file
+- SwiftUI: an Asset Catalog color set or a `Color` extension
+- Jetpack Compose / KMP: a `Color(0xFF...)` palette in `ui/theme/Color.kt` + `MaterialTheme`
+- .NET MAUI / WPF: a `ResourceDictionary` of `Color` resources
 
 ---
 
@@ -108,10 +144,7 @@ be misplaced/leftover from a different sibling app's export (verify the
 palette and page names inside actually match this app before trusting one).
 
 **Design token conversion (before writing any design file):**
-Figma exports colors in oklch or hex — never copy them raw. Convert to the target stack's native format:
-- Web (Tailwind v4): `hsl()` — never oklch, hex, or rgb
-- Flutter: `Color(0xFF...)` or generated `color_theme.dart`
-- React Native: hex strings in a `colors.ts` theme file
+Figma exports colors in oklch or hex — never copy them raw. Convert to the target stack's native format — see **Design token format by UI stack** in the Ecosystem reference.
 
 (A Claude-Design HTML mockup's tokens are usually already plain CSS values —
 check what `ingest_design_export` actually returned per token before assuming
@@ -150,7 +183,7 @@ alongside item 1 otherwise (e.g. the 3-tier-app-with-its-own-Terraform case)
   don't wire real CI credentials in Day 0
 
 **2. UI SHELL (from design export)** — `web_app` / `mobile_app` only, skip entirely otherwise
-- Design system config (tailwind.config.ts, globals.css, CSS custom properties, font loading)
+- Design system config in the stack's native format (e.g. Tailwind config + CSS custom properties for web, `ThemeData` for Flutter, `MaterialTheme` for Compose) plus font loading
 - Component architecture (name, path, props interface, variants, composition, accessibility)
 - Page layouts (every page from the design export, structured with placeholder data)
 - Build order (component dependency chain)
@@ -191,10 +224,15 @@ packages. One call resolves one tool; a mixed project has two.
 ```
 Step 1 — call resolve_package_versions with all deps + stack hint from arch doc
 
-  Application stacks:
-    packages: ["next@^16", "react@^19", "@supabase/supabase-js@^2", ...]
-    stack_hint: "Next.js 16 TypeScript" / "Flutter 3" / "Go" / etc.
-    → returns: { "versions": { "next": "16.2.9", "react": "19.2.7", ... } }
+  Application stacks — packages in the ecosystem's own naming, e.g.
+    npm      ["next@16", "@supabase/supabase-js@2"]
+    Python   ["django@5", "psycopg[binary]@3"]
+    JVM      ["org.springframework.boot:spring-boot-starter-web@3"]
+    Go       ["github.com/gin-gonic/gin@1"]
+    Composer ["laravel/framework@11"]
+    SwiftPM  ["https://github.com/vapor/vapor@4"]
+    package_manager: the stack's value from the Ecosystem reference (or omit and pass stack_hint)
+    → returns: { "status": "resolved", "versions": { "next": "16.2.9", ... } }
 
   Terraform (providers only — format "source@constraint"):
     packages: ["hashicorp/aws@~>5.0", "hashicorp/random"]
@@ -211,20 +249,20 @@ Step 1 — call resolve_package_versions with all deps + stack hint from arch do
     stack_hint: "Ansible playbooks provisioning an EC2 fleet"
     → returns: { "versions": { "community.general": "13.4.0" } }
 
+  status is not "resolved"?
+    "partial" / "failed"  → read `errors`, fix the package names/constraints, call again
+    "tool_missing"        → the package manager binary is not installed — install it, call again
+    "unsupported"         → follow `instructions`: pin from the official registry / CLI, never memory
+
 Step 2 — write the REAL manifest in the project with EXACT versions from Step 1
-  npm:       package.json        — "next": "16.2.9"  (no ^ or ~)
-  Flutter:   pubspec.yaml        — exact version constraints
-  Go:        go.mod              — exact module versions
-  Rust:      Cargo.toml          — exact versions
+  App stacks: the Manifest column of the Ecosystem reference — no ^, ~, *, or open ranges
   Terraform: versions.tf         — required_providers with exact "version ="
   Helm:      Chart.yaml          — dependencies with exact version + repository
   Ansible:   requirements.yml    — collections with exact version
 
 Step 3 — run the real tool again in the actual project to produce its lockfile
-  npm install                          → package-lock.json
-  flutter pub get                      → pubspec.lock
-  go mod tidy                          → go.sum
-  cargo build                          → Cargo.lock
+  App stacks: the lock file column of the Ecosystem reference
+    (e.g. npm install → package-lock.json, uv lock → uv.lock, bundle lock → Gemfile.lock)
   terraform/tofu init -backend=false   → .terraform.lock.hcl (then configure the real backend)
   helm dependency update               → Chart.lock
   ansible-galaxy collection install -r requirements.yml   → collections/ (no lockfile — the pinned version in requirements.yml *is* the pin)
@@ -244,16 +282,16 @@ NEVER write patch versions from AI memory — training data is always stale.
 - Error handler — consistent format from arch doc
 - Health-check endpoint
 - Seed script — idempotent test data
-- Linter + formatter config (stack-appropriate: ESLint + Prettier for JS/TS; gofmt + golangci-lint for Go; clippy for Rust; dart format for Flutter)
-- Pre-commit hooks (stack-appropriate):
+- Linter + formatter config — the stack's **Lint / format** column in the Ecosystem reference
+- Pre-commit hooks — the stack's **Pre-commit hooks** column. Details for the common ones:
   - **npm:** husky + lint-staged + commitlint
     - `package.json` must have `"prepare": "husky"` in scripts
     - Write `.husky/pre-commit` with `npx lint-staged`, then `chmod +x .husky/pre-commit`
     - Write `.lintstagedrc.json` (lint + format on staged files)
     - Write `.commitlintrc.json` with `@commitlint/config-conventional`
     - CI pipeline must set `HUSKY=0` env var — husky fails in CI without a git repo
-  - **Python:** pre-commit framework with `.pre-commit-config.yaml`
-  - **Go / Rust / Java:** git hooks via Makefile or pre-commit framework
+  - **pre-commit framework** (Python, Go, Rust, JVM, Elixir, C/C++, Haskell, Swift): `.pre-commit-config.yaml` running the stack's formatter + linter, plus a conventional-commit `commit-msg` hook
+  - **Ruby:** lefthook (`lefthook.yml`) or overcommit · **PHP:** GrumPHP · **.NET:** Husky.Net
 - README with local setup instructions
 - CI pipeline config (GitHub Actions or equivalent: lint, typecheck, test, db push)
 
@@ -299,7 +337,7 @@ alongside item 1 otherwise:
   Tailwind: preflight sets `svg { display: block }`, and block elements
   ignore `text-align`. Give such icons `mx-auto` (or center via flex)
   instead — don't assume `text-align: center` survives the port.
-- All components with TypeScript props and ALL visual states:
+- All components with typed props (TypeScript props, Dart/Swift/Kotlin constructor params, C# properties…) and ALL visual states:
   (default, hover, focus, disabled, loading, empty, error)
 - All page layouts responsive to the design export's breakpoints
 - Semantic HTML + ARIA attributes throughout
@@ -325,7 +363,7 @@ alongside item 1 otherwise:
 - Consistent error response format throughout (not `infrastructure`)
 - Proper logging setup (not console.log)
 - Environment-based configuration (dev/staging/prod)
-- Security headers configured (next.config.ts for Next.js, equivalent for other stacks) — not `infrastructure`
+- Security headers configured (next.config.ts for Next.js; framework middleware for others — e.g. Spring Security, Django `SecurityMiddleware`, Rails `config.action_dispatch.default_headers`, ASP.NET Core middleware, helmet for Express) — not `infrastructure`
 - Database connection pooling (use pooler URL, not direct) — not `infrastructure`
 - **Whenever `has_infrastructure_component` is true:** every resource tagged
   (environment, owner, cost-center as applicable), no `0.0.0.0/0` ingress
@@ -354,9 +392,8 @@ The login page accepts any input and sets a session cookie (preferred over local
 - All role-gating uses the mock role value — no JWT, no OAuth token
 Real auth provider replaces the cookie on Day 1.
 
-Output as complete files. The install + dev command must work (e.g. `npm
-install && npm run dev` for Next.js, `flutter pub get && flutter run` for
-Flutter, `terraform init && terraform plan` for Terraform).
+Output as complete files. The install + dev command must work — the stack's
+**Install + dev** column in the Ecosystem reference.
 
 ---
 
@@ -368,14 +405,12 @@ Use the command for the stack prescribed in the arch doc. If `has_infrastructure
 is true alongside an app-shaped `project_shape`, run BOTH the app's command
 and the IaC command(s) — both must pass:
 
+Use the **Build (VALIDATE gate)** column of the Ecosystem reference for the
+app stack (stack not listed: that ecosystem's standard release/compile command),
+and for IaC:
+
 | Stack | Build / validate command |
 |---|---|
-| Next.js | `npm run build` |
-| Vite / React | `npm run build` |
-| Flutter | `flutter build apk --debug` |
-| Go | `go build ./...` |
-| Rust | `cargo build` |
-| Java / Spring | `mvn package -DskipTests` |
 | Terraform / OpenTofu | `terraform validate && terraform plan` (or `tofu validate && tofu plan`) |
 | Helm | `helm lint . && helm template .` |
 | Ansible | `ansible-lint` (or `ansible-playbook --syntax-check` if ansible-lint isn't available) |
@@ -392,7 +427,7 @@ Review everything against the architecture doc (and the design export, for `web_
 1. Are all dependencies on stable versions (no beta/canary/RC)?
 2. Any deprecated packages or APIs in use?
 3. Are versions pinned exactly in the lock file (package-lock.json / pubspec.lock / go.sum / Cargo.lock / .terraform.lock.hcl / Chart.lock)?
-4. Any known security vulnerabilities? (npm audit / flutter pub audit / cargo audit / `tflint` or `checkov` for Terraform / etc.)
+4. Any known security vulnerabilities? (npm audit / pip-audit / bundle audit / composer audit / `dotnet list package --vulnerable` / govulncheck / cargo audit / OWASP dependency-check / `tflint` or `checkov` for Terraform / etc.)
 
 **Infrastructure:**
 5. Does the project structure match the architecture?

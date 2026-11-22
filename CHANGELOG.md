@@ -1,5 +1,19 @@
 # Changelog
 
+## [jev 3.2.0] - 2026-11-22
+
+`nexus-dev-toolkit-jev` (commands `nexus-jev` / `nexus-jev-mcp`). This build has its own version line.
+
+### Added
+- Stack detection for most of the world's stacks: a data catalog (`tools/epav/stack_catalog.json`, 221 technologies) replaces the ~30 hardcoded stack tags. Adding a stack is a JSON entry. Jev now judges only the technologies the catalog actually finds in the doc ("does the project use X, or only mention it?"), so a rejected option (e.g. "we considered MongoDB") is dropped. Without TypeSafe, the catalog's whole-word match is used directly.
+- `resolve_package_versions` supports 25 tools: npm, pnpm, yarn, bun, pip, uv, poetry, pipenv, composer, bundler, dotnet, swiftpm, cocoapods, mix, cabal, conan, maven, gradle, sbt, pub, go, cargo, plus terraform, helm and ansible for IaC. Each runs the real tool (or reads Maven Central / CocoaPods trunk) and reads the result; all resolved a real package before release.
+- The result carries a `status`: `resolved`, `partial`, `failed`, `unsupported` or `tool_missing`. An unknown stack no longer falls back to npm.
+- `/scaffold` is stack-neutral: an Ecosystem reference table (manifest, lock file, install, build, lint, hooks per ecosystem, plus Terraform/Helm/Ansible) replaces the Next.js-only steps.
+
+### Fixed
+- Go and Dart/Flutter returned no versions; both now resolve.
+- Python version specs `~5.1` and exact `5.2.3` pins are read correctly; pre-releases are skipped when picking the newest version.
+
 ## [jev 3.1.12] - 2026-11-09
 
 `nexus-dev-toolkit-jev` (commands `nexus-jev` / `nexus-jev-mcp`) catches up with the stable `nexus-dev-toolkit` 3.1.10 – 3.1.12. This build has its own version line; the number happens to match the stable release it was synced with.

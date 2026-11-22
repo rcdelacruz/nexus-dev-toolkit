@@ -14,7 +14,7 @@ from rich.table import Table
 
 from tools.epav import graph_backend
 
-_VERSION = "3.1.12-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
+_VERSION = "3.2.0-jev"  # local disambiguation marker only -- see CHANGELOG/pyproject before treating this as a real release version
 
 # This branch is published/installed under a distinct package + binary identity
 # from the real "nexus-dev-toolkit" so both can be installed side by side without
