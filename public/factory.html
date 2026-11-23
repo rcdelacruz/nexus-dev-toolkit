@@ -326,8 +326,9 @@ flowchart TB
   E --> G{"plan approved?"}
   G --> V["/apply → /validate"]
   V --> R(["pull request · code owners review"])
-  CR(["client change request"]) -.->|"/change-request: docs first"| B
-  CR -.->|"only the affected task rows"| T
+  R -.->|"later, the client asks for a change"| CR(["/change-request"])
+  CR -.->|"docs first"| B
+  CR -.->|"then only the affected task rows"| T
   class B,A,D,S,T,E,V step
   class G gate
   class R,CR human
