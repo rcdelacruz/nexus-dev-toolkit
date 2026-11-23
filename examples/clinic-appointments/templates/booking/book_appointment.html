@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{# DES-001 Book Appointment — from "Frame - Book Appointment.dc.html". Shell only; slots are BOOK-001/002. #}
+{% block title %}Book an appointment · CareSlot{% endblock %}
+{% block content %}
+<div class="rounded-lg border border-border bg-background p-5">
+  <h2 class="text-lg font-semibold">Book an appointment</h2>
+  <div id="slots" hx-get="" hx-trigger="load" hx-swap="innerHTML">
+    {% include "components/empty_state.html" with message="Loading free slots…" %}
+  </div>
+  {# states: empty "No free slots on this day" · error "This slot was just taken" / "You already have 2 upcoming appointments" #}
+</div>
+{% endblock %}

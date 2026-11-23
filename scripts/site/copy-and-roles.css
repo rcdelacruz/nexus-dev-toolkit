@@ -1,0 +1,18 @@
+    .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 0.2rem 0.5rem; border-radius: 3px; font-family: inherit; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; }
+    .copy-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); }
+    pre { position: relative; padding-right: 4.5rem; }
+    .steps { display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 1.5rem; }
+    .step { display: flex; gap: 1rem; align-items: flex-start; }
+    .step[hidden] { display: none; }
+    .step-num { background: var(--cyan-dim); color: var(--bg); width: 1.5rem; height: 1.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; margin-top: 0.1rem; }
+    .step-content { flex: 1; min-width: 0; }
+    .step-title { color: var(--white); font-size: 0.82rem; margin-bottom: 0.35rem; }
+    .step-desc { color: var(--text2); font-size: 0.85rem; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .step-desc code { font-size: 0.8rem; }
+    .step-desc strong { color: var(--white); }
+    .step-who { color: var(--cyan); font-size: 0.72rem; margin-left: 0.5rem; }
+    .step-content pre { margin: 0.5rem 0 0.75rem; }
+    .role-picker { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1.75rem; }
+    .role-picker button { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 0.4rem 0.8rem; border-radius: 999px; font-family: inherit; font-size: 0.75rem; cursor: pointer; }
+    .role-picker button.active { border-color: var(--cyan); color: var(--cyan); }

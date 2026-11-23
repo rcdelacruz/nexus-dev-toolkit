@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Designer Guide — nexus v4</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta name="description" content="How product designers hand designs to developers with nexus: the export format, what gets checked, and how screens stay linked to requirements." />
+  <script>
+    (function () {
+      var t = localStorage.getItem('nexus-theme');
+      if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 110%; }
+
+    :root {
+      --bg: #121419;
+      --surface: #181b22;
+      --surface2: #1e222b;
+      --border: #2b303b;
+      --cyan: #22c3dc;
+      --cyan-dim: #4fb3c8;
+      --white: #e4e8ee;
+      --muted: #8a94a3;
+      --green: #3fd47a;
+      --yellow: #e8b931;
+      --text2: #aab3c0;
+      --row-border: #20242c;
+      --red: #ef4444;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #eef2f6;
+      --border: #d9e2ec;
+      --cyan: #0e7490;
+      --cyan-dim: #0b6578;
+      --white: #0f172a;
+      --green: #15803d;
+      --yellow: #946200;
+      --text2: #3d4a5c;
+      --row-border: #e5eaf0;
+      --red: #b91c1c;
+      --muted: #556275;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      transition: background 0.2s, color 0.2s;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    nav {
+      width: 220px;
+      min-height: 100vh;
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .nav-logo { color: var(--cyan); font-size: 1rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .nav-version { color: var(--muted); font-size: 0.65rem; margin-bottom: 2rem; }
+
+    .nav-section {
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 0.3rem 0;
+      transition: color 0.15s;
+    }
+
+    nav a:hover, nav a.active { color: var(--cyan); }
+    nav a.sub { padding-left: 1rem; font-size: 0.7rem; }
+
+    main {
+      flex: 1;
+      padding: 3rem 3rem 5rem;
+      max-width: 1100px;
+      min-width: 0; /* wide code blocks scroll inside their own box instead of widening the page */
+    }
+
+    h1 { color: var(--white); font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+    h2 {
+      color: var(--white);
+      font-size: 1rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 { color: var(--cyan); font-size: 0.85rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+
+    p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 1rem; }
+
+    .lead { color: var(--text2); font-size: 0.85rem; margin-bottom: 2rem; }
+
+    ul { margin: 0 0 1rem 1.25rem; }
+    li { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 0.35rem; }
+    li strong { color: var(--text2); font-weight: normal; }
+
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    pre code { color: var(--white); font-size: 0.8rem; line-height: 1.6; }
+
+    .prompt { color: var(--muted); }
+    .cmd { color: var(--cyan); }
+    .comment { color: var(--muted); }
+    .str { color: var(--green); }
+    .skill { color: var(--yellow); }
+    .fail { color: var(--red); }
+    .pass { color: var(--green); }
+
+    .callout {
+      background: var(--surface);
+      border-left: 3px solid var(--cyan);
+      border-radius: 0 6px 6px 0;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.78rem;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    .callout.warn { border-color: var(--yellow); }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: 0.78rem; }
+
+    th {
+      color: var(--muted);
+      text-align: left;
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: normal;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.65rem;
+    }
+
+    td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--row-border);
+      color: var(--text2);
+      vertical-align: top;
+    }
+
+    td code, p code, li code { color: var(--cyan); font-size: 0.78rem; }
+    tr:last-child td { border-bottom: none; }
+
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.72rem;
+      margin-bottom: 2rem;
+      transition: color 0.15s;
+    }
+
+    .back:hover { color: var(--cyan); }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--yellow);
+      color: var(--yellow);
+      border-radius: 4px;
+      padding: 0.15rem 0.55rem;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    .theme-btn {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 20;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    .theme-btn::after { content: "light"; }
+    :root[data-theme="light"] .theme-btn::after { content: "dark"; }
+
+    .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1.25rem; overflow-x: auto; }
+    .diagram pre.mermaid { background: none; border: 0; padding: 0; margin: 0; color: var(--muted); font-size: 0.75rem; white-space: pre; }
+    .diagram svg { display: block; margin: 0 auto; }
+
+    @media (max-width: 640px) {
+      nav { display: none; }
+      main { padding: 2rem 1.25rem 4rem; }
+      table { display: block; overflow-x: auto; } /* wide tables scroll inside their own box */
+    }
+    /* Readability: paragraphs in a text font, body text at ~8.5:1 contrast in both themes
+       (was 4.2:1 dark / 4.5:1 light), monospace kept for code, commands and headings. */
+    p, li, td, .lead, .callout { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    p, li { color: var(--text2); font-size: 0.875rem; }
+    td { font-size: 0.82rem; }
+    p strong, li strong { color: var(--white); }
+    code, pre, kbd, samp { font-family: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, monospace; }
+      .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 0.2rem 0.5rem; border-radius: 3px; font-family: inherit; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; }
+    .copy-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); }
+    pre { position: relative; padding-right: 4.5rem; }
+    .steps { display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 1.5rem; }
+    .step { display: flex; gap: 1rem; align-items: flex-start; }
+    .step[hidden] { display: none; }
+    .step-num { background: var(--cyan-dim); color: var(--bg); width: 1.5rem; height: 1.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; margin-top: 0.1rem; }
+    .step-content { flex: 1; min-width: 0; }
+    .step-title { color: var(--white); font-size: 0.82rem; margin-bottom: 0.35rem; }
+    .step-desc { color: var(--text2); font-size: 0.85rem; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .step-desc code { font-size: 0.8rem; }
+    .step-desc strong { color: var(--white); }
+    .step-who { color: var(--cyan); font-size: 0.72rem; margin-left: 0.5rem; }
+    .step-content pre { margin: 0.5rem 0 0.75rem; }
+    .role-picker { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1.75rem; }
+    .role-picker button { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 0.4rem 0.8rem; border-radius: 999px; font-family: inherit; font-size: 0.75rem; cursor: pointer; }
+    .role-picker button.active { border-color: var(--cyan); color: var(--cyan); }
+</style>
+</head>
+
+<body>
+
+  <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode"></button>
+
+  <nav>
+    <div class="nav-logo">NEXUS</div>
+    <div class="nav-version">v3.2.1</div>
+
+    <div class="nav-section">Designer Guide</div>
+    <a href="#who">Who this is for</a>
+    <a href="#setup">Set up once</a>
+    <a href="#export">What to export</a>
+    <a href="#design">/design</a>
+    <a href="#checks">What nexus checks</a>
+    <a href="#stacks">Any stack, not just React</a>
+    <a href="#changes">Change requests</a>
+
+    <div class="nav-section">Links</div>
+    <a href="/">← Home</a>
+    <a href="/docs">Docs</a>
+    <a href="/docs#v4">nexus v4 (preview)</a>
+    <a href="/product-guide">Product guide</a>
+    <a href="/architect-guide">Architect guide</a>
+    <a href="/designer-guide">Designer guide</a>
+    <a href="/git-guide">Git guide</a>
+    <a href="/example">Example: CareSlot</a>
+    <a href="/training">Team Training</a>
+    <a href="/changelog#v4">Changelog</a>
+  </nav>
+
+  <main>
+    <a href="/" class="back">← back to home</a>
+
+    <div class="badge">nexus v4 — preview (pre-release)</div>
+    <h1>nexus for Designers</h1>
+    <p class="lead">You design; developers build it in whatever stack the architect chose. Three ways to hand over,
+      all checked against your team's design guide and the requirements:</p>
+    <table>
+      <thead><tr><th>You work in</th><th>Then</th></tr></thead>
+      <tbody>
+        <tr><td>Claude Code, with your own design system</td><td><code>/design &lt;app&gt; --system &lt;design system&gt;</code> creates every screen, epic by epic, from your tokens and components only</td></tr>
+        <tr><td>Claude Design (Claude Desktop), Figma Make or another tool</td><td>Copy the exported files into <code>docs/designs/&lt;app&gt;/</code> and commit — no command needed; the tech lead's <code>/scaffold</code> reads them and runs the same checks</td></tr>
+        <tr><td>An export you want reviewed first</td><td><code>/design &lt;app&gt; &lt;export&gt;</code> tells you in plain words what to fix, per screen</td></tr>
+      </tbody>
+    </table>
+    <p><code>/design</code> is optional. Screens follow the architect's <strong>epics</strong>
+      (<code>docs/arch-docs/&lt;app&gt;/</code>, the <code>Epic:</code> line of each ADR file).</p>
+    <div class="callout warn"><strong>Preview.</strong> These commands are in the nexus v4 preview, not on PyPI yet. Install: <code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — see <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a> for keeping nexus 3 too and going back.</div>
+
+    <h2 id="who">Who This Is For</h2>
+    <p>Product and UI designers who export from Figma, Figma Make, Claude Design or similar. You work only in
+      <code>docs/designs/</code>; nexus does the git steps (branch, commit, pull request). New to git? Start with the
+      <a href="/git-guide" style="color:var(--cyan)">git guide</a>.</p>
+
+    <h2 id="setup">Set Up Once</h2>
+    <pre><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'
+<span class="prompt">$</span> <span class="cmd">nexus init</span> . --role designer   <span class="comment"># installs /design and /change-request only</span></code></pre>
+
+    <h2 id="export">What to Export</h2>
+    <p>One folder or <code>.zip</code> per app, in <code>docs/designs/&lt;app&gt;/</code>, with:</p>
+    <table>
+      <thead><tr><th>Part</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><strong>HTML frames</strong> — one per screen, e.g. <code>Frame - Login.dc.html</code></td><td>The visual truth for every stack, React or not</td></tr>
+        <tr><td><strong>Tokens</strong> — a CSS file with colour roles as variables (<code>--background</code>, <code>--foreground</code>, <code>--primary</code>, …), light and dark</td><td>Developers turn them into the app's theme; frames are checked against them</td></tr>
+        <tr><td><strong>react-export/</strong> (optional) — Figma Make, Claude Design export, a Next.js or Vite project</td><td>Reused as code only when the app is React</td></tr>
+        <tr><td><strong>assets/</strong></td><td>Images and icons the frames use</td></tr>
+      </tbody>
+    </table>
+    <p>Leave out <code>node_modules/</code>, <code>.next/</code>, <code>dist/</code> and <code>build/</code> — they're generated, often
+      hundreds of MB, and nexus skips them anyway.</p>
+
+    <h2 id="design">/design &lt;app&gt; [--system path | export path]</h2>
+    <p><strong>Create</strong> (<code>--system</code>): give it your design system — a tokens file, your components and
+      rules, or a Claude Design design-system export. It plans one screen per story, by epic, using only what the
+      system has (a missing colour or component is a question for you, never invented), then writes the HTML frames,
+      <code>tokens.css</code> and <code>design.json</code>; the system itself is kept in
+      <code>docs/designs/design-system/</code>.</p>
+    <p><strong>Review</strong> (an export path, or nothing): nexus reads every file by its content (not its name): frames become screens with stable IDs
+      (<code>DES-001</code>, <code>DES-002</code> … — a screen keeps its ID when you re-export), frames are paired with
+      matching export components, and every colour in a frame is compared with your tokens. The plan shows you:</p>
+    <pre><code>DES-001  Login        Frame - Login.dc.html   → LoginScreen.jsx   states: error
+DES-002  Orders       Frame - Orders.dc.html  → OrdersPage.jsx    states: empty, loading
+Coverage: US-001 → Login · FR-ORD-001 → Orders · US-007 → <span class="fail">no screen</span>
+To fix:   Login uses #6b6f6b, which isn't a token — use --muted, or add it to the tokens</code></pre>
+    <p>You confirm the screen list and which requirements each screen covers. Nothing is written before you say go.</p>
+
+    <h2 id="checks">What nexus Checks</h2>
+    <table>
+      <thead><tr><th>Rule</th><th>Severity</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td>D1</td><td>BLOCKER</td><td>A tokens file exists with background, foreground and primary colours</td></tr>
+        <tr><td>D2</td><td>BLOCKER</td><td>Every requirement with a UI part has a screen</td></tr>
+        <tr><td>D3</td><td>FIX NOW</td><td>One HTML frame per screen</td></tr>
+        <tr><td>D4</td><td>FIX NOW</td><td>Colours in frames come from the tokens</td></tr>
+        <tr><td>D5</td><td>FIX NOW</td><td>Screens show their empty / loading / error / disabled states</td></tr>
+        <tr><td>D6</td><td>FIX NOW</td><td>Mobile and desktop frames when the requirements ask for both</td></tr>
+        <tr><td>D7</td><td>BACKLOG</td><td>Each frame has a matching component in the export, when there is one</td></tr>
+        <tr><td>D8</td><td>BACKLOG</td><td>Assets live in assets/</td></tr>
+      </tbody>
+    </table>
+    <p>Your team can change these in <code>docs/designs/DESIGN-GUIDE.md</code> — nexus writes it once and never
+      overwrites it. These checks catch, before handoff, the questions developers otherwise ask afterwards:
+      which breakpoints, what an empty table says, what happens while a button waits.</p>
+
+    <h2 id="stacks">Any Stack, Not Just React</h2>
+    <p>The architect decides the app's stack. If it's React or Next.js, developers may reuse your export's
+      components. For anything else — Vue, Angular, Go with htmx, Flutter, SwiftUI — they build each screen from your
+      HTML frame and tokens, and use the export only to understand behaviour. That's why frames and tokens matter
+      even when you also export React.</p>
+
+    <h2 id="changes">Change Requests</h2>
+    <p>When a change request touches your screens, the architect lists which ones. Update the design, re-export,
+      and copy it in again (or run <code>/design</code> again): screens keep their IDs, so developers see exactly which screens changed.</p>
+
+    <div style="margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.7rem;">
+      built by <a href="https://coderstudio.co" target="_blank" style="color:var(--cyan-dim);text-decoration:none;">CoderStudio Labs</a>
+    </div>
+  </main>
+
+  <script>
+    function toggleTheme() {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      if (next === 'light') { root.setAttribute('data-theme', 'light'); }
+      else { root.removeAttribute('data-theme'); }
+      localStorage.setItem('nexus-theme', next);
+      if (window.renderDiagrams) window.renderDiagrams();
+    }
+  </script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+    var blocks = Array.prototype.slice.call(document.querySelectorAll('pre.mermaid'));
+    blocks.forEach(function (b) { b.dataset.src = b.textContent; });
+    function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+    window.renderDiagrams = async function () {
+      var font = getComputedStyle(document.body).fontFamily;
+      mermaid.initialize({
+        startOnLoad: false, theme: 'base', securityLevel: 'strict',
+        flowchart: { curve: 'basis', htmlLabels: true, padding: 10, useMaxWidth: false, nodeSpacing: 30, rankSpacing: 35 },
+        themeVariables: {
+          fontFamily: font, fontSize: '13px',
+          background: css('--surface'), primaryColor: css('--surface2'), primaryTextColor: css('--white'),
+          primaryBorderColor: css('--border'), lineColor: css('--muted'), textColor: css('--text2'),
+          clusterBkg: css('--bg'), clusterBorder: css('--cyan-dim'), edgeLabelBackground: css('--surface'),
+          titleColor: css('--cyan')
+        },
+        themeCSS: '.node.step rect{stroke:' + css('--cyan') + ';}' +
+                  '.node.gate polygon{stroke:' + css('--yellow') + ';}' +
+                  '.node.human rect{stroke:' + css('--green') + ';}' +
+                  '.edgeLabel{color:' + css('--text2') + ';}'
+      });
+      blocks.forEach(function (b) { b.removeAttribute('data-processed'); b.innerHTML = ''; b.textContent = b.dataset.src; });
+      try { await mermaid.run({ nodes: blocks }); } catch (e) { /* CDN or parse failure: the diagram source stays visible as text */ }
+    };
+    window.renderDiagrams();
+  </script>
+  <script>
+    // Copy buttons on every command block: copies the commands themselves (no prompts, no comments).
+    (function () {
+      function clean(code) {
+        var c = code.cloneNode(true);
+        c.querySelectorAll('.prompt, .comment').forEach(function (n) { n.remove(); });
+        return c.textContent.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).join('\n');
+      }
+      document.querySelectorAll('pre > code').forEach(function (code) {
+        var pre = code.parentNode;
+        if (pre.querySelector('.copy-btn')) return;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'copy-btn'; b.textContent = 'copy';
+        b.addEventListener('click', function () {
+          var done = function () { b.textContent = 'copied!'; b.classList.add('copied');
+            setTimeout(function () { b.textContent = 'copy'; b.classList.remove('copied'); }, 2000); };
+          if (navigator.clipboard) navigator.clipboard.writeText(clean(code)).then(done, function () { b.textContent = 'select and copy'; });
+        });
+        pre.appendChild(b);
+      });
+    })();
+    // Role picker (training page): show only the steps for the chosen role; the init command follows it.
+    (function () {
+      var bar = document.querySelector('.role-picker');
+      if (!bar) return;
+      function pick(role) {
+        bar.querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b.dataset.role === role); });
+        var n = 0;
+        document.querySelectorAll('.step[data-roles]').forEach(function (s) {
+          var show = role === 'all' || s.dataset.roles.split(' ').indexOf(role) >= 0 || s.dataset.roles === 'everyone';
+          s.hidden = !show;
+          if (show) s.querySelector('.step-num').textContent = ++n;
+        });
+        var arg = { all: 'product', product: 'product', architect: 'architect', designer: 'designer', lead: 'developer', developer: 'developer', facilitator: 'developer' }[role];
+        document.querySelectorAll('.role-arg').forEach(function (s) { s.textContent = arg; });
+        try { localStorage.setItem('nexus-training-role', role); } catch (e) {}
+      }
+      bar.addEventListener('click', function (e) { if (e.target.dataset.role) pick(e.target.dataset.role); });
+      var saved = 'all';
+      try { saved = localStorage.getItem('nexus-training-role') || 'all'; } catch (e) {}
+      pick(bar.querySelector('[data-role="' + saved + '"]') ? saved : 'all');
+    })();
+  </script>
+</body>
+</html>

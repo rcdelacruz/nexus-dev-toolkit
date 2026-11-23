@@ -1,0 +1,43 @@
+  <script>
+    // Copy buttons on every command block: copies the commands themselves (no prompts, no comments).
+    (function () {
+      function clean(code) {
+        var c = code.cloneNode(true);
+        c.querySelectorAll('.prompt, .comment').forEach(function (n) { n.remove(); });
+        return c.textContent.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).join('\n');
+      }
+      document.querySelectorAll('pre > code').forEach(function (code) {
+        var pre = code.parentNode;
+        if (pre.querySelector('.copy-btn')) return;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'copy-btn'; b.textContent = 'copy';
+        b.addEventListener('click', function () {
+          var done = function () { b.textContent = 'copied!'; b.classList.add('copied');
+            setTimeout(function () { b.textContent = 'copy'; b.classList.remove('copied'); }, 2000); };
+          if (navigator.clipboard) navigator.clipboard.writeText(clean(code)).then(done, function () { b.textContent = 'select and copy'; });
+        });
+        pre.appendChild(b);
+      });
+    })();
+    // Role picker (training page): show only the steps for the chosen role; the init command follows it.
+    (function () {
+      var bar = document.querySelector('.role-picker');
+      if (!bar) return;
+      function pick(role) {
+        bar.querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b.dataset.role === role); });
+        var n = 0;
+        document.querySelectorAll('.step[data-roles]').forEach(function (s) {
+          var show = role === 'all' || s.dataset.roles.split(' ').indexOf(role) >= 0 || s.dataset.roles === 'everyone';
+          s.hidden = !show;
+          if (show) s.querySelector('.step-num').textContent = ++n;
+        });
+        var arg = { all: 'product', product: 'product', architect: 'architect', designer: 'designer', lead: 'developer', developer: 'developer', facilitator: 'developer' }[role];
+        document.querySelectorAll('.role-arg').forEach(function (s) { s.textContent = arg; });
+        try { localStorage.setItem('nexus-training-role', role); } catch (e) {}
+      }
+      bar.addEventListener('click', function (e) { if (e.target.dataset.role) pick(e.target.dataset.role); });
+      var saved = 'all';
+      try { saved = localStorage.getItem('nexus-training-role') || 'all'; } catch (e) {}
+      pick(bar.querySelector('[data-role="' + saved + '"]') ? saved : 'all');
+    })();
+  </script>

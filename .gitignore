@@ -35,3 +35,7 @@ graphify-out/
 # Local tooling
 .mcp.json
 .wrangler/
+
+# The CareSlot example ships its lock file and its (placeholder-only) env template
+!examples/clinic-appointments/uv.lock
+!examples/clinic-appointments/.env.example

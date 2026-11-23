@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{# DES-003 My Appointments — from "Frame - My Appointments.dc.html". Shell only; list/cancel are BOOK-005/006. #}
+{% block title %}My appointments · CareSlot{% endblock %}
+{% block content %}
+<div class="rounded-lg border border-border bg-background p-5">
+  <h2 class="text-lg font-semibold">My appointments</h2>
+  {% include "components/empty_state.html" with message="Nothing here yet — you have no upcoming appointments." %}
+  {# per appointment: cancel with a required reason (FR-BOOK-004); disabled < 2 h before: "Call the front desk to cancel" #}
+</div>
+{% endblock %}

@@ -82,7 +82,9 @@ def _load_arch_summary() -> dict:
 
 
 def _infer_stack(arch_text: str) -> str:
-    parts = stack_catalog.detect(arch_text)
+    """The doc's explicit decisions (**Choice** lines / Choice tables) when it records any;
+    otherwise technologies it mentions, minus superseded/rejected lines and "e.g." examples."""
+    parts = stack_catalog.detect_from_choices(arch_text) or stack_catalog.detect_used(arch_text)
     return ", ".join(parts) if parts else "(update with your stack)"
 
 

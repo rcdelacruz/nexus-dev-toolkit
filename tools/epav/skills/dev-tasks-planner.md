@@ -10,6 +10,10 @@ Follows the same EVALUATE → PLAN → APPLY → VALIDATE cycle as `/evaluate` `
 
 Example: `/dev-tasks-planner billing based on docs/arch-docs/billing/`
 
+`<module>` is the app folder the architecture lives in (`docs/arch-docs/<module>/`, e.g. `careslot`, or `core` / `inventory` on a multi-app product). **The epics come from the architecture, not from the requirements:** run `ingest_architecture_doc` with `module=<module>` and use its `epics` (one per epic ADR file — id, name, slug, the story/requirement IDs it covers). Each epic becomes one CSV, `docs/dev-tasks/<module>/<epic-slug>-tasks.csv`, and its rows trace to that epic's IDs. Requirements are product-wide, in `docs/requirements/`. Designs in `docs/designs/<module>/` may have no `design.json` (copied straight from Claude Design or Figma Make) — use the `ingest_design_export` preview for screen DES IDs.
+
+**Change-request mode:** `/dev-tasks-planner cr <CR-id>` — after `/change-request` has recorded `docs/change-requests/<CR-id>.json`. Run the `trace_tasks` MCP tool with `cr_id=<CR-id>`: it returns the exact rows (file + task_id) that trace to the IDs the change request changed, added or removed. Re-plan **only those rows** (and add rows for added IDs); every other row stays byte-for-byte as it is. The PLAN lists each affected row with the ID that pulled it in; nothing outside that list may change. Requirements that were removed turn their rows `Blocked` (citing the CR) rather than deleting them, unless the user says to delete.
+
 It can also be pointed at existing CSVs to re-evaluate/correct them (as opposed to generating new ones from a blank slate) — e.g. `/dev-tasks-planner re-evaluate docs/dev-tasks/billing/*.csv against docs/arch-docs/billing/`. The EVALUATE/PLAN/APPLY/VALIDATE shape is the same either way; APPLY edits existing rows instead of writing a new file.
 
 ## Prerequisites — MANDATORY, check before doing anything else
@@ -38,7 +42,7 @@ Only once both checks pass — confirmed by actually looking, not inferred from 
 
 ## EVALUATE — Read the source material and the real repo state
 
-Read the ARCH doc's own Component Breakdown section (usually §3) end to end, and every per-epic ADR file completely — not a grep for keywords. Each epic maps to one output CSV; each component in the breakdown maps to roughly one task row. Also check:
+Read the ARCH doc's own Component Breakdown section (usually §3) end to end, and every per-epic ADR file completely — not a grep for keywords. Each epic (from `ingest_architecture_doc` → `epics`) maps to one output CSV; a story or requirement no epic covers is a gap to send back to the architect, not a task to invent; each component in the breakdown maps to roughly one task row. Also check:
 
 - `knowledge/prompts/dev/` for existing "wire real X" templates (e.g. `wire-real-auth.md`) — match their acceptance-criteria style for any "Day 1: wire real X" task you write, don't invent a different shape.
 - Every sibling module's own `docs/dev-tasks/<module>/*.csv` for the closest precedent to copy conventions from — check header rows directly with `head -1` across a few files rather than assuming they all match. Column count and casing can drift between an older module's CSVs and a newer one in the same repo; prefer whichever convention is more recently updated over the oldest file you find.
@@ -79,15 +83,19 @@ Using the repo-state evidence from EVALUATE, plan the exact row-by-row content. 
 One CSV per epic, one folder per module: `docs/dev-tasks/<module>/<epic-slug>-tasks.csv` (e.g. `docs/dev-tasks/billing/invoice-export-tasks.csv`). The module is the folder, not a filename prefix — don't repeat it in the filename (`docs/dev-tasks/billing/invoice-export-tasks.csv`, never `docs/dev-tasks/billing/billing-invoice-export-tasks.csv`). The header below is a common baseline — verify it against this repo's own existing CSVs with `head -1` on a few files rather than assuming it applies universally, and adopt the repo's real convention if it differs:
 
 ```
-TASK_ID,ISSUE_TYPE,SUMMARY,USER_STORY,DESCRIPTION,ACCEPTANCE_CRITERIA,PRIORITY,ESTIMATE,STORY_POINTS,ROLE,ASSIGNEE,STATUS,LABELS,EPIC_LINK,DEPENDENCIES,BE ESTIMATE,BE - ACTUAL EFFORT,FE ESTIMATE,FE - ACTUAL EFFORT,QA ESTIMATE
+TASK_ID,ISSUE_TYPE,SUMMARY,USER_STORY,DESCRIPTION,ACCEPTANCE_CRITERIA,PRIORITY,ESTIMATE,STORY_POINTS,ROLE,ASSIGNEE,STATUS,LABELS,EPIC_LINK,DEPENDENCIES,TRACE_IDS,BE ESTIMATE,BE - ACTUAL EFFORT,FE ESTIMATE,FE - ACTUAL EFFORT,QA ESTIMATE
 ```
+
+- `TRACE_IDS` (optional column; files without it keep working): the requirement / design / ADR IDs the task implements, comma-separated, in the project's own ID scheme — e.g. `US-001, FR-AUTH-003, NFR-SEC-004, DES-002`. This is what lets a change request re-plan only the right rows. For existing files, the `trace_tasks` MCP tool proposes it from the IDs each row's text already cites (`write=true` fills the column after the user approves); check its proposal rather than retyping it.
+- Header case doesn't matter to nexus (`TASK_ID`, `Task ID` and `task_id` all load), but keep the repo's existing convention.
 
 - First row: `EPIC-<NAME>`, `ISSUE_TYPE=Epic`, empty `EPIC_LINK`, summarizing the whole epic and its overall completion state (`In Progress` if any sub-task is `Done` while others aren't — don't leave the epic row `To Do` once real work exists under it).
 - One row per component/story after that, `ISSUE_TYPE=Task`, `EPIC_LINK=EPIC-<NAME>`.
+- `TASK_ID` is unique across **all** of the module's CSVs, not just this file — developers start a task by its ID alone (`/evaluate BOOK-004`). Give each epic a short prefix and number within it: `BOOK-001`, `BOOK-002` in `booking-tasks.csv`, `SCHED-001` in `schedule-tasks.csv`. Never `TASK-001` in every file. Keep a repo's existing IDs when re-planning; check a new prefix isn't already used by another CSV.
 - `ROLE`: `Backend` / `Frontend` / `Fullstack`.
 - `STATUS`: exactly one of `Done` / `To Do` / `Blocked` / `In Progress` — verified as the actual allowed set by reading existing files, not assumed.
 - `LABELS`: comma-tag convention, no spaces — `backend,<epic-slug>,<module>-app[,blocked][,export][,rbac]`, `frontend,ui,<epic-slug>,<module>-app`, `testing,...`. Check an existing file's actual `LABELS` values before inventing a new tag shape.
-- `DEPENDENCIES`: `TASK-XXX` (comma-separated for multiple), referencing task IDs within the same file, or `EPIC-<NAME>` from another file for cross-epic deps.
+- `DEPENDENCIES`: task IDs (comma-separated for multiple) — any CSV of the module, since IDs are unique — or `EPIC-<NAME>` for a whole epic.
 
 ### STATUS must reflect actual repo state, not the ARCH doc in the abstract
 
@@ -176,6 +184,7 @@ Don't rely on eyeballing the rendered output. Write (and run, then delete) a sho
 - Every `Blocked` row contains `**Fallback:**`.
 - Every `Done` row (`ISSUE_TYPE=Task`) contains `Day 1` or `Day-1`.
 - No BOM at the start of the file.
+- Every `TASK_ID` is unique across all of the module's CSVs (`docs/dev-tasks/<module>/*.csv`), and every ID in `DEPENDENCIES` exists in one of them.
 
 Run it against **every row in the file**, not just the rows this pass touched — a prior pass may have left pre-existing rows non-compliant that this pass alone wouldn't otherwise catch. Fix anything the check finds, then re-run until clean.
 
@@ -188,7 +197,7 @@ VALIDATE COMPLETE
 ─────────────────
 Files validated:  <list>
 Rows checked:     <total>
-Checks passed:    header / column-count / STATUS-enum / Fallback / Day-1 / no-BOM
+Checks passed:    header / column-count / STATUS-enum / Fallback / Day-1 / no-BOM / unique-IDs
 Issues fixed:     <list, if any>
 Backlog items:    <retro file added, if any>
 ```

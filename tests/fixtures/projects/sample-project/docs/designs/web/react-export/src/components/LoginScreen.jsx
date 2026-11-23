@@ -1,0 +1,1 @@
+export default function LoginScreen(){return <button>Sign in</button>}

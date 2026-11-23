@@ -1,0 +1,24 @@
+{
+  "id": "CR-001",
+  "title": "SMS reminder 2 hours before (was 24); cancellation reason required",
+  "date": "2026-11-30",
+  "format_version": 1,
+  "changed_ids": [
+    "FR-NOTIF-001",
+    "US-005"
+  ],
+  "added_ids": [
+    "AC-015",
+    "FR-BOOK-004"
+  ],
+  "removed_ids": [],
+  "files": [
+    "docs/arch-docs/careslot/ADR-CARESLOT-E001-Booking-v1.0.md",
+    "docs/arch-docs/careslot/ADR-CARESLOT-E003-Notifications-v1.0.md",
+    "docs/arch-docs/careslot/ARCH-CARESLOT-v1.0.md",
+    "docs/designs/careslot/Frame - My Appointments.dc.html",
+    "docs/designs/careslot/design.json",
+    "docs/requirements/PRD.md"
+  ],
+  "reason": "Clinic manager: 24-hour reminders were forgotten by the next day; no-show reasons are needed for the monthly report."
+}

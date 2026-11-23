@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Git Guide — nexus v4</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta name="description" content="Just enough git for architects and designers working in a nexus project: one-time setup, the daily flow, and how to undo mistakes." />
+  <script>
+    (function () {
+      var t = localStorage.getItem('nexus-theme');
+      if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 110%; }
+
+    :root {
+      --bg: #121419;
+      --surface: #181b22;
+      --surface2: #1e222b;
+      --border: #2b303b;
+      --cyan: #22c3dc;
+      --cyan-dim: #4fb3c8;
+      --white: #e4e8ee;
+      --muted: #8a94a3;
+      --green: #3fd47a;
+      --yellow: #e8b931;
+      --text2: #aab3c0;
+      --row-border: #20242c;
+      --red: #ef4444;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #eef2f6;
+      --border: #d9e2ec;
+      --cyan: #0e7490;
+      --cyan-dim: #0b6578;
+      --white: #0f172a;
+      --green: #15803d;
+      --yellow: #946200;
+      --text2: #3d4a5c;
+      --row-border: #e5eaf0;
+      --red: #b91c1c;
+      --muted: #556275;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      transition: background 0.2s, color 0.2s;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    nav {
+      width: 220px;
+      min-height: 100vh;
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .nav-logo { color: var(--cyan); font-size: 1rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .nav-version { color: var(--muted); font-size: 0.65rem; margin-bottom: 2rem; }
+
+    .nav-section {
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 0.3rem 0;
+      transition: color 0.15s;
+    }
+
+    nav a:hover, nav a.active { color: var(--cyan); }
+    nav a.sub { padding-left: 1rem; font-size: 0.7rem; }
+
+    main {
+      flex: 1;
+      padding: 3rem 3rem 5rem;
+      max-width: 1100px;
+      min-width: 0; /* wide code blocks scroll inside their own box instead of widening the page */
+    }
+
+    h1 { color: var(--white); font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+    h2 {
+      color: var(--white);
+      font-size: 1rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 { color: var(--cyan); font-size: 0.85rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+
+    p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 1rem; }
+
+    .lead { color: var(--text2); font-size: 0.85rem; margin-bottom: 2rem; }
+
+    ul { margin: 0 0 1rem 1.25rem; }
+    li { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 0.35rem; }
+    li strong { color: var(--text2); font-weight: normal; }
+
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    pre code { color: var(--white); font-size: 0.8rem; line-height: 1.6; }
+
+    .prompt { color: var(--muted); }
+    .cmd { color: var(--cyan); }
+    .comment { color: var(--muted); }
+    .str { color: var(--green); }
+    .skill { color: var(--yellow); }
+    .fail { color: var(--red); }
+    .pass { color: var(--green); }
+
+    .callout {
+      background: var(--surface);
+      border-left: 3px solid var(--cyan);
+      border-radius: 0 6px 6px 0;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.78rem;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    .callout.warn { border-color: var(--yellow); }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: 0.78rem; }
+
+    th {
+      color: var(--muted);
+      text-align: left;
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: normal;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.65rem;
+    }
+
+    td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--row-border);
+      color: var(--text2);
+      vertical-align: top;
+    }
+
+    td code, p code, li code { color: var(--cyan); font-size: 0.78rem; }
+    tr:last-child td { border-bottom: none; }
+
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.72rem;
+      margin-bottom: 2rem;
+      transition: color 0.15s;
+    }
+
+    .back:hover { color: var(--cyan); }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--yellow);
+      color: var(--yellow);
+      border-radius: 4px;
+      padding: 0.15rem 0.55rem;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    .theme-btn {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 20;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    .theme-btn::after { content: "light"; }
+    :root[data-theme="light"] .theme-btn::after { content: "dark"; }
+
+    .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1.25rem; overflow-x: auto; }
+    .diagram pre.mermaid { background: none; border: 0; padding: 0; margin: 0; color: var(--muted); font-size: 0.75rem; white-space: pre; }
+    .diagram svg { display: block; margin: 0 auto; }
+
+    @media (max-width: 640px) {
+      nav { display: none; }
+      main { padding: 2rem 1.25rem 4rem; }
+      table { display: block; overflow-x: auto; } /* wide tables scroll inside their own box */
+    }
+    /* Readability: paragraphs in a text font, body text at ~8.5:1 contrast in both themes
+       (was 4.2:1 dark / 4.5:1 light), monospace kept for code, commands and headings. */
+    p, li, td, .lead, .callout { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    p, li { color: var(--text2); font-size: 0.875rem; }
+    td { font-size: 0.82rem; }
+    p strong, li strong { color: var(--white); }
+    code, pre, kbd, samp { font-family: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, monospace; }
+      .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 0.2rem 0.5rem; border-radius: 3px; font-family: inherit; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; }
+    .copy-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); }
+    pre { position: relative; padding-right: 4.5rem; }
+    .steps { display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 1.5rem; }
+    .step { display: flex; gap: 1rem; align-items: flex-start; }
+    .step[hidden] { display: none; }
+    .step-num { background: var(--cyan-dim); color: var(--bg); width: 1.5rem; height: 1.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; margin-top: 0.1rem; }
+    .step-content { flex: 1; min-width: 0; }
+    .step-title { color: var(--white); font-size: 0.82rem; margin-bottom: 0.35rem; }
+    .step-desc { color: var(--text2); font-size: 0.85rem; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .step-desc code { font-size: 0.8rem; }
+    .step-desc strong { color: var(--white); }
+    .step-who { color: var(--cyan); font-size: 0.72rem; margin-left: 0.5rem; }
+    .step-content pre { margin: 0.5rem 0 0.75rem; }
+    .role-picker { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1.75rem; }
+    .role-picker button { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 0.4rem 0.8rem; border-radius: 999px; font-family: inherit; font-size: 0.75rem; cursor: pointer; }
+    .role-picker button.active { border-color: var(--cyan); color: var(--cyan); }
+</style>
+</head>
+
+<body>
+
+  <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode"></button>
+
+  <nav>
+    <div class="nav-logo">NEXUS</div>
+    <div class="nav-version">v3.2.1</div>
+
+    <div class="nav-section">Git Guide</div>
+    <a href="#why">Why git</a>
+    <a href="#setup">One-time setup</a>
+    <a href="#daily">The daily flow</a>
+    <a href="#review">Reviews</a>
+    <a href="#undo">Undo a mistake</a>
+    <a href="#rules">Three rules</a>
+
+    <div class="nav-section">Links</div>
+    <a href="/">← Home</a>
+    <a href="/docs">Docs</a>
+    <a href="/docs#v4">nexus v4 (preview)</a>
+    <a href="/product-guide">Product guide</a>
+    <a href="/architect-guide">Architect guide</a>
+    <a href="/designer-guide">Designer guide</a>
+    <a href="/git-guide">Git guide</a>
+    <a href="/example">Example: CareSlot</a>
+    <a href="/training">Team Training</a>
+    <a href="/changelog#v4">Changelog</a>
+  </nav>
+
+  <main>
+    <a href="/" class="back">← back to home</a>
+
+    <div class="badge">nexus v4 — preview (pre-release)</div>
+    <h1>Git for Architects and Designers</h1>
+    <p class="lead">Requirements, architecture and designs live in the same repository as the code, in
+      <code>docs/</code>. That's what lets a change request reach exactly the right developer tasks. You need only a
+      handful of git steps — and the nexus commands run most of them for you.</p>
+    <div class="callout warn"><strong>Preview.</strong> These commands are in the nexus v4 preview, not on PyPI yet. Install: <code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — see <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a> for keeping nexus 3 too and going back.</div>
+
+    <h2 id="why">Why Git</h2>
+    <ul>
+      <li><strong>One source of truth.</strong> Developers build from the same files you edit — no copying from
+        Google Docs or Figma links that drift.</li>
+      <li><strong>Every change is recorded.</strong> Git shows exactly which lines of a requirement or design changed,
+        and nexus turns that into "these requirement IDs changed → these tasks need re-planning".</li>
+      <li><strong>Reviews before anything lands.</strong> Your changes go through a pull request your team approves.</li>
+    </ul>
+
+    <h2 id="setup">One-Time Setup</h2>
+    <pre><code><span class="comment"># git and the GitHub command-line tool (macOS shown; Windows: install Git for Windows and GitHub CLI)</span>
+<span class="prompt">$</span> <span class="cmd">brew install</span> git gh
+<span class="prompt">$</span> <span class="cmd">gh auth login</span>                       <span class="comment"># sign in to GitHub once</span>
+<span class="prompt">$</span> <span class="cmd">gh repo clone</span> &lt;org&gt;/&lt;project&gt;       <span class="comment"># your copy of the project</span>
+<span class="prompt">$</span> <span class="cmd">cd</span> &lt;project&gt; &amp;&amp; <span class="cmd">nexus init</span> . --role designer   <span class="comment"># or --role architect</span></code></pre>
+    <p>Prefer clicking? GitHub Desktop does the same steps with buttons; the nexus commands still open pull
+      requests for you.</p>
+
+    <h2 id="daily">The Daily Flow</h2>
+    <table>
+      <thead><tr><th>Step</th><th>Command</th><th>Who runs it</th></tr></thead>
+      <tbody>
+        <tr><td>Get the latest docs</td><td><code>git switch main &amp;&amp; git pull</code></td><td>You</td></tr>
+        <tr><td>Do the work</td><td><code>/requirements</code>, <code>/architect</code>, <code>/design</code>, <code>/change-request</code></td><td>You, in Claude Code</td></tr>
+        <tr><td>Branch, commit <code>docs/</code>, open a pull request</td><td>—</td><td>The nexus command, after you approve its plan</td></tr>
+        <tr><td>Answer review comments</td><td>Run the command again with the feedback</td><td>You</td></tr>
+        <tr><td>Merge</td><td>The green button on the pull request</td><td>A reviewer (CODEOWNERS)</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="review">Reviews</h2>
+    <p>Who approves what is set in <code>.github/CODEOWNERS</code>: architects approve <code>docs/arch-docs/</code>,
+      designers <code>docs/designs/</code>, product <code>docs/requirements/</code>, developers everything else. nexus
+      writes a template to <code>.github/CODEOWNERS.nexus-template</code>; replace the placeholder team names with your
+      real GitHub teams, then rename it to <code>CODEOWNERS</code>.</p>
+
+    <h2 id="undo">Undo a Mistake</h2>
+    <table>
+      <thead><tr><th>Situation</th><th>Command</th></tr></thead>
+      <tbody>
+        <tr><td>Throw away edits to one file you haven't committed</td><td><code>git restore docs/designs/core/tokens.css</code></td></tr>
+        <tr><td>See what you changed</td><td><code>git status</code> and <code>git diff</code></td></tr>
+        <tr><td>Start over from the latest main</td><td><code>git switch main &amp;&amp; git pull</code> (your branch stays saved)</td></tr>
+        <tr><td>A pull request you no longer want</td><td>Close it on GitHub — nothing reaches main</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="rules">Three Rules</h2>
+    <ul>
+      <li><strong>Only <code>docs/</code>.</strong> If a command or a diff shows anything outside <code>docs/</code>, stop and ask a developer.</li>
+      <li><strong>Never push to main directly.</strong> Always through a pull request.</li>
+      <li><strong>Pull before you start.</strong> Most conflicts come from working on an old copy.</li>
+    </ul>
+
+    <div style="margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.7rem;">
+      built by <a href="https://coderstudio.co" target="_blank" style="color:var(--cyan-dim);text-decoration:none;">CoderStudio Labs</a>
+    </div>
+  </main>
+
+  <script>
+    function toggleTheme() {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      if (next === 'light') { root.setAttribute('data-theme', 'light'); }
+      else { root.removeAttribute('data-theme'); }
+      localStorage.setItem('nexus-theme', next);
+      if (window.renderDiagrams) window.renderDiagrams();
+    }
+  </script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+    var blocks = Array.prototype.slice.call(document.querySelectorAll('pre.mermaid'));
+    blocks.forEach(function (b) { b.dataset.src = b.textContent; });
+    function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+    window.renderDiagrams = async function () {
+      var font = getComputedStyle(document.body).fontFamily;
+      mermaid.initialize({
+        startOnLoad: false, theme: 'base', securityLevel: 'strict',
+        flowchart: { curve: 'basis', htmlLabels: true, padding: 10, useMaxWidth: false, nodeSpacing: 30, rankSpacing: 35 },
+        themeVariables: {
+          fontFamily: font, fontSize: '13px',
+          background: css('--surface'), primaryColor: css('--surface2'), primaryTextColor: css('--white'),
+          primaryBorderColor: css('--border'), lineColor: css('--muted'), textColor: css('--text2'),
+          clusterBkg: css('--bg'), clusterBorder: css('--cyan-dim'), edgeLabelBackground: css('--surface'),
+          titleColor: css('--cyan')
+        },
+        themeCSS: '.node.step rect{stroke:' + css('--cyan') + ';}' +
+                  '.node.gate polygon{stroke:' + css('--yellow') + ';}' +
+                  '.node.human rect{stroke:' + css('--green') + ';}' +
+                  '.edgeLabel{color:' + css('--text2') + ';}'
+      });
+      blocks.forEach(function (b) { b.removeAttribute('data-processed'); b.innerHTML = ''; b.textContent = b.dataset.src; });
+      try { await mermaid.run({ nodes: blocks }); } catch (e) { /* CDN or parse failure: the diagram source stays visible as text */ }
+    };
+    window.renderDiagrams();
+  </script>
+  <script>
+    // Copy buttons on every command block: copies the commands themselves (no prompts, no comments).
+    (function () {
+      function clean(code) {
+        var c = code.cloneNode(true);
+        c.querySelectorAll('.prompt, .comment').forEach(function (n) { n.remove(); });
+        return c.textContent.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).join('\n');
+      }
+      document.querySelectorAll('pre > code').forEach(function (code) {
+        var pre = code.parentNode;
+        if (pre.querySelector('.copy-btn')) return;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'copy-btn'; b.textContent = 'copy';
+        b.addEventListener('click', function () {
+          var done = function () { b.textContent = 'copied!'; b.classList.add('copied');
+            setTimeout(function () { b.textContent = 'copy'; b.classList.remove('copied'); }, 2000); };
+          if (navigator.clipboard) navigator.clipboard.writeText(clean(code)).then(done, function () { b.textContent = 'select and copy'; });
+        });
+        pre.appendChild(b);
+      });
+    })();
+    // Role picker (training page): show only the steps for the chosen role; the init command follows it.
+    (function () {
+      var bar = document.querySelector('.role-picker');
+      if (!bar) return;
+      function pick(role) {
+        bar.querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b.dataset.role === role); });
+        var n = 0;
+        document.querySelectorAll('.step[data-roles]').forEach(function (s) {
+          var show = role === 'all' || s.dataset.roles.split(' ').indexOf(role) >= 0 || s.dataset.roles === 'everyone';
+          s.hidden = !show;
+          if (show) s.querySelector('.step-num').textContent = ++n;
+        });
+        var arg = { all: 'product', product: 'product', architect: 'architect', designer: 'designer', lead: 'developer', developer: 'developer', facilitator: 'developer' }[role];
+        document.querySelectorAll('.role-arg').forEach(function (s) { s.textContent = arg; });
+        try { localStorage.setItem('nexus-training-role', role); } catch (e) {}
+      }
+      bar.addEventListener('click', function (e) { if (e.target.dataset.role) pick(e.target.dataset.role); });
+      var saved = 'all';
+      try { saved = localStorage.getItem('nexus-training-role') || 'all'; } catch (e) {}
+      pick(bar.querySelector('[data-role="' + saved + '"]') ? saved : 'all');
+    })();
+  </script>
+</body>
+</html>

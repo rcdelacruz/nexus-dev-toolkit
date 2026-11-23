@@ -21,6 +21,22 @@ def _no_real_pypi_calls(monkeypatch):
     """doctor()/update() check PyPI for the latest version — never let tests hit the real
     network; tests that care about the version-check behavior override this locally."""
     monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: None)
+    monkeypatch.setattr("nexus_cli._fetch_releases", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _never_install_for_real(monkeypatch):
+    """No test may reinstall the developer's real nexus (`uv tool install …` / `pip install …`).
+    Tests that check an install replace subprocess.run themselves."""
+    import subprocess as _sp
+    real = _sp.run
+
+    def guard(cmd, *a, **k):
+        words = list(cmd) if isinstance(cmd, (list, tuple)) else str(cmd).split()
+        if "install" in words and ("tool" in words or "pip" in words):
+            raise AssertionError(f"test tried a real install: {words}")
+        return real(cmd, *a, **k)
+    monkeypatch.setattr("nexus_cli.subprocess.run", guard)
 
 
 @pytest.fixture(autouse=True)
@@ -187,14 +203,14 @@ def test_init_defaults_to_graphify_hook_noninteractive(tmp_project):
 def test_init_codegraph_backend_skips_graphify_hook(tmp_project):
     result = runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "codegraph"])
     assert result.exit_code == 0
-    assert not (tmp_project / ".claude" / "settings.json").exists()
+    assert "graphify" not in (tmp_project / ".claude" / "settings.json").read_text()
     assert "codegraph install && codegraph init" in result.output
 
 
 def test_init_none_backend_skips_graphify_hook(tmp_project):
     result = runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "none"])
     assert result.exit_code == 0
-    assert not (tmp_project / ".claude" / "settings.json").exists()
+    assert "graphify" not in (tmp_project / ".claude" / "settings.json").read_text()
 
 
 def test_init_opencode_codegraph_backend_skips_plugin(tmp_project):
@@ -421,7 +437,7 @@ def test_update_with_sync_flag_reexecs_sync_after_real_upgrade(monkeypatch, tmp_
     result = runner.invoke(app, ["update", "--sync"])
 
     assert result.exit_code == 0
-    assert calls[0] == ["uv", "tool", "upgrade", "nexus-dev-toolkit"]
+    assert calls[0] == ["uv", "tool", "install", "--reinstall", "nexus-dev-toolkit"]  # never `uv tool upgrade`, never a pin
     assert calls[1] == ["/usr/bin/nexus", "sync", str(tmp_project.resolve())]
 
 
@@ -563,7 +579,10 @@ def test_doctor_stale_graphify_hook_warns(tmp_project, monkeypatch):
 
 # ── init --tool codex ────────────────────────────────────────────────────────
 
-import tomllib  # noqa: E402 — test-only; runtime code stays 3.10-compatible
+try:  # noqa: E402 — test-only; runtime code stays 3.10-compatible
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10: same API from the tomli backport
+    import tomli as tomllib
 
 _EPAV_SKILLS_WITHOUT_FRONTMATTER = [
     s for s in _BUILTIN_SKILLS
@@ -726,8 +745,9 @@ def test_init_preserves_existing_docs(tmp_project):
     result = runner.invoke(app, ["init", str(tmp_project)])
     assert result.exit_code == 0
     assert (arch / "ARCH.md").read_text() == "# my architecture\n"
-    assert list(arch.iterdir()) == [arch / "ARCH.md"]
-    assert "docs/arch-docs/" not in result.output
+    # v4: the guide is added next to existing docs (never over them); nothing else is written
+    assert sorted(f.name for f in arch.iterdir()) == ["ARCH.md", "ARCHITECTURE-GUIDE.md"]
+    assert "docs/arch-docs/\n" not in result.output and "docs/arch-docs/ " not in result.output
     assert "docs/dev-tasks/" in result.output
 
 
@@ -951,3 +971,374 @@ def test_doctor_opencode_not_found_hints_v2_installer(tmp_project, monkeypatch):
     out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
     assert "https://opencode.ai/v2/install" in out
     assert "opencode.ai/install |" not in out
+
+
+# ── v4: manifest, safe sync, channels (rule 6) ───────────────────────────────
+
+import nexus_cli  # noqa: E402
+from tools import channel as _channel  # noqa: E402
+
+
+def _manifest(root):
+    return json.loads((root / ".nexus" / "manifest.json").read_text())
+
+
+def test_init_records_manifest_for_every_builtin(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    m = _manifest(tmp_project)
+    assert m["nexus_version"] == nexus_cli._VERSION
+    assert set(m["files"]) == set(nexus_cli._builtin_files(tmp_project))
+    assert ".claude/commands/evaluate.md" in m["files"]
+    assert ".mcp.json" not in m["files"]          # merged user configs are never "owned"
+    assert (tmp_project / ".nexus" / ".gitignore").read_text().splitlines()[-1] == "*"
+
+
+def test_sync_backs_up_an_edited_builtin_before_replacing_it(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    f = tmp_project / ".claude" / "commands" / "plan.md"
+    f.write_text("my team's own plan rules")
+    result = runner.invoke(app, ["sync", str(tmp_project)])
+    assert "previous copy saved" in _flat(result.output)
+    backups = list((tmp_project / ".nexus" / "backup").rglob("plan.md"))
+    assert len(backups) == 1 and backups[0].read_text() == "my team's own plan rules"
+    assert f.read_text() == (nexus_cli._SKILLS_SRC / "plan.md").read_text()
+
+
+def test_sync_does_not_back_up_untouched_files(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert not (tmp_project / ".nexus" / "backup").exists()
+
+
+def test_sync_removes_dropped_builtin_only_if_unedited(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    old = _manifest(tmp_project)
+    for name, text in {"retired.md": "old skill", "retired-edited.md": "old skill"}.items():
+        (tmp_project / ".claude" / "commands" / name).write_text(text)
+        old["files"][f".claude/commands/{name}"] = _channel.sha("old skill")
+    (tmp_project / ".claude" / "commands" / "retired-edited.md").write_text("old skill + my notes")
+    (tmp_project / ".nexus" / "manifest.json").write_text(json.dumps(old))
+    output = _flat(runner.invoke(app, ["sync", str(tmp_project)]).output)
+    assert not (tmp_project / ".claude" / "commands" / "retired.md").exists()
+    assert (tmp_project / ".claude" / "commands" / "retired-edited.md").exists()
+    assert "removed" in output and "you edited it" in output
+
+
+def test_sync_never_touches_files_it_did_not_write(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    mine = tmp_project / ".claude" / "commands" / "my-own-skill.md"
+    mine.write_text("custom")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert mine.read_text() == "custom"
+
+
+def test_sync_moves_mcp_configs_to_the_cli_channel(tmp_project, monkeypatch):
+    runner.invoke(app, ["init", str(tmp_project)])                       # written as stable/plain? depends on _VERSION
+    monkeypatch.setattr(nexus_cli, "_VERSION", "4.0.0a2")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    args = json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"]["args"]
+    assert args[args.index("--from") + 1] == "nexus-dev-toolkit>=4.0.0a0"
+    monkeypatch.setattr(nexus_cli, "_VERSION", "4.0.0")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    args = json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"]["args"]
+    assert args[args.index("--from") + 1] == "nexus-dev-toolkit"
+
+
+def test_sync_moves_codex_and_opencode_mcp_too(tmp_project, monkeypatch):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "opencode"])
+    monkeypatch.setattr(nexus_cli, "_VERSION", "4.0.0a2")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert '"nexus-dev-toolkit>=4.0.0a0"' in (tmp_project / ".codex" / "config.toml").read_text()
+    oc = json.loads((tmp_project / "opencode.json").read_text())
+    cmd = (oc["mcp"].get("servers") or oc["mcp"])["nexus-mcp"]["command"]
+    assert "nexus-dev-toolkit>=4.0.0a0" in cmd
+
+
+def test_sync_leaves_a_custom_mcp_command_alone(tmp_project, monkeypatch):
+    runner.invoke(app, ["init", str(tmp_project)])
+    (tmp_project / ".mcp.json").write_text(json.dumps({"mcpServers": {"nexus": {"command": "/opt/nexus-mcp", "args": []}}}))
+    monkeypatch.setattr(nexus_cli, "_VERSION", "4.0.0a2")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"] == {"command": "/opt/nexus-mcp", "args": []}
+
+
+def test_doctor_warns_when_this_checkout_was_synced_by_a_newer_nexus(tmp_project, monkeypatch):
+    runner.invoke(app, ["init", str(tmp_project)])
+    m = _manifest(tmp_project)
+    m["nexus_version"] = "4.0.0b1"
+    (tmp_project / ".nexus" / "manifest.json").write_text(json.dumps(m))
+    monkeypatch.setattr(nexus_cli, "_VERSION", "3.2.0")
+    output = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "newer than the nexus you are running (v3.2.0)" in output and "nexus channel v4" in output
+
+
+def test_doctor_reports_environment(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    assert "Python 3." in _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+
+
+def test_update_on_pre_channel_follows_pre_releases(monkeypatch, tmp_project):
+    monkeypatch.setattr(nexus_cli, "_VERSION", "4.0.0a1")
+    monkeypatch.setattr("nexus_cli._fetch_releases", lambda: ["3.2.0", "4.0.0a1", "4.0.0a2"])
+    calls = []
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda cmd, *a, **k: calls.append(cmd))
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.chdir(tmp_project)
+    result = runner.invoke(app, ["update"])
+    assert result.exit_code == 0
+    assert calls[0] == ["uv", "tool", "install", "--reinstall", "nexus-dev-toolkit>=4.0.0a0"]
+    assert "4.0.0a2" in result.output
+
+
+def test_update_graduates_to_stable_when_final_is_out(monkeypatch, tmp_project):
+    monkeypatch.setattr(nexus_cli, "_VERSION", "4.0.0rc1")
+    monkeypatch.setattr("nexus_cli._fetch_releases", lambda: ["3.2.0", "4.0.0rc1", "4.0.0"])
+    calls = []
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda cmd, *a, **k: calls.append(cmd))
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.chdir(tmp_project)
+    result = runner.invoke(app, ["update"])
+    assert calls[0] == ["uv", "tool", "install", "--reinstall", "nexus-dev-toolkit"]
+    assert "stable channel" in _flat(result.output)
+
+
+def test_update_failed_install_says_so(monkeypatch, tmp_project):
+    monkeypatch.setattr("nexus_cli._fetch_latest_pypi_version", lambda: "99.0.0")
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: type("R", (), {"returncode": 1})())
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.chdir(tmp_project)
+    result = runner.invoke(app, ["update"])
+    assert result.exit_code == 1 and "Install failed" in result.output
+
+
+def test_channel_stable_removes_v4_only_files_and_resets_mcp(monkeypatch, tmp_project):
+    monkeypatch.setattr(nexus_cli, "_VERSION", "4.0.0a2")
+    monkeypatch.setattr(nexus_cli, "_ADDED_IN_V4", ["plan.md"])     # pretend plan.md is a v4-only skill
+    runner.invoke(app, ["init", str(tmp_project)])
+    calls = []
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda cmd, *a, **k: calls.append(cmd))
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    result = runner.invoke(app, ["channel", "stable", "--project", str(tmp_project)])
+    assert result.exit_code == 0, result.output
+    assert not (tmp_project / ".claude" / "commands" / "plan.md").exists()
+    args = json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"]["args"]
+    assert args[args.index("--from") + 1] == "nexus-dev-toolkit"
+    assert calls[0] == ["uv", "tool", "install", "--reinstall", "nexus-dev-toolkit"]
+    assert calls[1] == ["/usr/bin/nexus", "sync", str(tmp_project.resolve())]
+
+
+def test_channel_v4_installs_the_pre_release_range(monkeypatch, tmp_project):
+    calls = []
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda cmd, *a, **k: calls.append(cmd))
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    result = runner.invoke(app, ["channel", "v4", "--project", str(tmp_project)])
+    assert result.exit_code == 0
+    assert calls == [["uv", "tool", "install", "--reinstall", "nexus-dev-toolkit>=4.0.0a0"]]
+
+
+def test_channel_rejects_unknown(tmp_project):
+    assert runner.invoke(app, ["channel", "beta"]).exit_code == 1
+
+
+def test_first_v4_sync_of_a_3x_project_keeps_edited_builtins(tmp_project):
+    """A project synced by 3.x has no manifest, so nexus can't tell an edit from an older nexus
+    copy — it keeps a copy of anything it replaces instead of guessing."""
+    runner.invoke(app, ["init", str(tmp_project)])
+    import shutil as _sh
+    _sh.rmtree(tmp_project / ".nexus")                                   # as if synced by 3.x
+    f = tmp_project / ".claude" / "commands" / "evaluate.md"
+    f.write_text("team-specific evaluate steps")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    backups = list((tmp_project / ".nexus" / "backup").rglob("evaluate.md"))
+    assert len(backups) == 1 and backups[0].read_text() == "team-specific evaluate steps"
+
+
+# ── v4: roles and guides ─────────────────────────────────────────────────────
+
+def test_architect_role_gets_only_its_commands(tmp_project):
+    r = runner.invoke(app, ["init", str(tmp_project), "--role", "architect"])
+    assert r.exit_code == 0, r.output
+    cmds = sorted(f.name for f in (tmp_project / ".claude" / "commands").iterdir())
+    assert cmds == ["architect.md", "change-request.md", "requirements.md"]
+    assert not (tmp_project / ".claude" / "agents").exists() or not any((tmp_project / ".claude" / "agents").iterdir())
+    assert "graphify" not in (tmp_project / ".claude" / "settings.json").read_text()   # no graphify hook — no code
+    assert (tmp_project / ".mcp.json").exists()                              # role commands use the MCP tools
+    assert _manifest(tmp_project)["role"] == "architect"
+
+
+def test_designer_role_on_codex(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex", "--role", "designer"])
+    skills = sorted(d.name for d in (tmp_project / ".agents" / "skills").iterdir())
+    assert skills == ["change-request", "design"]
+    assert (tmp_project / ".agents" / "skills" / "design" / "agents" / "openai.yaml").exists()   # explicit-only
+    assert not (tmp_project / ".codex" / "hooks.json").exists()
+
+
+def test_sync_keeps_the_role(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--role", "designer"])
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert sorted(f.name for f in (tmp_project / ".claude" / "commands").iterdir()) == ["change-request.md", "design.md"]
+
+
+def test_doctor_checks_the_role_set(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--role", "designer"])
+    out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
+    assert "designer — design, change-request" in out
+    assert "all 2 present" in out and "none needed (designer role)" in out
+
+
+def test_unknown_role(tmp_project):
+    assert runner.invoke(app, ["init", str(tmp_project), "--role", "boss"]).exit_code == 1
+
+
+def test_guides_are_written_once_and_never_overwritten(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    for rel in ("docs/requirements/REQUIREMENTS-GUIDE.md", "docs/arch-docs/ARCHITECTURE-GUIDE.md", "docs/designs/DESIGN-GUIDE.md"):
+        assert "```nexus-guide" in (tmp_project / rel).read_text()
+    g = tmp_project / "docs" / "arch-docs" / "ARCHITECTURE-GUIDE.md"
+    g.write_text("our own rules")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert g.read_text() == "our own rules"
+    assert "docs/arch-docs/ARCHITECTURE-GUIDE.md" not in _manifest(tmp_project)["files"]
+
+
+def test_codeowners_is_a_template_not_live(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    assert (tmp_project / ".github" / "CODEOWNERS.nexus-template").exists()
+    assert not (tmp_project / ".github" / "CODEOWNERS").exists()
+
+
+def test_existing_codeowners_means_no_template(tmp_project):
+    (tmp_project / ".github").mkdir()
+    (tmp_project / ".github" / "CODEOWNERS").write_text("* @me\n")
+    runner.invoke(app, ["init", str(tmp_project)])
+    assert not (tmp_project / ".github" / "CODEOWNERS.nexus-template").exists()
+
+
+def test_sync_adds_missing_guides_to_an_existing_project(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    (tmp_project / "docs" / "designs" / "DESIGN-GUIDE.md").unlink()
+    out = _flat(runner.invoke(app, ["sync", str(tmp_project)]).output)
+    assert (tmp_project / "docs" / "designs" / "DESIGN-GUIDE.md").exists() and "never overwritten" in out
+
+
+def test_channel_stable_removes_the_real_v4_commands_on_every_tool(monkeypatch, tmp_project):
+    monkeypatch.setattr(nexus_cli, "_VERSION", "4.0.0b1")
+    runner.invoke(app, ["init", str(tmp_project)])
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex"])
+    (tmp_project / ".claude" / "commands" / "architect.md").write_text("our edits")   # edited → kept
+    monkeypatch.setattr("nexus_cli.subprocess.run", lambda *a, **k: None)
+    monkeypatch.setattr("nexus_cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    out = _flat(runner.invoke(app, ["channel", "stable", "--project", str(tmp_project)]).output)
+    cmds = {f.name for f in (tmp_project / ".claude" / "commands").iterdir()}
+    assert {"design.md", "requirements.md", "change-request.md"}.isdisjoint(cmds)
+    assert "architect.md" in cmds and "you edited it" in out
+    assert not (tmp_project / ".agents" / "skills" / "design").exists()       # whole Codex skill folder
+    assert "evaluate.md" in cmds                                              # 3.x skills stay
+
+
+def test_product_role_gets_brd_prd_and_templates(tmp_project):
+    r = runner.invoke(app, ["init", str(tmp_project), "--role", "product"])
+    assert r.exit_code == 0, r.output
+    cmds = sorted(f.name for f in (tmp_project / ".claude" / "commands").iterdir())
+    assert cmds == ["brd.md", "change-request.md", "prd.md", "requirements.md"]
+    for name in ("BRD-TEMPLATE.md", "PRD-TEMPLATE.md"):
+        assert (tmp_project / "docs" / "requirements" / "templates" / name).is_file()
+    assert _manifest(tmp_project)["role"] == "product"
+
+
+def test_brd_and_prd_are_explicit_only_on_codex(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex", "--role", "product"])
+    for name in ("brd", "prd"):
+        assert (tmp_project / ".agents" / "skills" / name / "agents" / "openai.yaml").is_file()
+
+
+def test_nexus_mcp_from_points_configs_at_a_local_build(tmp_project, monkeypatch):
+    monkeypatch.setenv("NEXUS_MCP_FROM", str(tmp_project / "checkout"))
+    runner.invoke(app, ["init", str(tmp_project)])
+    args = json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"]["args"]
+    assert args[args.index("--from") + 1] == str((tmp_project / "checkout").resolve())
+    monkeypatch.delenv("NEXUS_MCP_FROM")
+    runner.invoke(app, ["sync", str(tmp_project)])          # sync leaves a local source alone
+    args = json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"]["args"]
+    assert args[args.index("--from") + 1] == str((tmp_project / "checkout").resolve())
+
+
+@pytest.mark.parametrize("role", ["developer", "product", "architect", "designer"])
+def test_init_approves_the_nexus_mcp_server_for_every_role(tmp_project, role):
+    runner.invoke(app, ["init", str(tmp_project), "--role", role, "--graph-backend", "none"])
+    s = json.loads((tmp_project / ".claude" / "settings.json").read_text())
+    assert s["enabledMcpjsonServers"] == ["nexus"] and "mcp__nexus__*" in s["permissions"]["allow"]
+
+
+def test_settings_merge_keeps_the_users_keys(tmp_project):
+    (tmp_project / ".claude").mkdir()
+    (tmp_project / ".claude" / "settings.json").write_text(json.dumps(
+        {"model": "opus", "permissions": {"allow": ["Bash(npm test)"]}, "enabledMcpjsonServers": ["db"]}))
+    runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "graphify"])
+    s = json.loads((tmp_project / ".claude" / "settings.json").read_text())
+    assert s["model"] == "opus" and s["enabledMcpjsonServers"] == ["db", "nexus"]
+    assert s["permissions"]["allow"] == ["Bash(npm test)", "mcp__nexus__*"]
+    assert "graphify update" in json.dumps(s["hooks"])
+    runner.invoke(app, ["sync", str(tmp_project)])                         # idempotent
+    assert json.loads((tmp_project / ".claude" / "settings.json").read_text()) == s
+
+
+def test_mcp_config_runs_a_locally_installed_build(tmp_project, monkeypatch, tmp_path):
+    wheel = tmp_path / "nexus_dev_toolkit-4.0.0a1-py3-none-any.whl"
+    wheel.write_text("x")
+    monkeypatch.setattr(nexus_cli, "_local_build", lambda: str(wheel))
+    monkeypatch.delenv("NEXUS_MCP_FROM", raising=False)
+    runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "none"])
+    args = json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"]["args"]
+    assert args[args.index("--from") + 1] == str(wheel)
+
+
+@pytest.mark.parametrize("role, first", [("product", "/brd"), ("architect", "/architect"), ("designer", "/design"), ("developer", "/scaffold")])
+def test_init_names_the_roles_first_command(tmp_project, role, first):
+    out = runner.invoke(app, ["init", str(tmp_project), "--role", role, "--graph-backend", "none"]).output
+    assert first in out.split("Done.")[-1]
+
+
+# ── a preview installed from git ─────────────────────────────────────────────
+
+_GIT = "https://github.com/rcdelacruz/nexus-dev-toolkit"
+
+
+def _git_info(commit):
+    return {"url": _GIT, "vcs_info": {"vcs": "git", "commit_id": commit, "requested_revision": "v4-preview"}}
+
+
+def test_update_on_a_git_install_reinstalls_the_branch_not_pypi(monkeypatch):
+    commits = iter(["a" * 40, "b" * 40])
+    state = {"info": _git_info(next(commits))}
+    monkeypatch.setattr(nexus_cli, "_direct_url", lambda: state["info"])
+    monkeypatch.setattr(nexus_cli, "_fetch_releases", lambda: pytest.fail("a git install must not ask PyPI"))
+    monkeypatch.setattr(nexus_cli.shutil, "which", lambda name: "/usr/bin/uv" if name == "uv" else None)
+    ran = []
+
+    def fake_run(cmd, *a, **k):
+        ran.append(cmd)
+        state["info"] = _git_info(next(commits))
+        return type("R", (), {"returncode": 0})()
+    monkeypatch.setattr(nexus_cli.subprocess, "run", fake_run)
+    out = _flat(runner.invoke(app, ["update"]).output)
+    assert ran == [["uv", "tool", "install", "--reinstall", f"git+{_GIT}@v4-preview"]]
+    assert "aaaaaaa → bbbbbbb" in out and "nexus sync" in out
+
+
+def test_sync_moves_a_git_mcp_entry_to_the_installed_commit(tmp_project, monkeypatch):
+    monkeypatch.delenv("NEXUS_MCP_FROM", raising=False)
+    monkeypatch.setattr(nexus_cli, "_direct_url", lambda: _git_info("a" * 40))
+    runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "none"])
+    frm = lambda: (lambda a: a[a.index("--from") + 1])(  # noqa: E731
+        json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"]["args"])
+    assert frm() == f"git+{_GIT}@{'a' * 40}"
+    monkeypatch.setattr(nexus_cli, "_direct_url", lambda: _git_info("b" * 40))   # after nexus update
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert frm() == f"git+{_GIT}@{'b' * 40}"
+    monkeypatch.setattr(nexus_cli, "_direct_url", lambda: {})                     # nexus channel stable
+    monkeypatch.setattr(nexus_cli.subprocess, "run", lambda *a, **k: type("R", (), {"returncode": 0})())
+    runner.invoke(app, ["channel", "stable", "--project", str(tmp_project)], input="n\n")
+    assert frm() == "nexus-dev-toolkit"

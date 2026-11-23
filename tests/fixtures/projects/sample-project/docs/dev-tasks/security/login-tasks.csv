@@ -1,0 +1,2 @@
+task_id,issue_type,summary,user_story,description,acceptance_criteria,priority,estimate,story_points,role,assignee,status,labels,epic_link,dependencies
+TASK-001,Task,Lockout,As an admin I lock users (US-101),Lock after 5 tries,Locked after 5 failed tries (AC-184),High,2,1,Backend,,Done,security,EPIC-SEC,None

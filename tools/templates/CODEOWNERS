@@ -1,0 +1,19 @@
+# Who must approve changes, by folder. GitHub reads this from .github/CODEOWNERS.
+# Written by `nexus init --role …` once; never overwritten.
+# Replace every @your-org/… with your real GitHub teams or usernames before relying on it.
+# Order matters: for each file, the LAST matching line decides — so the catch-all comes first.
+
+# Everything else (code): developers
+*                       @your-org/developers
+
+# Requirements: product / business analysts
+/docs/requirements/     @your-org/product
+
+# Architecture docs and ADRs: architects
+/docs/arch-docs/        @your-org/architects
+
+# Designs: product designers
+/docs/designs/          @your-org/designers
+
+# Change-request records: architects approve the record itself
+/docs/change-requests/  @your-org/architects

@@ -406,6 +406,10 @@
       content: "dark";
     }
 
+    .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1.25rem; overflow-x: auto; }
+    .diagram pre.mermaid { background: none; border: 0; padding: 0; margin: 0; color: var(--muted); font-size: 0.75rem; white-space: pre; }
+    .diagram svg { display: block; margin: 0 auto; }
+
     @media (max-width: 640px) {
       nav {
         display: none;
@@ -482,6 +486,17 @@
     <a href="#commands" class="sub">→ nexus doctor</a>
     <a href="#knowledge">knowledge/ layout</a>
     <a href="/changelog">Changelog</a>
+
+    <div class="nav-section" style="color: var(--yellow);">Preview</div>
+    <a href="#v4">nexus v4</a>
+    <a href="#v4-install" class="sub">→ Install &amp; go back</a>
+    <a href="#v4-roles" class="sub">→ Roles &amp; commands</a>
+    <a href="/product-guide" class="sub">→ Product guide</a>
+    <a href="/architect-guide" class="sub">→ Architect guide</a>
+    <a href="/designer-guide" class="sub">→ Designer guide</a>
+    <a href="/git-guide" class="sub">→ Git guide</a>
+    <a href="/example" class="sub">→ Example: CareSlot</a>
+    <a href="/training" class="sub">→ Team Training</a>
 
     <div class="nav-section" style="color: var(--yellow);">Experimental</div>
     <a href="#jev">nexus-jev (TypeSafe)</a>
@@ -1699,6 +1714,76 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
 ├── prompts/dev/             <span class="comment">← task prompt templates</span>
 └── retros/                  <span class="comment">← [BACKLOG] items from /validate</span></code></pre>
 
+    <!-- nexus v4 preview -->
+    <h2 id="v4">nexus v4 — Preview</h2>
+
+    <div class="callout warn">
+      <strong>Preview.</strong> nexus 4.0 will ship as pre-releases (<code>4.0.0a1</code>, <code>a2</code>, …) of the same
+      <code>nexus-dev-toolkit</code> package; until the first one is on PyPI, install the preview from the
+      <code>v4-preview</code> branch (below). If you're on 3.x, nothing changes: installers and
+      <code>nexus update</code> on 3.x never pick a pre-release or a branch. See the <a href="/changelog#v4">v4 changelog</a>.
+    </div>
+
+    <p>nexus 3 helps developers. nexus 4 brings in the people whose work developers depend on — product owners,
+      architects and product designers — with their own commands. The BRD and PRD cover the whole product; the
+      architect splits it into epics, and designs and dev tasks follow those epics. Their work lands in <code>docs/</code>, is
+      checked against the team's own guides, and a change request reaches exactly the dev tasks it affects.</p>
+
+    <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  B["/brd · /prd · the whole product · docs/requirements/"] --> A["/architect · the epics · docs/arch-docs/app/"]
+  A --> D["/design --system · optional · docs/designs/app/"]
+  A -.->|"or copy a Claude Design / Figma Make export"| X["docs/designs/app/"]
+  D --> P{{"pull request · reviewed by CODEOWNERS"}}
+  X --> P
+  P --> S["/scaffold · tech lead · Day 0, once"]
+  S --> T["/dev-tasks-planner · tech lead · one CSV per epic"]
+  T --> E["/evaluate · /plan · /apply · /validate · developers, per task"]
+  CR(["/change-request"]) -.->|"docs first"| B
+  CR -.->|"only the affected tasks"| T
+  class B,A,D,X,S,T,E step
+  class P gate
+  class CR human
+</pre>
+    </div>
+
+    <h3 id="v4-install">Install, upgrade, go back</h3>
+    <table>
+      <thead><tr><th>To</th><th>Run</th></tr></thead>
+      <tbody>
+        <tr><td>Try the preview (now)</td><td><code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — the project's <code>.mcp.json</code> then runs that exact commit on every teammate's machine</td></tr>
+        <tr><td>Keep nexus 3 as <code>nexus</code></td><td><code>alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"</code>, then <code>nexus4 init</code> / <code>nexus4 sync</code> in v4 projects and <code>nexus</code> everywhere else. Keep each project on one version: a 3.x <code>nexus init</code> points its <code>.mcp.json</code> back at 3.x</td></tr>
+        <tr><td>Try v4 (once on PyPI)</td><td><code>uv tool install 'nexus-dev-toolkit&gt;=4.0.0a0'</code> — or <code>curl -fsSL https://nexus.coderstudio.co/install.sh | NEXUS_CHANNEL=v4 bash</code></td></tr>
+        <tr><td>Bring a project along</td><td><code>nexus sync</code> — updates the commands and points the project's MCP server at v4</td></tr>
+        <tr><td>Upgrade</td><td><code>nexus update</code> — follows a1 → a2 → b1 → rc1, then moves you to stable when 4.0.0 is out. Installed from the preview branch, it reinstalls the branch's newest commit; then <code>nexus sync</code> points the project's MCP server at it</td></tr>
+        <tr><td>Go back to 3.x</td><td><code>nexus channel stable</code> — removes the v4-only commands nexus wrote (never ones you edited), resets the MCP config, installs the latest stable</td></tr>
+        <tr><td>Check</td><td><code>nexus channel show</code>, <code>nexus doctor</code> — doctor shows the nexus version and role this checkout was set up with</td></tr>
+      </tbody>
+    </table>
+    <p><code>.nexus/</code> is nexus's bookkeeping for one checkout — its role and the files nexus wrote for it — and
+      git-ignores itself, so teammates with different roles in one repository never overwrite each other's. With it,
+      <code>nexus sync</code> backs up a built-in you edited before replacing it and never deletes your files. In a
+      team repository, also keep <code>.claude/</code> out of git (each person's commands depend on their role) and
+      commit <code>.mcp.json</code>, <code>AGENTS.md</code> and <code>docs/</code>.</p>
+
+    <h3 id="v4-roles">Roles and commands</h3>
+    <table>
+      <thead><tr><th>Role</th><th><code>nexus init . --role …</code> installs</th><th>Guide</th></tr></thead>
+      <tbody>
+        <tr><td>developer (default) — incl. the tech lead</td><td>everything in 3.x + all the commands below. The tech lead runs <code>/scaffold</code> once (Day 0) from the approved architecture and the designs in <code>docs/designs/&lt;app&gt;/</code> (<code>design.json</code> not required), then plans the dev tasks against that code with <code>/dev-tasks-planner</code> — one CSV per epic; developers build each task with <code>/evaluate</code>, <code>/plan</code>, <code>/apply</code>, <code>/validate</code> (Day 1)</td><td><a href="#day0">Day 0</a></td></tr>
+        <tr><td>product</td><td><code>/brd</code>, <code>/prd</code>, <code>/requirements</code>, <code>/change-request</code> — no code tooling</td><td><a href="/product-guide">Product guide</a></td></tr>
+        <tr><td>architect</td><td><code>/requirements</code>, <code>/architect</code>, <code>/change-request</code> — no code tooling</td><td><a href="/architect-guide">Architect guide</a></td></tr>
+        <tr><td>designer</td><td><code>/design</code> (optional: create screens from your design system, or review an export — or just copy a Claude Design / Figma Make export into <code>docs/designs/&lt;app&gt;/</code>), <code>/change-request</code> — no code tooling</td><td><a href="/designer-guide">Designer guide</a></td></tr>
+      </tbody>
+    </table>
+    <p>Each command runs evaluate → plan → <strong>stops for approval</strong> → apply → validate, checks the work against
+      the project's guide (<code>docs/requirements/REQUIREMENTS-GUIDE.md</code>, <code>docs/arch-docs/ARCHITECTURE-GUIDE.md</code>,
+      <code>docs/designs/DESIGN-GUIDE.md</code> — written once, never overwritten), commits only <code>docs/</code> and opens a
+      pull request (or stops at the commit when the repo has no remote). Requirement IDs follow the project's own scheme (<code>US-</code>, <code>FR-AUTH-</code>, <code>NFR-</code>,
+      <code>AC-</code> …). New to git? <a href="/git-guide">Git guide</a>. See it all on one product in the
+      <a href="/example">CareSlot example</a>, then practise your role in the <a href="/training">Team Training</a>.</p>
+
     <!-- nexus-jev -->
     <h2 id="jev">nexus-jev — Experimental TypeSafe/Jev Build</h2>
 
@@ -1851,6 +1936,7 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
       if (next === 'light') { root.setAttribute('data-theme', 'light'); }
       else { root.removeAttribute('data-theme'); }
       localStorage.setItem('nexus-theme', next);
+      if (window.renderDiagrams) window.renderDiagrams();
     }
 
     function versionTuple(v) {
@@ -1888,6 +1974,33 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
     }
 
     checkForUpdate();
+  </script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+    var blocks = Array.prototype.slice.call(document.querySelectorAll('pre.mermaid'));
+    blocks.forEach(function (b) { b.dataset.src = b.textContent; });
+    function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+    window.renderDiagrams = async function () {
+      var font = getComputedStyle(document.body).fontFamily;
+      mermaid.initialize({
+        startOnLoad: false, theme: 'base', securityLevel: 'strict',
+        flowchart: { curve: 'basis', htmlLabels: true, padding: 10, useMaxWidth: false, nodeSpacing: 30, rankSpacing: 35 },
+        themeVariables: {
+          fontFamily: font, fontSize: '13px',
+          background: css('--surface'), primaryColor: css('--surface2'), primaryTextColor: css('--white'),
+          primaryBorderColor: css('--border'), lineColor: css('--muted'), textColor: css('--text2'),
+          clusterBkg: css('--bg'), clusterBorder: css('--cyan-dim'), edgeLabelBackground: css('--surface'),
+          titleColor: css('--cyan')
+        },
+        themeCSS: '.node.step rect{stroke:' + css('--cyan') + ';}' +
+                  '.node.gate polygon{stroke:' + css('--yellow') + ';}' +
+                  '.node.human rect{stroke:' + css('--green') + ';}' +
+                  '.edgeLabel{color:' + css('--text2') + ';}'
+      });
+      blocks.forEach(function (b) { b.removeAttribute('data-processed'); b.innerHTML = ''; b.textContent = b.dataset.src; });
+      try { await mermaid.run({ nodes: blocks }); } catch (e) { /* CDN or parse failure: the diagram source stays visible as text */ }
+    };
+    window.renderDiagrams();
   </script>
 </body>
 

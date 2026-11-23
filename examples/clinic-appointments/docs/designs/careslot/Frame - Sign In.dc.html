@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<!-- CareSlot · Sign In — example project for nexus v4 (made up). Epic E002 — Schedule. Covers US-001, FR-AUTH-001, NFR-SEC-002 -->
+<html><head><meta charset="utf-8"><title>Sign In</title>
+<style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f6f8fa;color:#1b2430}
+.card{background:#ffffff;border:1px solid #d5dde5;border-radius:8px;padding:20px;max-width:420px;margin:24px auto}
+.btn{background:#0f766e;color:#ffffff;border:0;border-radius:8px;padding:10px 14px;font-weight:600}
+.btn[disabled]{background:#eef2f5;color:#4f5d6b;cursor:not-allowed}
+.hint{color:#4f5d6b;font-size:13px} .err{color:#b42318;font-size:13px}
+.ok{color:#15803d} .warn{color:#9a5b00}</style></head>
+<body>
+<div class="card">
+  <h1>CareSlot</h1>
+  <label>Email<input type="email" value="maria@example.com"></label>
+  <label>Password<input type="password"></label>
+  <p class="err">Invalid email or password</p>
+  <button class="btn">Sign in</button>
+  <!-- state: loading --><button class="btn" disabled>Signing in… please wait</button>
+  <!-- state: locked --><p class="hint">Too many attempts — try again in 15 minutes. The button stays disabled.</p>
+</div>
+</body></html>

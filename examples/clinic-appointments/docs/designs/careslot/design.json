@@ -1,0 +1,127 @@
+{
+  "module": "careslot",
+  "format_version": 1,
+  "sources": [
+    "docs/designs/careslot"
+  ],
+  "tokens": {
+    "light": {
+      "--background": "#ffffff",
+      "--foreground": "#1b2430",
+      "--surface": "#f6f8fa",
+      "--primary": "#0f766e",
+      "--primary-foreground": "#ffffff",
+      "--muted": "#eef2f5",
+      "--muted-foreground": "#4f5d6b",
+      "--border": "#d5dde5",
+      "--destructive": "#b42318",
+      "--success": "#15803d",
+      "--warning": "#9a5b00",
+      "--radius": "0.5rem",
+      "--font-sans": "Inter, system-ui, sans-serif"
+    },
+    "dark": {
+      "--background": "#10161c",
+      "--foreground": "#e6ecf1",
+      "--surface": "#17202a",
+      "--primary": "#2dd4bf",
+      "--primary-foreground": "#06201d",
+      "--muted": "#1f2a35",
+      "--muted-foreground": "#a7b4c1",
+      "--border": "#2c3946",
+      "--destructive": "#f97066",
+      "--success": "#4ade80",
+      "--warning": "#fbbf24"
+    }
+  },
+  "token_sources": [
+    "react-export/src/index.css",
+    "tokens.css"
+  ],
+  "screens": [
+    {
+      "id": "DES-001",
+      "name": "Book Appointment",
+      "frame": "Frame - Book Appointment.dc.html",
+      "component": "react-export/src/components/BookAppointmentScreen.jsx",
+      "states": [
+        "empty",
+        "loading",
+        "error",
+        "disabled"
+      ],
+      "trace_ids": [
+        "US-002",
+        "US-003",
+        "FR-BOOK-001",
+        "FR-BOOK-002",
+        "FR-BOOK-003",
+        "NFR-001"
+      ]
+    },
+    {
+      "id": "DES-002",
+      "name": "Clinic Schedule",
+      "frame": "Frame - Clinic Schedule.dc.html",
+      "component": "react-export/src/components/ClinicSchedulePage.jsx",
+      "states": [
+        "empty",
+        "loading",
+        "error",
+        "disabled"
+      ],
+      "trace_ids": [
+        "US-007",
+        "US-008",
+        "FR-SCHED-001",
+        "FR-SCHED-002"
+      ]
+    },
+    {
+      "id": "DES-003",
+      "name": "My Appointments",
+      "frame": "Frame - My Appointments.dc.html",
+      "component": "react-export/src/components/MyAppointmentsPage.jsx",
+      "states": [
+        "empty",
+        "loading",
+        "error",
+        "disabled"
+      ],
+      "trace_ids": [
+        "US-004",
+        "US-005",
+        "US-006",
+        "FR-BOOK-004",
+        "FR-NOTIF-001"
+      ]
+    },
+    {
+      "id": "DES-004",
+      "name": "Sign In",
+      "frame": "Frame - Sign In.dc.html",
+      "component": "react-export/src/components/SignInScreen.jsx",
+      "states": [
+        "loading",
+        "error",
+        "disabled"
+      ],
+      "trace_ids": [
+        "US-001",
+        "FR-AUTH-001",
+        "NFR-SEC-002"
+      ]
+    }
+  ],
+  "exports": [
+    {
+      "path": "react-export",
+      "framework": "react (vite)"
+    }
+  ],
+  "assets": [
+    "assets/careslot-logo.svg"
+  ],
+  "unmatched_colours": {},
+  "unrecognised": []
+}

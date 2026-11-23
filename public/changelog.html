@@ -261,6 +261,8 @@
     <a href="#nexus-3.1.11" class="sub" onclick="showTab('nexus')">→ v3.1.11</a>
     <a href="#nexus-3.1.10" class="sub" onclick="showTab('nexus')">→ v3.1.10</a>
     <a href="#nexus-3.1.9" class="sub" onclick="showTab('nexus')">→ v3.1.9</a>
+    <a href="#v4" onclick="showTab('v4')">v4 preview</a>
+    <a href="#v4-4.0.0a1" class="sub" onclick="showTab('v4')">→ v4.0.0a1</a>
     <a href="#jev" onclick="showTab('jev')">nexus-jev</a>
     <a href="#jev-3.2.0" class="sub" onclick="showTab('jev')">→ v3.2.0</a>
     <a href="#jev-3.1.12" class="sub" onclick="showTab('jev')">→ v3.1.12</a>
@@ -280,6 +282,7 @@
 
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-nexus" aria-controls="nexus" aria-selected="true" onclick="showTab('nexus')">nexus-dev-toolkit</button>
+      <button class="tab" role="tab" id="tab-v4" aria-controls="v4" aria-selected="false" onclick="showTab('v4')">v4 preview</button>
       <button class="tab" role="tab" id="tab-jev" aria-controls="jev" aria-selected="false" onclick="showTab('jev')">nexus-jev</button>
     </div>
 
@@ -467,6 +470,56 @@
 <!-- changelog:nexus:end -->
     </section>
 
+    <section class="panel" id="v4" role="tabpanel" aria-labelledby="tab-v4" hidden>
+      <div class="callout warn">Pre-releases of nexus 4.0 — same package, opt-in only: <code>uv tool install 'nexus-dev-toolkit&gt;=4.0.0a0'</code>. 3.x users never get these by accident. <a href="/docs#v4">Details</a></div>
+<!-- changelog:v4:start -->
+      <h2 id="v4-4.0.0a1">v4.0.0a1<span class="release-date">2026-11-22</span></h2>
+      <p>First pre-release of nexus 4 (branch <code>v4</code>). Install: <code>curl -fsSL https://nexus.coderstudio.co/install.sh | NEXUS_CHANNEL=v4 bash</code> or <code>uv tool install &#x27;nexus-dev-toolkit&gt;=4.0.0a0&#x27;</code>. 3.x users are not affected: installers and <code>nexus update</code> on 3.x never pick pre-releases.</p>
+      <h3>Added</h3>
+      <ul>
+        <li>Release channels. <code>nexus update</code> on a pre-release follows the next pre-release (a1 → a2 → b1 → rc1) and moves you to the stable channel once 4.0.0 is out. <code>nexus channel show | v4 | stable</code> switches the CLI and the current project together; going back to stable removes v4-only files nexus wrote (never ones you edited) and resets the MCP config. Upgrades use <code>uv tool install --reinstall</code> with a version range — never <code>uv tool upgrade</code> (can silently do nothing) and never a pin (never upgrades).</li>
+        <li>MCP configs follow the CLI's channel. Plain <code>uvx --from nexus-dev-toolkit</code> picks the newest stable even when you run a pre-release, so on the pre channel nexus writes <code>--from &#x27;nexus-dev-toolkit&gt;=4.0.0a0&#x27;</code>; <code>nexus sync</code> moves existing <code>.mcp.json</code>, <code>opencode.json</code> and <code>.codex/config.toml</code> entries (custom commands are left alone).</li>
+        <li>Project manifest <code>.nexus/manifest.json</code>, one per checkout (git-ignored): the nexus version and role that last synced it and the hash of every file nexus wrote. <code>nexus sync</code> now backs up a built-in you edited (<code>.nexus/backup/</code>, git-ignored) before replacing it, and removes files nexus no longer ships only if they're unedited. <code>nexus doctor</code> shows the version and role the checkout was set up with.</li>
+        <li>Shared format definitions (<code>tools/epav/formats/</code>): task files, traceability IDs, guides, <code>design.json</code>, change-request records — each defined once with its own format version, read leniently, written in one documented layout.</li>
+        <li>Traceability IDs follow the project's own scheme (defaults: <code>US-</code>, <code>FR-&lt;AREA&gt;-</code>, <code>NFR-</code>, <code>NFR-SEC-</code>, <code>AC-</code>, epics <code>E001</code>, <code>ADR-…-001</code>). <code>load_task</code> returns <code>trace_ids</code> found in the task.</li>
+        <li>Stack from explicit decisions: <code>detect_from_choices()</code> reads <code>**Choice**:</code> lines and the "Choice" column of decision tables, ignoring superseded/rejected choices, "e.g." examples and quoted remarks.</li>
+        <li>Role commands, each running EVALUATE → PLAN → stop for approval → APPLY → VALIDATE and committing only <code>docs/</code> before opening a pull request (or stopping at the commit when the repo has no remote):<ul><li><code>/requirements [source]</code> — import or write the product's requirements into <code>docs/requirements/</code> with stable IDs in the project's own scheme; moves BRD/PRD files out of <code>docs/arch-docs/</code>.</li><li><code>/architect &lt;app&gt;</code> — architecture document + ADRs following the team's guide, every requirement covered, decisions on <code>**Choice**</code> lines — and <strong>the product split into epics</strong>: one ADR file per epic (<code>Epic: E001 — &lt;name&gt;</code>, <code>Covers: US-…, FR-…</code>), every story and functional requirement in exactly one epic. Designs and dev tasks (one CSV per epic) follow the epics.</li><li><code>/design &lt;app&gt;</code> — optional. <code>--system &lt;path&gt;</code> creates every screen, epic by epic, from the designer's own design system (tokens, components, rules, or a Claude Design design-system export) and nothing else; with an export path it reviews an existing export (folder or .zip) against the design guide and the requirements. Writes <code>design.json</code>. Designers who work in Claude Design (Claude Desktop) or Figma Make can skip it: copy the export into <code>docs/designs/&lt;app&gt;/</code> and <code>/scaffold</code> reads it directly.</li><li><code>/change-request &lt;CR-id&gt; &quot;&lt;title&gt;&quot;</code> — edit requirements → architecture → designs first, then record exactly which IDs changed and which dev tasks they affect.</li></ul></li>
+        <li><code>/brd</code> and <code>/prd</code> for product owners and business analysts — write the product's Business and Product Requirements Documents (one each, for the whole product: <code>docs/requirements/BRD.md</code>, <code>PRD.md</code>; <code>/brd</code> takes a problem description, files with the product's requirements, or nothing) from templates (<code>docs/requirements/templates/</code>), interviewing for anything the sources don't say (never invented): business rules <code>BR-001…</code> with success metrics, then personas, user stories with acceptance criteria and functional/non-functional requirements, each citing the business rule it serves. <code>/requirements</code> stays the importer for documents you already have.</li>
+        <li>Team training (docs page *Team Training*) and a CareSlot client pack (<code>examples/careslot-client-pack/</code>, downloadable as <code>careslot-client-pack.zip</code>): a real team — product owner, architect, designer, tech lead, developers, a facilitator — builds CareSlot with the real commands in one shared GitHub repo, each person in their own clone with their own <code>--role</code>, work reaching <code>main</code> through reviewed pull requests, ending with the client's change request. The finished <code>examples/clinic-appointments</code> is what a run looks like.</li>
+        <li><code>nexus init</code> / <code>nexus sync</code> approve the nexus MCP server and its tools in <code>.claude/settings.json</code> (<code>enabledMcpjsonServers</code>, <code>permissions.allow: mcp__nexus__*</code>), merged into what's there. Claude Code applies them once the folder is trusted, so the "New MCP server found" question and the per-call prompts go away — the folder-trust question stays (a repository can't approve itself).</li>
+        <li>A nexus installed from git (<code>uv tool install &#x27;git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview&#x27;</code>) or a local wheel writes MCP configs that run that same build — a git install as <code>git+…@&lt;commit&gt;</code>, identical on every teammate's machine, so a team can try a build before it is on PyPI. <code>nexus update</code> on a git install reinstalls the newest commit of its branch, and <code>nexus sync</code> then moves the project's MCP entry to that commit; <code>nexus channel stable</code> goes back to PyPI.</li>
+        <li>Example project <code>examples/clinic-appointments</code> ("CareSlot", made up): BRD → PRD → architecture + ADRs (Django + htmx, deliberately not React) → designs (frames, tokens, a React export kept as reference) → the tech lead's Day 0 scaffold (Django 5.2.19, versions pinned by resolve_package_versions, <code>manage.py check</code> passes) → dev tasks planned against that code, with TRACE_IDS → change request CR-001, with a role-by-role WALKTHROUGH.md and a CR-002 exercise. Its generated parts come from nexus's own tools (<code>scripts/build_example.py</code>) and CI runs nexus's checks on it.</li>
+        <li><code>nexus init --role developer|product|architect|designer</code>. Product owners get <code>/brd</code>, <code>/prd</code>, <code>/requirements</code>, <code>/change-request</code>; architects and designers get only their commands and the MCP server — no reviewer agents, no graphify hooks. <code>sync</code> and <code>doctor</code> follow the role recorded in <code>.nexus/manifest.json</code>.</li>
+        <li>Per-project guides, written once and never overwritten: <code>docs/requirements/REQUIREMENTS-GUIDE.md</code>, <code>docs/arch-docs/ARCHITECTURE-GUIDE.md</code> (9-section template, ADR template, team patterns), <code>docs/designs/DESIGN-GUIDE.md</code> (export format, states, breakpoints, colours from tokens). Each has a <code>nexus-guide</code> block with the rules and severities the role commands check; without a project guide, nexus's defaults (the same rules) apply. A CODEOWNERS template is written to <code>.github/CODEOWNERS.nexus-template</code> (not live until you rename it).</li>
+        <li>MCP tool <code>ingest_design_export</code>: reads HTML frames, token CSS (light/dark), tailwind.config, tokens.json and code exports (React/Next/Vite/Vue/Svelte/Angular/Flutter — also without package.json) from a folder or zip, by content; skips build output; matches frame colours to tokens (hex/rgb/hsl/oklch); pairs frames with components; keeps screen IDs (DES-001…) stable across re-imports; previews by default.</li>
+        <li>MCP tools <code>record_change_request</code> (reads the git diff of <code>docs/</code> and judges each changed line by the ID it is about — the ID it starts with, or its section heading's — so IDs merely mentioned don't count → changed/added/removed requirement IDs → the dev-task rows that trace to them; writes <code>docs/change-requests/CR-xxx.json</code>) and <code>trace_tasks</code> (proposes and fills the optional <code>TRACE_IDS</code> column from the IDs a task already cites; lists a CR's affected rows). <code>/dev-tasks-planner cr &lt;CR-id&gt;</code> re-plans only those rows.</li>
+        <li><code>ingest_architecture_doc</code> follows the project's guide: section names, the stack from <code>**Choice**</code> lines and Choice tables (prose mentions are labelled unconfirmed), only ARCH/ADR files (BRD/PRD files in arch-docs are skipped with a note), one module at a time (<code>module=</code>), explicit status with the missing sections.</li>
+        <li><code>load_task</code> with only a task ID (<code>/evaluate BOOK-004</code>) uses the one task file that has that ID; an ID in several files is reported as ambiguous with the files listed. <code>/dev-tasks-planner</code> gives task IDs that are unique across a module's CSVs (an epic prefix: <code>BOOK-001</code>, <code>SCHED-001</code>) and checks it.</li>
+        <li><code>ingest_architecture_doc</code> returns the <code>epics</code>: one per ADR file (an <code>Epic: E005 — &lt;name&gt;</code> line, or the file name <code>ADR-&lt;PROJECT&gt;-E005-&lt;Name&gt;-v1.0.md</code>), with its id, name, slug and the IDs on its <code>Covers:</code> line; the newest version of an epic's file wins.</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li>Stack detection ignores what a Choice line says it does not use ("Django + htmx, not a React SPA", "templates instead of the React export", "the React export is a reference only").</li>
+        <li><code>ingest_design_export</code>: a note that a screen does not have a state ("empty: not applicable", "no disabled state") no longer counts as that state.</li>
+        <li><code>ingest_design_export</code>: route pages written in plain <code>.js</code>/<code>.ts</code> (Next.js <code>app/&lt;route&gt;/page.js</code>, <code>pages/*.js</code>, SvelteKit <code>+page.ts</code>) are screens — a Next.js export copied in on its own gave 0 screens. Design-system / style-guide pages are not screens.</li>
+        <li><code>load_task</code> could not read task files with uppercase headers (<code>TASK_ID</code>, <code>USER_STORY</code>…) — the layout <code>/dev-tasks-planner</code> itself writes. It returned "not found" or blank fields without an error. Headers are now matched in any case/spacing, with or without an Excel BOM. Every result has a <code>status</code> (<code>found</code>, <code>empty_fields</code>, <code>not_found</code>, <code>ambiguous</code>, <code>no_file</code>, <code>invalid_file</code>, <code>out_of_range</code>); blank required fields are reported, never passed on silently; a name that matches files in several modules lists them instead of picking one.</li>
+        <li>Stack detection: "React Native" no longer also reports "React".</li>
+        <li><code>record_change_request</code>: a new story added with its acceptance criteria is listed as added, not changed.</li>
+        <li><code>resolve_package_versions</code> runs package managers in a worker thread, so a long resolve no longer blocks the MCP server's other tools.</li>
+      </ul>
+      <h3>Changed</h3>
+      <ul>
+        <li><code>.nexus/</code> is per checkout and git-ignores itself: each person's manifest records their own role and the files nexus wrote for it, so teammates with different roles in one repository never overwrite each other's.</li>
+        <li>After <code>nexus init</code>, the "type …" hint names the role's own first command (<code>/brd</code>, <code>/architect &lt;app&gt;</code>, <code>/design &lt;app&gt;</code>; <code>/scaffold</code> for the tech lead).</li>
+        <li><code>nexus init</code> and <code>nexus sync</code> now add the three guide files to <code>docs/</code> when they are missing (3.x created folders only). Existing files are never touched or overwritten.</li>
+        <li><code>/scaffold</code> reads the design summary instead of the never-shipped <code>ingest_figma_zip</code>, and builds the UI in the stack the architecture doc chose — reusing a React export only when that stack is React.</li>
+        <li>CI runs the tests on Python 3.10, 3.11, 3.12 and 3.13 (was 3.12 only). Publishing to PyPI now waits for those tests to pass (3.2.0 was published while a test failed). Pre-releases publish from <code>v4</code> only, stable releases from <code>main</code> only.</li>
+        <li><code>scripts/release.py</code> checks the whole release checklist and builds + tests a clean checkout before anything is pushed.</li>
+        <li><code>install.sh</code>: <code>NEXUS_CHANNEL=v4</code>.</li>
+      </ul>
+<!-- changelog:v4:end -->
+    </section>
+
     <section class="panel" id="jev" role="tabpanel" aria-labelledby="tab-jev" hidden>
       <div class="callout warn">nexus-dev-toolkit-jev (<code>nexus-jev</code> / <code>nexus-jev-mcp</code>) is the experimental TypeSafe/Jev build. Install: <code>uv tool install nexus-dev-toolkit-jev</code>. <a href="/docs#jev">Details</a></div>
 <!-- changelog:jev:start -->
@@ -520,17 +573,18 @@
       try { localStorage.setItem('nexus-theme', next); } catch (e) {}
     }
     function showTab(name) {
-      ['nexus', 'jev'].forEach(function (n) {
+      ['nexus', 'v4', 'jev'].forEach(function (n) {
         document.getElementById(n).hidden = n !== name;
         document.getElementById('tab-' + n).setAttribute('aria-selected', String(n === name));
       });
     }
     (function () {
       var h = location.hash.slice(1);
-      if (h === 'jev' || h.indexOf('jev-') === 0) showTab('jev');
+      function tabFor(k) { return ['jev', 'v4'].filter(function (n) { return k === n || k.indexOf(n + '-') === 0; })[0] || 'nexus'; }
+      if (tabFor(h) !== 'nexus') showTab(tabFor(h));
       window.addEventListener('hashchange', function () {
         var k = location.hash.slice(1);
-        showTab(k === 'jev' || k.indexOf('jev-') === 0 ? 'jev' : 'nexus');
+        showTab(tabFor(k));
       });
     })();
   </script>

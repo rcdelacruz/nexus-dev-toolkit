@@ -15,7 +15,9 @@ def test_catalog_schema():
     for tech in _CATALOG:
         assert tech["name"] and tech["category"]
         assert tech.get("aliases") or tech.get("exact_case"), tech["name"]
-        assert set(tech) <= {"name", "category", "aliases", "exact_case", "package_manager"}, tech["name"]
+        assert set(tech) <= {"name", "category", "aliases", "exact_case", "package_manager", "shadows"}, tech["name"]
+        names = {t["name"] for t in _CATALOG}
+        assert set(tech.get("shadows", [])) <= names, tech["name"]
 
 
 def test_catalog_names_unique():
@@ -89,3 +91,54 @@ def test_package_manager_for_first_mention():
 def test_infer_stack_keeps_output_format():
     assert _infer_stack("Next.js and Supabase") == "Next.js, Supabase"
     assert _infer_stack("nothing relevant here") == "(update with your stack)"
+
+
+# ── v4: shadowing and explicit choices (cases measured on a real project) ─────
+
+_ARCH = (Path(__file__).parent / "fixtures" / "projects" / "sample-project" / "docs" / "arch-docs" / "core"
+         / "ARCH-ACME-WIDGET-v1.0.md").read_text()
+
+
+def test_react_native_does_not_also_report_react():
+    assert stack_catalog.detect("crate-mobile (React Native)") == ["React Native"]
+    assert stack_catalog.detect("web in React, mobile in React Native") == ["React", "React Native"]
+
+
+@pytest.mark.parametrize("text,both", [
+    ("Ruby on Rails 7", {"Ruby on Rails", "Ruby"}),
+    ("Django REST Framework API", {"Django REST Framework", "Django"}),
+    ("Kotlin Multiplatform app", {"Kotlin Multiplatform", "Kotlin"}),
+    ("infra in AWS CDK", {"AWS CDK", "AWS"}),
+])
+def test_names_that_imply_another_tech_keep_reporting_both(text, both):
+    assert both <= set(stack_catalog.detect(text))
+
+
+def test_choices_are_the_stack():
+    chosen = stack_catalog.detect_from_choices(_ARCH)
+    assert {"Next.js", "TypeScript", "NestJS", "Node.js", "Microsoft SQL Server"} <= set(chosen)
+    assert "Redis" not in chosen          # "Prior choice (superseded)" / "no longer used"
+    assert ".NET" not in chosen           # inside a quoted client remark
+    assert "Nginx" not in chosen and "Kubernetes" not in chosen   # not choices at all
+
+
+def test_prose_detection_still_lists_mentions_but_used_drops_examples():
+    assert "Redis" in stack_catalog.detect(_ARCH)          # keyword matching can't tell — documented limit
+    used = stack_catalog.detect_used(_ARCH)
+    assert "Nginx" not in used                             # "e.g. Traefik / Nginx"
+    assert "Redis" not in used                             # lines saying superseded / no longer used
+
+
+def test_no_choices_returns_empty_not_a_guess():
+    assert stack_catalog.detect_from_choices("We use Go and htmx.") == []
+
+
+@pytest.mark.parametrize("line, want", [
+    ("- **Choice**: Server-rendered Django + htmx, not a React SPA", ["Django", "htmx"]),
+    ("- **Choice**: Django templates instead of the React export", ["Django"]),
+    ("- **Choice**: Django templates from the HTML frames; the designer's React export is a reference only", ["Django"]),
+    ("- **Choice**: PostgreSQL 16 — no Redis cache yet", ["PostgreSQL"]),
+    ("- **Choice**: React 19 with Vite", ["React", "Vite"]),
+])
+def test_a_choice_line_ignores_what_it_says_it_does_not_use(line, want):
+    assert stack_catalog.detect_from_choices(line) == want

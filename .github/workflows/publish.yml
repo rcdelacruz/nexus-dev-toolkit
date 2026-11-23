@@ -2,41 +2,60 @@ name: Publish to PyPI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v4]
     paths: [pyproject.toml]
   workflow_dispatch:
 
 jobs:
-  publish:
+  version:
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
+    outputs:
+      changed: ${{ steps.version_check.outputs.changed }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 2
-      - name: Check if version changed
+      - name: Check if version changed, and that it fits the branch
         id: version_check
         run: |
           OLD=$(git show HEAD~1:pyproject.toml 2>/dev/null | grep '^version' | head -1 || echo "")
           NEW=$(grep '^version' pyproject.toml | head -1)
           echo "old=$OLD"
           echo "new=$NEW"
+          VERSION=$(echo "$NEW" | sed -E 's/version = "(.*)"/\1/')
+          # main ships stable versions only; v4 ships pre-releases only (4.0.0 final comes from the merge to main)
+          if echo "$VERSION" | grep -qE '(a|b|rc|dev)[0-9]+$'; then PRE=true; else PRE=false; fi
+          if [ "${GITHUB_REF_NAME}" = "main" ] && [ "$PRE" = "true" ]; then
+            echo "::error::pre-release $VERSION must not be published from main"; exit 1
+          fi
+          if [ "${GITHUB_REF_NAME}" = "v4" ] && [ "$PRE" = "false" ]; then
+            echo "::error::stable $VERSION must not be published from the v4 branch — merge to main"; exit 1
+          fi
           if [ "$OLD" = "$NEW" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
+
+  tests:
+    needs: version
+    if: needs.version.outputs.changed == 'true'
+    uses: ./.github/workflows/test.yml
+
+  publish:
+    needs: [version, tests]
+    if: needs.version.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
-        if: steps.version_check.outputs.changed == 'true'
         with:
           enable-cache: false
       - uses: actions/setup-python@v6
-        if: steps.version_check.outputs.changed == 'true'
         with:
           python-version: "3.12"
       - run: uv build
-        if: steps.version_check.outputs.changed == 'true'
       - uses: pypa/gh-action-pypi-publish@release/v1
-        if: steps.version_check.outputs.changed == 'true'

@@ -1,0 +1,2 @@
+﻿TASK_ID,ISSUE_TYPE,SUMMARY,USER_STORY,DESCRIPTION,ACCEPTANCE_CRITERIA,PRIORITY,ESTIMATE,STORY_POINTS,ROLE,ASSIGNEE,STATUS,LABELS,EPIC_LINK,DEPENDENCIES,BE Estimate,BE - Actual Effort,FE Estimate,FE - Actual Effort,QA Estimate,QA - Actual Effort
+TASK-001,Task,Register,As a visitor I register (US-201),Form,,High,3,2,Fullstack,,To Do,exempt,EPIC-REG,None,1,,1,,1,

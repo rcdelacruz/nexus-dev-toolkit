@@ -1,0 +1,49 @@
+/* CareSlot theme — from docs/designs/careslot/tokens.css (DES tokens), Tailwind v4.
+   Colours come only from these variables; never hard-code a hex in a template. */
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --radius-lg: var(--radius);
+  --font-sans: var(--font-sans);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #1b2430;
+  --surface: #f6f8fa;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --muted: #eef2f5;
+  --muted-foreground: #4f5d6b;
+  --border: #d5dde5;
+  --destructive: #b42318;
+  --success: #15803d;
+  --warning: #9a5b00;
+  --radius: 0.5rem;
+  --font-sans: Inter, system-ui, sans-serif;
+}
+
+.dark {
+  --background: #10161c;
+  --foreground: #e6ecf1;
+  --surface: #17202a;
+  --primary: #2dd4bf;
+  --primary-foreground: #06201d;
+  --muted: #1f2a35;
+  --muted-foreground: #a7b4c1;
+  --border: #2c3946;
+  --destructive: #f97066;
+  --success: #4ade80;
+  --warning: #fbbf24;
+}

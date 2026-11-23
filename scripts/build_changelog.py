@@ -32,7 +32,9 @@ TEMPLATE = Path(__file__).resolve().parent / "changelog_template.html"
 CHANGELOG_PAGE = ROOT / "public" / "changelog.html"
 DOCS_PAGE = ROOT / "public" / "docs.html"
 JEV_REF = "origin/experimental-jev"
+V4_REF = "origin/v4"
 
+_PRE = re.compile(r"\d(a|b|rc|dev)\d+$")
 _HEADER = re.compile(r"^## \[(?P<label>[^\]]+)\](?:\s*-\s*(?P<date>\S+))?\s*$")
 NAV_RELEASES = 6         # releases linked from the sidebar per product
 WHATS_NEW_MAX = 6        # highlights shown in a What's new block
@@ -108,8 +110,9 @@ def _render_body(lines: list[str], indent: str = "      ") -> str:
 
 # ── changelog parsing ───────────────────────────────────────────────────────
 
-def parse(text: str, prefix: str = "") -> list[dict]:
-    """Releases in file order. With prefix="jev ", only "## [jev X]" entries (prefix stripped)."""
+def parse(text: str, prefix: str = "", include_pre: bool = False) -> list[dict]:
+    """Releases in file order. With prefix="jev ", only "## [jev X]" entries (prefix stripped).
+    Pre-releases (4.0.0a1, b1, rc1) are left out unless include_pre=True."""
     releases: list[dict] = []
     current = None
     for line in text.splitlines():
@@ -125,6 +128,8 @@ def parse(text: str, prefix: str = "") -> list[dict]:
                 label = label[len(prefix):]
             elif label.startswith("jev "):
                 continue
+            elif not include_pre and _PRE.search(label):
+                continue  # 4.0.0a1 etc. live on the v4 branch; the site's stable tab lists releases only
             current = {"version": label, "date": m.group("date") or "", "lines": []}
             releases.append(current)
         elif current is not None:
@@ -214,13 +219,36 @@ def _read_jev_changelog(path: str | None) -> str | None:
 
 
 def _current_version() -> str:
+    """The version the site shows: pyproject's, or — on the pre-release branch — the newest
+    stable release in CHANGELOG.md (the site is deployed from main and shows stable)."""
     m = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M)
-    return m.group(1) if m else ""
+    v = m.group(1) if m else ""
+    if _PRE.search(v):
+        stable = parse((ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
+        return stable[0]["version"] if stable else v
+    return v
 
 
-def build_page(nexus: list[dict], jev_html: str, jev_nav: str) -> str:
+def _v4_releases() -> tuple[list[dict], str]:
+    """Pre-release entries (4.0.0a1 …) for the "v4 preview" tab: from this checkout's CHANGELOG.md
+    when it is the pre-release branch, otherwise from origin/v4. ([], source) when unavailable."""
+    local = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    pre = [r for r in parse(local, include_pre=True) if _PRE.search(r["version"])]
+    if pre:
+        return pre, "CHANGELOG.md"
+    try:
+        text = subprocess.run(["git", "-C", str(ROOT), "show", f"{V4_REF}:CHANGELOG.md"],
+                              capture_output=True, text=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return [], ""
+    return [r for r in parse(text, include_pre=True) if _PRE.search(r["version"])], V4_REF
+
+
+def build_page(nexus: list[dict], jev_html: str, jev_nav: str, v4_html: str = "", v4_nav: str = "") -> str:
     page = TEMPLATE.read_text(encoding="utf-8")
     for key, value in {"{{VERSION}}": _current_version(),
+                       "{{V4_NAV}}": v4_nav,
+                       "{{V4}}": v4_html,
                        "{{NEXUS_NAV}}": render_nav(nexus, "nexus"),
                        "{{JEV_NAV}}": jev_nav,
                        "{{NEXUS}}": render_releases(nexus, "nexus"),
@@ -250,7 +278,15 @@ def main(argv: list[str] | None = None) -> int:
         nav = re.search(r"(?m)^    <a href=\"#jev\".*\n((?:    <a href=\"#jev-.*\n)*)", old_page)
         jev_nav = nav.group(1).rstrip("\n") if nav else ""
 
-    CHANGELOG_PAGE.write_text(build_page(nexus, jev_html, jev_nav), encoding="utf-8")
+    v4, v4_src = _v4_releases()
+    if v4:
+        v4_html, v4_nav = render_releases(v4, "v4"), render_nav(v4, "v4")
+    else:
+        v4_html = _between(old_page, "changelog:v4") or '      <p>No v4 pre-release yet.</p>'
+        nav = re.search(r"(?m)^    <a href=\"#v4\".*\n((?:    <a href=\"#v4-.*\n)*)", old_page)
+        v4_nav = nav.group(1).rstrip("\n") if nav else ""
+
+    CHANGELOG_PAGE.write_text(build_page(nexus, jev_html, jev_nav, v4_html, v4_nav), encoding="utf-8")
 
     docs = DOCS_PAGE.read_text(encoding="utf-8")
     docs = _replace_between(docs, "whats-new:nexus", render_whats_new(nexus[0], "nexus"))
@@ -258,7 +294,8 @@ def main(argv: list[str] | None = None) -> int:
         docs = _replace_between(docs, "whats-new:jev", render_whats_new(jev[0], "jev"))
     DOCS_PAGE.write_text(docs, encoding="utf-8")
 
-    print(f"changelog.html: {len(nexus)} nexus releases, {len(jev) if jev else 'kept'} jev releases; "
+    print(f"changelog.html: {len(nexus)} nexus releases, {len(jev) if jev else 'kept'} jev releases, "
+          f"{len(v4) if v4 else 'kept'} v4 pre-releases; "
           f"docs.html What's new: nexus v{nexus[0]['version']}" + (f", jev v{jev[0]['version']}" if jev else ""))
     return 0
 

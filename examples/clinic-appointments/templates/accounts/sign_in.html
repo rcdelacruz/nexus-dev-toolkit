@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{# DES-004 Sign In — from "Frame - Sign In.dc.html". Shell only; authentication is task SCHED-003. #}
+{% block title %}Sign in · CareSlot{% endblock %}
+{% block content %}
+<div class="rounded-lg border border-border bg-background p-5">
+  <h1 class="text-xl font-semibold">CareSlot</h1>
+  <form method="post">{% csrf_token %}
+    <label class="block">Email <input type="email" name="email" class="border border-border rounded-lg w-full"></label>
+    <label class="block">Password <input type="password" name="password" class="border border-border rounded-lg w-full"></label>
+    {# error: "Invalid email or password" · loading: "Signing in… please wait" · locked: button disabled #}
+    <button class="bg-primary text-primary-foreground rounded-lg px-4 py-2 font-semibold">Sign in</button>
+  </form>
+</div>
+{% endblock %}

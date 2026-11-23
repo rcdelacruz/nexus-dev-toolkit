@@ -1,0 +1,30 @@
+/* CareSlot design tokens — example project for nexus v4 (made up). */
+:root {
+  --background: #ffffff;
+  --foreground: #1b2430;
+  --surface: #f6f8fa;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --muted: #eef2f5;
+  --muted-foreground: #4f5d6b;
+  --border: #d5dde5;
+  --destructive: #b42318;
+  --success: #15803d;
+  --warning: #9a5b00;
+  --radius: 0.5rem;
+  --font-sans: Inter, system-ui, sans-serif;
+}
+
+.dark {
+  --background: #10161c;
+  --foreground: #e6ecf1;
+  --surface: #17202a;
+  --primary: #2dd4bf;
+  --primary-foreground: #06201d;
+  --muted: #1f2a35;
+  --muted-foreground: #a7b4c1;
+  --border: #2c3946;
+  --destructive: #f97066;
+  --success: #4ade80;
+  --warning: #fbbf24;
+}

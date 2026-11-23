@@ -1,0 +1,5 @@
+TASK_ID,ISSUE_TYPE,SUMMARY,USER_STORY,DESCRIPTION,ACCEPTANCE_CRITERIA,PRIORITY,ESTIMATE,STORY_POINTS,ROLE,ASSIGNEE,STATUS,LABELS,EPIC_LINK,DEPENDENCIES,BE ESTIMATE,BE - ACTUAL EFFORT,FE ESTIMATE,FE - ACTUAL EFFORT,QA ESTIMATE
+EPIC-LOGIN,Epic,Sign-in epic,As a clerk I sign in,Covers E001,All tasks done,High,,,Fullstack,,In Progress,login,,None,,,,,
+TASK-001,Task,Sign-in API,"As a clerk, I want to sign in with SSO (US-001)",Implements ADR-ACME-WIDGET-E001-001 for FR-AUTH-002,"- Redirects to SSO
+- Session lasts 15 minutes (NFR-SEC-003)",High,6,3,Backend,,To Do,backend,EPIC-LOGIN,None,4,,,,
+TASK-002,Task,Sign-in page,As a clerk I see a sign-in page (US-002),Page with SSO button,Button visible,Medium,3,2,Frontend,,To Do,frontend,EPIC-LOGIN,TASK-001,,,2,,1

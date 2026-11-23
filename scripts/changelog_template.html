@@ -256,6 +256,8 @@
     <div class="nav-section">Changelog</div>
     <a href="#nexus" onclick="showTab('nexus')">nexus-dev-toolkit</a>
 {{NEXUS_NAV}}
+    <a href="#v4" onclick="showTab('v4')">v4 preview</a>
+{{V4_NAV}}
     <a href="#jev" onclick="showTab('jev')">nexus-jev</a>
 {{JEV_NAV}}
 
@@ -274,6 +276,7 @@
 
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-nexus" aria-controls="nexus" aria-selected="true" onclick="showTab('nexus')">nexus-dev-toolkit</button>
+      <button class="tab" role="tab" id="tab-v4" aria-controls="v4" aria-selected="false" onclick="showTab('v4')">v4 preview</button>
       <button class="tab" role="tab" id="tab-jev" aria-controls="jev" aria-selected="false" onclick="showTab('jev')">nexus-jev</button>
     </div>
 
@@ -281,6 +284,13 @@
 <!-- changelog:nexus:start -->
 {{NEXUS}}
 <!-- changelog:nexus:end -->
+    </section>
+
+    <section class="panel" id="v4" role="tabpanel" aria-labelledby="tab-v4" hidden>
+      <div class="callout warn">Pre-releases of nexus 4.0 — same package, opt-in only: <code>uv tool install 'nexus-dev-toolkit&gt;=4.0.0a0'</code>. 3.x users never get these by accident. <a href="/docs#v4">Details</a></div>
+<!-- changelog:v4:start -->
+{{V4}}
+<!-- changelog:v4:end -->
     </section>
 
     <section class="panel" id="jev" role="tabpanel" aria-labelledby="tab-jev" hidden>
@@ -304,17 +314,18 @@
       try { localStorage.setItem('nexus-theme', next); } catch (e) {}
     }
     function showTab(name) {
-      ['nexus', 'jev'].forEach(function (n) {
+      ['nexus', 'v4', 'jev'].forEach(function (n) {
         document.getElementById(n).hidden = n !== name;
         document.getElementById('tab-' + n).setAttribute('aria-selected', String(n === name));
       });
     }
     (function () {
       var h = location.hash.slice(1);
-      if (h === 'jev' || h.indexOf('jev-') === 0) showTab('jev');
+      function tabFor(k) { return ['jev', 'v4'].filter(function (n) { return k === n || k.indexOf(n + '-') === 0; })[0] || 'nexus'; }
+      if (tabFor(h) !== 'nexus') showTab(tabFor(h));
       window.addEventListener('hashchange', function () {
         var k = location.hash.slice(1);
-        showTab(k === 'jev' || k.indexOf('jev-') === 0 ? 'jev' : 'nexus');
+        showTab(tabFor(k));
       });
     })();
   </script>

@@ -23,8 +23,12 @@ Note which communities/symbols and high-degree nodes are in the blast radius.
 
 1. **CSV task** — if `docs/dev-tasks/` exists, load the matching row. Fields `user_story`, `description`, `acceptance_criteria`, `dependencies` are the context.
 2. **AGENTS.md** — load coding standards from project root if present.
-3. **Architecture doc** — scan `docs/arch-docs/` for the relevant section.
-4. **knowledge/** — check `knowledge/rules/`, `knowledge/patterns/`, `knowledge/prompts/dev/` for prior patterns.
+3. **Requirements** — the task's `trace_ids` (from `load_task`) point into `docs/requirements/` (product-wide); read those requirements and their acceptance criteria.
+4. **Architecture doc** — `ingest_architecture_doc` with `module=<module>` (or scan `docs/arch-docs/<module>/`) for the relevant section; the stack is what its **Choice** lines say.
+5. **Design** — if the task has UI, read `docs/designs/<module>/design.json` for the screens (DES-ids) it touches — or, when the designs were copied in without `/design`, the frames themselves (`ingest_design_export`, write=false).
+6. **knowledge/** — check `knowledge/rules/`, `knowledge/patterns/`, `knowledge/prompts/dev/` for prior patterns.
+
+If `load_task` returns a status other than `found` (`empty_fields`, `ambiguous`, `not_found`, `invalid_file`), report it and ask — never fill a blank field or pick a file yourself.
 
 ### 3 — Output this summary, nothing else
 

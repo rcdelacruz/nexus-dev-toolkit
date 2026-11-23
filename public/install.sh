@@ -7,11 +7,15 @@ set -e
 #   curl -fsSL https://nexus.coderstudio.co/install.sh | bash
 #
 # Options (env vars):
-#   NEXUS_VERSION   PyPI version to install     (default: latest)
+#   NEXUS_CHANNEL   stable | v4                 (default: stable; v4 = the 4.0 pre-releases,
+#                                                which `nexus update` follows and then moves you
+#                                                to stable once 4.0.0 is released)
+#   NEXUS_VERSION   exact PyPI version          (default: none — pinned installs never upgrade)
 #   NEXUS_DIR       Install prefix              (default: ~/.local)
 # ─────────────────────────────────────────────────────────────────────────────
 
 VERSION="${NEXUS_VERSION:-}"
+CHANNEL="${NEXUS_CHANNEL:-stable}"
 INSTALL_DIR="${NEXUS_DIR:-$HOME/.local}"
 BIN_DIR="$INSTALL_DIR/bin"
 
@@ -43,7 +47,11 @@ need() {
 
 print_logo
 
-DISPLAY_VERSION="${VERSION:-latest}"
+case "$CHANNEL" in
+  stable|v4) ;;
+  *) printf "  NEXUS_CHANNEL must be 'stable' or 'v4' (got '%s')\n" "$CHANNEL" >&2; exit 1 ;;
+esac
+DISPLAY_VERSION="${VERSION:-latest $CHANNEL}"
 printf "  ${BOLD}Installing nexus CLI${RESET}  ${DIM}(version: $DISPLAY_VERSION)${RESET}\n\n"
 
 # ── Check requirements ────────────────────────────────────────────────────────
@@ -62,9 +70,15 @@ fi
 ok "Requirements satisfied  (installer: $INSTALLER)"
 
 # ── Install ───────────────────────────────────────────────────────────────────
+PIP_PRE=""
 if [ -n "$VERSION" ]; then
   PYPI_PKG="nexus-dev-toolkit==$VERSION"
-  step "Installing nexus-dev-toolkit==$VERSION from PyPI…"
+  step "Installing nexus-dev-toolkit==$VERSION from PyPI (pinned — nexus update can't move a pinned install)…"
+elif [ "$CHANNEL" = "v4" ]; then
+  # A requirement that names a pre-release makes uv and pip pick pre-releases for it.
+  PYPI_PKG="nexus-dev-toolkit>=4.0.0a0"
+  PIP_PRE="--pre"
+  step "Installing the newest nexus 4.0 pre-release from PyPI…"
 else
   PYPI_PKG="nexus-dev-toolkit"
   step "Installing nexus-dev-toolkit from PyPI…"
@@ -75,7 +89,7 @@ if [ "$INSTALLER" = "uv" ]; then
   NEXUS_BIN="$(uv tool dir)/../bin/nexus"
   [ ! -f "$NEXUS_BIN" ] && NEXUS_BIN="$(uv tool dir)/nexus-dev-toolkit/bin/nexus"
 else
-  pip3 install --quiet --upgrade "$PYPI_PKG"
+  pip3 install --quiet --upgrade $PIP_PRE "$PYPI_PKG"
   NEXUS_BIN="$(python3 -m site --user-base)/bin/nexus"
 fi
 

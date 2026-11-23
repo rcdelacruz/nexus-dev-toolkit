@@ -133,7 +133,8 @@ def test_tool_output_is_json():
     m = FastMCP("t")
     pr.register_package_resolver_tool(m)
     fn = m._tool_manager._tools["resolve_package_versions"].fn
-    assert json.loads(fn(packages=["x"], package_manager="weirdpm"))["status"] == "unsupported"
+    import asyncio
+    assert json.loads(asyncio.run(fn(packages=["x"], package_manager="weirdpm")))["status"] == "unsupported"
 
 
 # ── real runs (skipped when the tool is not installed) ──────────────────────
@@ -165,3 +166,32 @@ def test_real_resolution(binary, pkgs, name):
     r = pr.resolve(pkgs, _BIN_TO_PM.get(binary, binary))
     assert r["status"] == "resolved", r
     assert r["versions"][name][0].isdigit()
+
+
+def test_slow_resolve_does_not_block_other_tools(monkeypatch):
+    """Rule 7: a package manager can run for minutes; other MCP tools must keep answering."""
+    import asyncio
+    import time
+    from mcp.server.fastmcp import FastMCP
+
+    def slow_resolve(*a, **k):
+        time.sleep(1.0)
+        return {"status": "resolved", "versions": {}}
+    monkeypatch.setattr(pr, "resolve", slow_resolve)
+    m = FastMCP("t")
+    pr.register_package_resolver_tool(m)
+    tool = m._tool_manager._tools["resolve_package_versions"].fn
+
+    async def scenario():
+        done = {}
+        async def other_tool():
+            await asyncio.sleep(0.05)
+            done["other"] = time.monotonic()
+        start = time.monotonic()
+        await asyncio.gather(tool(packages=["x"], package_manager="npm"), other_tool())
+        done["resolve"] = time.monotonic()
+        return start, done
+
+    start, done = asyncio.run(scenario())
+    assert done["other"] - start < 0.5          # answered while the resolve was still running
+    assert done["resolve"] - start >= 1.0

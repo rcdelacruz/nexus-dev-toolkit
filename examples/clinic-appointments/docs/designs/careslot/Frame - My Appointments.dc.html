@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<!-- CareSlot · My Appointments — example project for nexus v4 (made up). Epics E001 — Booking, E003 — Notifications. Covers US-004, US-005, US-006, FR-BOOK-004, FR-NOTIF-001 -->
+<html><head><meta charset="utf-8"><title>My Appointments</title>
+<style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f6f8fa;color:#1b2430}
+.card{background:#ffffff;border:1px solid #d5dde5;border-radius:8px;padding:20px;max-width:420px;margin:24px auto}
+.btn{background:#0f766e;color:#ffffff;border:0;border-radius:8px;padding:10px 14px;font-weight:600}
+.btn[disabled]{background:#eef2f5;color:#4f5d6b;cursor:not-allowed}
+.hint{color:#4f5d6b;font-size:13px} .err{color:#b42318;font-size:13px}
+.ok{color:#15803d} .warn{color:#9a5b00}</style></head>
+<body>
+<div class="card">
+  <h2>My appointments</h2>
+  <div><strong>Tue 3 Dec · 09:20</strong> · Dr. Ana Reyes<br><span class="hint">Reminder by SMS 2 hours before</span>
+    <label>Reason for cancelling<select><option>Feeling better</option><option>Can't make it</option><option>Booked elsewhere</option></select></label>
+    <p class="err">Reason is required</p>
+    <button class="btn">Cancel appointment</button></div>
+  <div><strong>Thu 5 Dec · 10:00</strong> · Dr. Ben Cruz
+    <button class="btn" disabled>Call the front desk to cancel</button></div>
+  <!-- state: empty --><p class="hint">Nothing here yet — you have no upcoming appointments.</p>
+  <!-- state: loading --><p class="hint">Loading your appointments…</p>
+</div>
+</body></html>

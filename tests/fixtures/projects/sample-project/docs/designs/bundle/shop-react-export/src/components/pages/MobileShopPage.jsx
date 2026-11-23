@@ -1,0 +1,1 @@
+export default function MobileShopPage(){return null}

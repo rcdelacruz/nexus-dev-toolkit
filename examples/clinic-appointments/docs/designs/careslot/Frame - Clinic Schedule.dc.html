@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<!-- CareSlot · Clinic Schedule — example project for nexus v4 (made up). Epic E002 — Schedule. Covers US-007, US-008, FR-SCHED-001, FR-SCHED-002 -->
+<html><head><meta charset="utf-8"><title>Clinic Schedule</title>
+<style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f6f8fa;color:#1b2430}
+.card{background:#ffffff;border:1px solid #d5dde5;border-radius:8px;padding:20px;max-width:420px;margin:24px auto}
+.btn{background:#0f766e;color:#ffffff;border:0;border-radius:8px;padding:10px 14px;font-weight:600}
+.btn[disabled]{background:#eef2f5;color:#4f5d6b;cursor:not-allowed}
+.hint{color:#4f5d6b;font-size:13px} .err{color:#b42318;font-size:13px}
+.ok{color:#15803d} .warn{color:#9a5b00}</style></head>
+<body>
+<div class="card" style="max-width:900px">
+  <h2>Schedule · Tue 3 Dec</h2>
+  <table><tr><th>Time</th><th>Dr. Reyes</th><th>Dr. Cruz</th></tr>
+    <tr><td>09:00</td><td>J. Santos · check-up</td><td class="hint">free</td></tr>
+    <tr><td>09:20</td><td>M. Lim · follow-up</td><td class="warn">moved from 11:00</td></tr></table>
+  <button class="btn">Book for a patient</button>
+  <!-- state: empty --><p class="hint">No appointments for this day</p>
+  <!-- state: loading --><p class="hint">Loading schedule…</p>
+  <!-- state: error --><p class="err">Could not move the appointment: that slot was just taken.</p>
+</div>
+</body></html>

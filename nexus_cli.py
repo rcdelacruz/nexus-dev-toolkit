@@ -1,8 +1,10 @@
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from tools import channel
 from tools.epav import graph_backend
 
 app = typer.Typer(name="nexus", no_args_is_help=False, help="nexus-dev-toolkit — Day 0 scaffold + Day 1 EPAV workflow for Claude Code, OpenCode and Codex")
@@ -23,7 +26,7 @@ app.add_typer(agent_app, name="agent")
 
 console = Console()
 
-_VERSION = "3.2.1"
+_VERSION = "4.0.0a1"
 
 
 def _fetch_latest_pypi_version() -> str | None:
@@ -38,15 +41,14 @@ def _fetch_latest_pypi_version() -> str | None:
         return None
 
 
-def _version_tuple(v: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in v.split("."))
+def _fetch_releases() -> list[str] | None:
+    """Every published version (pre-releases included). None on any failure — never raises."""
+    return channel.fetch_releases()
 
 
 def _is_outdated(installed: str, latest: str) -> bool:
-    try:
-        return _version_tuple(latest) > _version_tuple(installed)
-    except Exception:
-        return False  # malformed version string from PyPI — don't false-alarm
+    """Pre-release aware (4.0.0a1 < 4.0.0b1 < 4.0.0). False for malformed versions — don't false-alarm."""
+    return channel.is_newer(latest, installed)
 
 
 _LOGO = """\
@@ -101,6 +103,12 @@ _BUILTIN_SKILLS = [
     "create-pr.md",
     "pr-review.md",
     "dev-tasks-planner.md",
+    "requirements.md",
+    "architect.md",
+    "design.md",
+    "change-request.md",
+    "brd.md",
+    "prd.md",
 ]
 
 _AGENTS_SRC = Path(__file__).parent / "tools" / "agents"
@@ -113,6 +121,53 @@ _BUILTIN_AGENTS = [
     "database-reviewer.md",
     "pr-verifier.md",
 ]
+
+# ── Roles ─────────────────────────────────────────────────────────────────────
+# `nexus init --role …` installs only what that role uses. Developers get everything (as in
+# 3.x, plus the role commands). Architects and designers never open code: no reviewer agents,
+# no graphify hooks — only their commands, the MCP server and the guides.
+_ROLES = ("developer", "product", "architect", "designer")
+_ROLE_SKILLS = {
+    "product": ["brd.md", "prd.md", "requirements.md", "change-request.md"],
+    "architect": ["requirements.md", "architect.md", "change-request.md"],
+    "designer": ["design.md", "change-request.md"],
+}
+
+
+def _role_skills(role: str) -> list[str]:
+    return list(_BUILTIN_SKILLS) if role not in _ROLE_SKILLS else [s for s in _BUILTIN_SKILLS if s in _ROLE_SKILLS[role]]
+
+
+def _role_agents(role: str) -> list[str]:
+    return list(_BUILTIN_AGENTS) if role not in _ROLE_SKILLS else []
+
+
+_TEMPLATES_SRC = Path(__file__).parent / "tools" / "templates"
+_GUIDES = {
+    "docs/requirements/REQUIREMENTS-GUIDE.md": "REQUIREMENTS-GUIDE.md",
+    "docs/arch-docs/ARCHITECTURE-GUIDE.md": "ARCHITECTURE-GUIDE.md",
+    "docs/designs/DESIGN-GUIDE.md": "DESIGN-GUIDE.md",
+    "docs/requirements/templates/BRD-TEMPLATE.md": "BRD-TEMPLATE.md",
+    "docs/requirements/templates/PRD-TEMPLATE.md": "PRD-TEMPLATE.md",
+    # Not .github/CODEOWNERS: placeholder team names would be live on the next push. The team
+    # fills in real names, then renames it (the guide pages say how).
+    ".github/CODEOWNERS.nexus-template": "CODEOWNERS",
+}
+
+
+def _write_guides(project_dir: Path) -> list[str]:
+    """Copy the guide templates into docs/ (and the CODEOWNERS template) — only where missing.
+    They belong to the team from then on: never overwritten, never in the manifest."""
+    created = []
+    for rel, name in _GUIDES.items():
+        dst, src = project_dir / rel, _TEMPLATES_SRC / name
+        if rel.endswith("nexus-template") and (project_dir / ".github" / "CODEOWNERS").exists():
+            continue
+        if src.is_file() and not dst.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(rel)
+    return created
 
 
 # ── .claude/settings.json ────────────────────────────────────────────────────
@@ -157,19 +212,68 @@ _DOCS_DIRS = [
 
 # ── MCP config ────────────────────────────────────────────────────────────────
 
-_MCP_BLOCK = {
-    "nexus": {
-        "command": "uvx",
-        "args": ["--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"],
-    }
-}
+# The MCP server must run the same channel as the CLI that wrote the config: plain
+# `uvx --from nexus-dev-toolkit` resolves the newest STABLE release even when the user is on a
+# 4.0.0 pre-release (measured), so the pre channel writes `nexus-dev-toolkit>=4.0.0a0`.
+def _mcp_args() -> list[str]:
+    # NEXUS_MCP_FROM points MCP configs at a local checkout or wheel — for testing an unreleased
+    # nexus (e.g. the v4 branch) before it is on PyPI. `nexus sync` never rewrites such entries.
+    source = os.environ.get("NEXUS_MCP_FROM", "").strip()
+    if source:
+        return ["--refresh", "--from", str(Path(source).expanduser().resolve()), "nexus-mcp"]
+    local = _local_build()
+    if local:
+        return ["--refresh", "--from", local, "nexus-mcp"]
+    return ["--refresh", "--from", channel.mcp_from(_VERSION), "nexus-mcp"]
 
-_OPENCODE_MCP_BLOCK = {
-    "nexus-mcp": {
-        "type": "local",
-        "command": ["uvx", "--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"],
-    }
-}
+
+def _direct_url() -> dict:
+    """The installed distribution's direct_url.json (PEP 610) — {} for PyPI installs."""
+    try:
+        import importlib
+        from importlib.metadata import distribution
+        importlib.invalidate_caches()
+        raw = distribution("nexus-dev-toolkit").read_text("direct_url.json")
+        return json.loads(raw) if raw else {}
+    except Exception:
+        return {}
+
+
+def _git_install() -> dict | None:
+    """{url, commit, ref} when this nexus was installed from git (`…@v4-preview` → ref
+    "v4-preview"), else None."""
+    info = _direct_url()
+    vcs = info.get("vcs_info") or {}
+    if vcs.get("vcs") == "git" and vcs.get("commit_id") and info.get("url"):
+        return {"url": info["url"], "commit": vcs["commit_id"], "ref": vcs.get("requested_revision", "")}
+    return None
+
+
+def _local_build() -> str:
+    """Where this nexus came from when it isn't PyPI: a git install (`uv tool install
+    'git+https://…/nexus-dev-toolkit@v4-preview'`) → `git+…@<commit>`, the same on every machine; a
+    local wheel (`uv tool install ./dist/…whl`) → its path. MCP configs then run that same build.
+    "" for PyPI installs and checkouts."""
+    info = _direct_url()
+    url = info.get("url", "")
+    git = _git_install()
+    if git:
+        # installed from git (e.g. a preview branch teammates install before a release): every
+        # machine gets the same `git+…@<commit>` in the shared .mcp.json — no local paths
+        return f"git+{git['url']}@{git['commit']}"
+    if not url.startswith("file://") or info.get("dir_info", {}).get("editable"):
+        return ""
+    from urllib.parse import unquote, urlparse
+    path = Path(unquote(urlparse(url).path))
+    return str(path) if path.exists() else ""
+
+
+def _mcp_block() -> dict:
+    return {"nexus": {"command": "uvx", "args": _mcp_args()}}
+
+
+def _opencode_mcp_block() -> dict:
+    return {"nexus-mcp": {"type": "local", "command": ["uvx", *_mcp_args()]}}
 
 _OPENCODE_GRAPHIFY_PLUGIN = """\
 // .opencode/plugins/graphify.js
@@ -236,11 +340,9 @@ _OPENCODE_PLUGINS = {
 
 # ── Codex ─────────────────────────────────────────────────────────────────────
 
-_CODEX_MCP_TOML = """\
-[mcp_servers.nexus]
-command = "uvx"
-args = ["--refresh", "--from", "nexus-dev-toolkit", "nexus-mcp"]
-"""
+def _codex_mcp_toml() -> str:
+    args = ", ".join(json.dumps(a) for a in _mcp_args())
+    return f'[mcp_servers.nexus]\ncommand = "uvx"\nargs = [{args}]\n'
 
 _CODEX_HOOKS = {
     "hooks": {
@@ -277,10 +379,39 @@ def _create_scaffold_dirs(project_dir: Path) -> list[str]:
         if not target.is_dir():
             target.mkdir(parents=True, exist_ok=True)
             created.append(f"{d}/")
-    return created
+    return created + _write_guides(project_dir)
 
 
-def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
+# Claude Code asks "New MCP server found in this project: nexus" and then for every tool call. These
+# keys answer both once the folder is trusted (Claude Code ignores them in an untrusted folder — a
+# repository can't approve itself — so the folder-trust question is the one prompt left).
+_MCP_APPROVAL = {"enabledMcpjsonServers": ["nexus"], "permissions": {"allow": ["mcp__nexus__*"]}}
+
+
+def _write_claude_settings(project_dir: Path, graphify_hook: bool) -> bool:
+    """Merge nexus's keys into .claude/settings.json without touching anything else in it. True if changed."""
+    path = project_dir / ".claude" / "settings.json"
+    try:
+        data = json.loads(path.read_text()) if path.is_file() else {}
+    except Exception:
+        return False                                       # unreadable: leave the user's file alone
+    before = json.dumps(data, sort_keys=True)
+    servers = data.setdefault("enabledMcpjsonServers", [])
+    if "nexus" not in servers:
+        servers.append("nexus")
+    allow = data.setdefault("permissions", {}).setdefault("allow", [])
+    if not any(a in ("mcp__nexus", "mcp__nexus__*") for a in allow):
+        allow.append("mcp__nexus__*")
+    if graphify_hook and "graphify update" not in json.dumps(data.get("hooks", {})):
+        data.setdefault("hooks", {}).setdefault("PostToolUse", []).extend(_CLAUDE_SETTINGS["hooks"]["PostToolUse"])
+    if json.dumps(data, sort_keys=True) == before:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    return True
+
+
+def _init_project(project_dir: Path, backend: str = "graphify", role: str = "developer") -> list[str]:
     """
     nexus init — sets up:
       .claude/commands/     ← built-in skills
@@ -294,7 +425,7 @@ def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
     commands_dir = project_dir / ".claude" / "commands"
     commands_dir.mkdir(parents=True, exist_ok=True)
 
-    for skill_name in _BUILTIN_SKILLS:
+    for skill_name in _role_skills(role):
         src = _SKILLS_SRC / skill_name
         dest = commands_dir / skill_name
         if src.exists() and not dest.exists():
@@ -305,19 +436,17 @@ def _init_project(project_dir: Path, backend: str = "graphify") -> list[str]:
     agents_dir = project_dir / ".claude" / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
 
-    for agent_name in _BUILTIN_AGENTS:
+    for agent_name in _role_agents(role):
         src = _AGENTS_SRC / agent_name
         dest = agents_dir / agent_name
         if src.exists() and not dest.exists():
             shutil.copy2(src, dest)
             created.append(f".claude/agents/{agent_name}")
 
-    # .claude/settings.json — PostToolUse graphify hook (codegraph syncs itself, no hook needed)
-    if backend == "graphify":
-        settings_path = project_dir / ".claude" / "settings.json"
-        if not settings_path.exists():
-            settings_path.write_text(json.dumps(_CLAUDE_SETTINGS, indent=2))
-            created.append(".claude/settings.json")
+    # .claude/settings.json — approve the nexus MCP server and its tools (every role), plus the
+    # PostToolUse graphify hook for developers (codegraph syncs itself, no hook needed)
+    if _write_claude_settings(project_dir, graphify_hook=backend == "graphify" and role == "developer"):
+        created.append(".claude/settings.json")
 
     # knowledge/ + docs/ scaffold
     created += _create_scaffold_dirs(project_dir)
@@ -361,7 +490,7 @@ def _opencode_plugin_relpath(major: int | None) -> str:
     return _OPENCODE_PLUGIN_V1 if major is not None and major < 2 else _OPENCODE_PLUGIN_V2
 
 
-def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
+def _init_opencode(project_dir: Path, backend: str = "graphify", role: str = "developer") -> list[str]:
     """
     nexus init --tool opencode — sets up:
       .opencode/commands/   ← built-in skills
@@ -375,7 +504,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
     # .opencode/commands/ — copy built-in skills
     commands_dir = project_dir / ".opencode" / "commands"
     commands_dir.mkdir(parents=True, exist_ok=True)
-    for skill_name in _BUILTIN_SKILLS:
+    for skill_name in _role_skills(role):
         src = _SKILLS_SRC / skill_name
         dest = commands_dir / skill_name
         if src.exists() and not dest.exists():
@@ -385,7 +514,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
     # .opencode/agents/ — copy built-in subagents, stripping Claude Code-only frontmatter
     agents_dir = project_dir / ".opencode" / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
-    for agent_name in _BUILTIN_AGENTS:
+    for agent_name in _role_agents(role):
         src = _AGENTS_SRC / agent_name
         dest = agents_dir / agent_name
         if src.exists() and not dest.exists():
@@ -394,7 +523,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
 
     # graphify plugin — v1: .opencode/plugins/graphify.js, v2: .opencode/plugins/graphify/index.ts
     # (codegraph syncs itself, no hook needed)
-    if backend == "graphify":
+    if backend == "graphify" and role == "developer":
         plugin_rel = _opencode_plugin_relpath(_opencode_major())
         plugin_path = project_dir / plugin_rel
         if not plugin_path.exists():
@@ -417,7 +546,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify") -> list[str]:
     target = servers if isinstance(servers, dict) and "type" not in servers else mcp_map
     already_has_mcp = "nexus-mcp" in target
     existing.setdefault("$schema", "https://opencode.ai/config.json")
-    target.update(_OPENCODE_MCP_BLOCK)
+    target.update(_opencode_mcp_block())
     opencode_json.write_text(json.dumps(existing, indent=2))
     if not already_has_mcp:
         created.append("opencode.json")
@@ -491,7 +620,7 @@ def _write_codex_mcp_config(project_dir: Path) -> bool:
         existing += "\n"
     if existing:
         existing += "\n"
-    config.write_text(existing + _CODEX_MCP_TOML, encoding="utf-8")
+    config.write_text(existing + _codex_mcp_toml(), encoding="utf-8")
     return True
 
 
@@ -512,7 +641,7 @@ def _write_codex_hooks(project_dir: Path) -> bool:
     return True
 
 
-def _init_codex(project_dir: Path, backend: str = "graphify") -> list[str]:
+def _init_codex(project_dir: Path, backend: str = "graphify", role: str = "developer") -> list[str]:
     """
     nexus init --tool codex — sets up:
       .agents/skills/<name>/ ← built-in skills (SKILL.md, plus agents/openai.yaml for EPAV steps)
@@ -525,7 +654,7 @@ def _init_codex(project_dir: Path, backend: str = "graphify") -> list[str]:
 
     # .agents/skills/<name>/SKILL.md — Codex's project skill location
     skills_dir = project_dir / ".agents" / "skills"
-    for skill_name in _BUILTIN_SKILLS:
+    for skill_name in _role_skills(role):
         src = _SKILLS_SRC / skill_name
         dest_dir = skills_dir / Path(skill_name).stem
         dest = dest_dir / "SKILL.md"
@@ -541,7 +670,7 @@ def _init_codex(project_dir: Path, backend: str = "graphify") -> list[str]:
     # .codex/agents/<name>.toml — built-in subagents converted to Codex's TOML format
     agents_dir = project_dir / ".codex" / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
-    for agent_name in _BUILTIN_AGENTS:
+    for agent_name in _role_agents(role):
         src = _AGENTS_SRC / agent_name
         dest = agents_dir / f"{Path(agent_name).stem}.toml"
         if src.exists() and not dest.exists():
@@ -552,7 +681,7 @@ def _init_codex(project_dir: Path, backend: str = "graphify") -> list[str]:
         created.append(".codex/config.toml")
 
     # .codex/hooks.json — graphify hook (codegraph syncs itself, no hook needed)
-    if backend == "graphify" and _write_codex_hooks(project_dir):
+    if backend == "graphify" and role == "developer" and _write_codex_hooks(project_dir):
         created.append(".codex/hooks.json")
 
     # knowledge/ + docs/ scaffold
@@ -569,7 +698,7 @@ def _write_mcp_config(project_dir: Path) -> str:
             existing = json.loads(mcp_path.read_text())
         except Exception:
             pass
-    existing.setdefault("mcpServers", {}).update(_MCP_BLOCK)
+    existing.setdefault("mcpServers", {}).update(_mcp_block())
     mcp_path.write_text(json.dumps(existing, indent=2))
     return ".mcp.json"
 
@@ -635,6 +764,11 @@ _GRAPH_BACKENDS = {
 }
 
 
+# What each role types first after `nexus init` (a developer who isn't the tech lead starts with
+# /evaluate once the tech lead's /scaffold is merged — the tech lead runs /scaffold once, Day 0).
+_FIRST_COMMAND = {"developer": "scaffold", "product": "brd", "architect": "architect <app>", "designer": "design <app>"}
+
+
 def _resolve_graph_backend(explicit: str | None) -> str:
     if explicit:
         if explicit not in _GRAPH_BACKENDS:
@@ -658,37 +792,44 @@ def init(
     project_dir: str = typer.Argument(".", help="Project directory to initialize"),
     tool: str = typer.Option("claude", "--tool", "-t", help=f"AI coding tool to set up for ({', '.join(_SUPPORTED_TOOLS)})"),
     graph_backend: str = typer.Option(None, "--graph-backend", "-g", help=f"Knowledge graph tool to wire up ({', '.join(_GRAPH_BACKENDS)}). Prompts interactively if omitted."),
+    role: str = typer.Option("developer", "--role", "-r", help=f"Who uses this checkout ({', '.join(_ROLES)}). architect/designer get only their commands — no code tooling."),
 ) -> None:
     """Initialize nexus in a project directory. Defaults to Claude Code."""
     if tool not in _SUPPORTED_TOOLS:
         console.print(f"  [red]✗[/red]  Unknown tool '{tool}'. Supported: {', '.join(_SUPPORTED_TOOLS)}")
         raise typer.Exit(1)
+    if role not in _ROLES:
+        console.print(f"  [red]✗[/red]  Unknown role '{role}'. Choose from: {', '.join(_ROLES)}")
+        raise typer.Exit(1)
 
     _check_and_offer_install(tool)
 
-    backend = _resolve_graph_backend(graph_backend)
+    backend = _resolve_graph_backend(graph_backend) if role == "developer" else "none"   # no code to graph
 
     root = Path(project_dir).resolve()
     console.print(f"  [cyan]▶[/cyan]  Initializing nexus for [bold]{tool}[/bold] in [bold]{root}[/bold]\n")
 
     if tool == "opencode":
-        created = _init_opencode(root, backend)
+        created = _init_opencode(root, backend, role)
+        _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
         if not created:
             console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
             return
-        console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in OpenCode and type [cyan]/scaffold[/cyan]\n")
+        console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in OpenCode and type [cyan]/{_FIRST_COMMAND[role]}[/cyan]\n")
     elif tool == "codex":
-        created = _init_codex(root, backend)
+        created = _init_codex(root, backend, role)
+        _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
         if not created:
             console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
             return
-        console.print(f"\n  [bold green]Done.[/bold green] Run [bold]codex[/bold] in [bold]{root}[/bold], trust the project when asked (.codex/ config and hooks only load in trusted projects), and type [cyan]$scaffold[/cyan]\n")
+        console.print(f"\n  [bold green]Done.[/bold green] Run [bold]codex[/bold] in [bold]{root}[/bold], trust the project when asked (.codex/ config and hooks only load in trusted projects), and type [cyan]${_FIRST_COMMAND[role]}[/cyan]\n")
     else:
-        created = _init_project(root, backend)
+        created = _init_project(root, backend, role)
+        _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
         if not created:
@@ -696,29 +837,82 @@ def init(
             return
         mcp = _write_mcp_config(root)
         console.print(f"  [green]✓[/green]  {mcp}")
-        console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in Claude Code and type [cyan]/scaffold[/cyan]\n")
+        console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in Claude Code and type [cyan]/{_FIRST_COMMAND[role]}[/cyan]\n")
 
     if backend == "codegraph":
         console.print("  [cyan]→[/cyan]  Next: run [bold]codegraph install && codegraph init[/bold] to wire codegraph into this project (it manages its own auto-sync — no hook needed).\n")
+
+
+def _install(spec: str) -> bool:
+    """Install `spec` as the nexus tool. `uv tool install --reinstall`, never `uv tool upgrade`
+    (which can silently do nothing). True on success."""
+    have_uv = bool(shutil.which("uv"))
+    cmd = channel.install_command(spec, have_uv)
+    if not have_uv:
+        cmd = [sys.executable, "-m", *cmd]
+    result = subprocess.run(cmd)
+    return getattr(result, "returncode", 0) == 0
+
+
+def _sync_in_fresh_process(root: Path) -> bool:
+    """Run `nexus sync` from the newly installed version. This process's own built-in lists were
+    imported before the install, so syncing in-process would miss anything new in that version."""
+    nexus_bin = shutil.which("nexus")
+    if nexus_bin:
+        subprocess.run([nexus_bin, "sync", str(root)])
+        return True
+    console.print(
+        "  [yellow]⚠[/yellow]  Couldn't find [bold]nexus[/bold] on PATH to re-run sync in a fresh "
+        "process — syncing in-process instead, which may miss anything added in this exact "
+        "upgrade. Run [cyan]nexus sync[/cyan] again afterward to be sure.\n"
+    )
+    return False
 
 
 @app.command()
 def update(
     also_sync: bool = typer.Option(False, "--sync", "-s", help="Also sync built-in skills/agents in the current directory after upgrading."),
 ) -> None:
-    """Update nexus-dev-toolkit to the latest version."""
-    latest_version = _fetch_latest_pypi_version()
-    upgraded = False
-    if latest_version and not _is_outdated(_VERSION, latest_version):
-        console.print(f"\n  [green]✓[/green]  Already up to date (v{_VERSION}).\n")
-    else:
-        console.print("\n  [cyan]▶[/cyan]  Updating nexus-dev-toolkit…\n")
-        if shutil.which("uv"):
-            subprocess.run(["uv", "tool", "upgrade", "nexus-dev-toolkit"])
+    """Update nexus-dev-toolkit. Stays on your channel: stable, or the 4.0 pre-releases (which move
+    you to stable automatically once 4.0.0 is out). Installed from a git branch (a preview):
+    reinstalls the newest commit on that branch."""
+    git = _git_install()
+    if git:
+        _update_from_git(git)
+        if also_sync:
+            root = Path(".").resolve()
+            if not _sync_in_fresh_process(root):
+                table = _sync_project(root)
+                if table is not None:
+                    console.print(table)
         else:
-            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "nexus-dev-toolkit"])
-        console.print("\n  [green]✓[/green]  Done.\n")
-        upgraded = True
+            console.print("  [dim]Then run [/dim][cyan]nexus sync[/cyan][dim] in each project — it points the "
+                          "project's MCP server at the new commit.[/dim]\n")
+        return
+    releases = _fetch_releases()
+    if releases is not None:
+        target = channel.pick_update(_VERSION, releases)
+        known = True
+    else:  # full release list unavailable — fall back to PyPI's latest stable
+        latest = _fetch_latest_pypi_version()
+        known = latest is not None
+        target = latest if latest and _is_outdated(_VERSION, latest) else None
+
+    upgraded = False
+    if known and target is None:
+        console.print(f"\n  [green]✓[/green]  Already up to date (v{_VERSION}, {channel.channel_of(_VERSION)} channel).\n")
+    else:
+        spec = channel.install_spec(target) if target else channel.install_spec(_VERSION)
+        what = f"v{target}" if target else "the latest version (couldn't reach PyPI to check)"
+        if target and channel.is_prerelease(_VERSION) and not channel.is_prerelease(target):
+            console.print(f"\n  [cyan]▶[/cyan]  {target} is released — moving you from the pre-release to the stable channel.")
+        console.print(f"\n  [cyan]▶[/cyan]  Updating nexus-dev-toolkit to {what}…\n")
+        if _install(spec):
+            console.print("\n  [green]✓[/green]  Done.\n")
+            upgraded = True
+        else:
+            console.print("\n  [red]✗[/red]  Install failed — nothing changed. Output is above.\n")
+            raise typer.Exit(1)
 
     if not also_sync:
         if sys.stdin.isatty():
@@ -735,19 +929,8 @@ def update(
 
     root = Path(".").resolve()
 
-    if upgraded:
-        # This process's own _BUILTIN_SKILLS/_BUILTIN_AGENTS were imported before the upgrade
-        # subprocess above ran, so syncing in-process here would silently miss anything newly
-        # added in the version just installed. Re-exec `nexus sync` as a fresh process instead.
-        nexus_bin = shutil.which("nexus")
-        if nexus_bin:
-            subprocess.run([nexus_bin, "sync", str(root)])
-            return
-        console.print(
-            "  [yellow]⚠[/yellow]  Couldn't find [bold]nexus[/bold] on PATH to re-run sync in a fresh "
-            "process — syncing in-process instead, which may miss anything added in this exact "
-            "upgrade. Run [cyan]nexus sync[/cyan] again afterward to be sure.\n"
-        )
+    if upgraded and _sync_in_fresh_process(root):
+        return
 
     table = _sync_project(root)
     if table is None:
@@ -759,19 +942,212 @@ def update(
     console.print()
 
 
-def _sync_file(table: Table, dst: Path, text: str, label: str) -> None:
-    """Write text to dst unless it's already identical, and record the result in table."""
+def _update_from_git(git: dict) -> None:
+    ref = git["ref"]
+    spec = f"git+{git['url']}@{ref}" if ref else f"git+{git['url']}"
+    console.print(f"\n  [cyan]▶[/cyan]  Installed from git ({escape(ref or 'default branch')}, commit "
+                  f"{git['commit'][:7]}) — reinstalling the newest commit…\n")
+    if not _install(spec):
+        console.print("\n  [red]✗[/red]  Install failed — nothing changed. Output is above.\n")
+        raise typer.Exit(1)
+    after = _git_install()
+    new = after["commit"][:7] if after else "?"
+    if after and after["commit"] == git["commit"]:
+        console.print(f"\n  [green]✓[/green]  Already the newest commit on {escape(ref or 'the branch')} ({new}).\n")
+    else:
+        console.print(f"\n  [green]✓[/green]  Updated: {git['commit'][:7]} → {new}.\n")
+
+
+# Built-in skill files that exist only from 4.0 on. Switching a project back to the stable 3.x
+# channel removes them (if unedited) — 3.x's own sync can't, it doesn't know they exist.
+_ADDED_IN_V4: list[str] = ["requirements.md", "architect.md", "design.md", "change-request.md", "brd.md", "prd.md"]
+
+
+@app.command(name="channel")
+def channel_cmd(
+    target: str = typer.Argument("show", help="show | stable | v4"),
+    project_dir: str = typer.Option(".", "--project", "-p", help="Project to switch along with the CLI"),
+) -> None:
+    """Show or switch the release channel: stable, or v4 (the 4.0 pre-releases)."""
+    root = Path(project_dir).resolve()
+    if target == "show":
+        m = channel.load_manifest(root)
+        console.print(f"\n  nexus-dev-toolkit v{_VERSION} — {channel.channel_of(_VERSION)} channel")
+        if m.nexus_version:
+            console.print(f"  This project was last synced by v{m.nexus_version}.")
+        console.print("  Switch with: [cyan]nexus channel v4[/cyan] or [cyan]nexus channel stable[/cyan]\n")
+        return
+    if target not in ("stable", "v4"):
+        console.print(f"  [red]✗[/red]  Unknown channel '{target}'. Use: stable | v4")
+        raise typer.Exit(1)
+
+    if target == "stable" and channel.is_prerelease(_VERSION):
+        # Undo what only this version wrote, before handing the project to the stable CLI.
+        old = channel.load_manifest(root)
+        stems = {Path(n).stem for n in _ADDED_IN_V4}
+        # .claude/commands/design.md, .agents/skills/design/SKILL.md, …/design/agents/openai.yaml
+        v4_only = {rel for rel in old.files if Path(rel).name in _ADDED_IN_V4 or stems & set(Path(rel).parts[:-1])}
+        removed, kept = channel.prune(root, channel.Manifest(files={r: old.files[r] for r in v4_only}), set())
+        for rel in removed:
+            console.print(f"  [cyan]·[/cyan]  removed {rel} (v4 only)")
+        for rel in kept:
+            console.print(f"  [yellow]⚠[/yellow]  kept {rel} — v4 only, but you edited it")
+        # 3.x's sync never rewrites MCP configs, so point them back at stable now — otherwise the
+        # project's MCP server would keep running the pre-release under a 3.x CLI.
+        mcp_table = Table(show_header=False)
+        _refresh_mcp_configs(root, mcp_table, want=channel.PACKAGE)
+        if mcp_table.row_count:
+            console.print(mcp_table)
+        channel.save_manifest(root, old.nexus_version or _VERSION,
+                              {r: h for r, h in old.files.items() if r not in removed})
+
+    spec = channel.PACKAGE if target == "stable" else f"{channel.PACKAGE}>=4.0.0a0"
+    console.print(f"\n  [cyan]▶[/cyan]  Installing {spec}…\n")
+    if not _install(spec):
+        console.print("\n  [red]✗[/red]  Install failed — your previous version is still installed.\n")
+        raise typer.Exit(1)
+    if any((root / d).is_dir() for d in (".claude", ".opencode", ".codex")):
+        _sync_in_fresh_process(root)  # the new version rewrites skills + the MCP config for its channel
+    console.print(f"\n  [green]✓[/green]  Switched to the {target} channel.\n")
+
+
+def _sync_file(table: Table, dst: Path, text: str, label: str,
+               root: Path | None = None, old: "channel.Manifest | None" = None, stamp: str = "") -> None:
+    """Write text to dst unless it's already identical, and record the result in table. A file
+    the user edited after nexus wrote it is backed up under .nexus/backup/ before it's replaced."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists() and dst.read_text(encoding="utf-8") == text:
         table.add_row(label, "[dim green]ok[/dim green]")
-    else:
-        dst.write_text(text, encoding="utf-8")
-        table.add_row(label, "[cyan]updated[/cyan]")
+        return
+    note = ""
+    # Back up whenever the current file may hold edits: edited since nexus wrote it, or not in
+    # the manifest at all (projects synced before manifests existed) — nexus can't tell an older
+    # nexus copy from a user's change there, so it keeps a copy rather than guess.
+    if root is not None and old is not None and dst.exists() and (
+            label not in old.files or channel.is_edited(root, label, old)):
+        saved = channel.backup(root, label, stamp or None)
+        note = f" (previous copy saved to {saved.relative_to(root)})"
+    tmp = dst.with_name(dst.name + ".nexus-tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(dst)  # all-or-nothing
+    table.add_row(label, f"[cyan]updated[/cyan]{escape(note)}")
+
+
+def _builtin_files(root: Path, role: str | None = None) -> dict[str, str]:
+    """Every file nexus owns in this project, with the exact text this version ships — for each
+    tool set up here (.claude/, .opencode/, .codex/). Merged user configs (.mcp.json,
+    opencode.json, settings.json, .codex/config.toml, hooks.json) are not in this list."""
+    role = role or channel.load_manifest(root).role or "developer"
+    skills, agents = _role_skills(role), _role_agents(role)
+    files: dict[str, str] = {}
+    if (root / ".claude").is_dir():
+        for fname in skills:
+            src = _SKILLS_SRC / fname
+            if src.exists():
+                files[f".claude/commands/{fname}"] = src.read_text(encoding="utf-8")
+        for fname in agents:
+            src = _AGENTS_SRC / fname
+            if src.exists():
+                files[f".claude/agents/{fname}"] = src.read_text(encoding="utf-8")
+    if (root / ".opencode").is_dir():
+        for fname in skills:
+            src = _SKILLS_SRC / fname
+            if src.exists():
+                files[f".opencode/commands/{fname}"] = src.read_text(encoding="utf-8")
+        for fname in agents:
+            src = _AGENTS_SRC / fname
+            if src.exists():
+                files[f".opencode/agents/{fname}"] = _strip_claude_frontmatter(src.read_text(encoding="utf-8"))
+        # The plugin for the installed OpenCode major, plus any other stock plugin already on disk.
+        # Never deleted: a repo can have teammates on different OpenCode majors, and removing the
+        # other form would flip-flop it in git on every sync.
+        wanted = _opencode_plugin_relpath(_opencode_major())
+        for plugin_rel, plugin_text in _OPENCODE_PLUGINS.items():
+            if (plugin_rel == wanted and role == "developer") or (root / plugin_rel).exists():
+                files[plugin_rel] = plugin_text
+    if (root / ".codex").is_dir():
+        for fname in skills:
+            src = _SKILLS_SRC / fname
+            if not src.exists():
+                continue
+            stem = Path(fname).stem
+            skill_md, openai_yaml = _to_codex_skill(fname, src.read_text(encoding="utf-8"))
+            files[f".agents/skills/{stem}/SKILL.md"] = skill_md
+            if openai_yaml:
+                files[f".agents/skills/{stem}/agents/openai.yaml"] = openai_yaml
+        for fname in agents:
+            src = _AGENTS_SRC / fname
+            if src.exists():
+                files[f".codex/agents/{Path(fname).stem}.toml"] = _to_codex_agent(fname, src.read_text(encoding="utf-8"))
+    return files
+
+
+def _record_manifest(root: Path, role: str = "developer") -> None:
+    """Write .nexus/manifest.json: this version, the role, and the hash of every file nexus ships here."""
+    channel.save_manifest(root, _VERSION, {rel: channel.sha(text) for rel, text in _builtin_files(root, role).items()}, role)
+
+
+_UVX_FROM = re.compile(r'("--from",\s*)"(?:nexus-dev-toolkit[^"]*|git\+[^"]*nexus-dev-toolkit[^"]*)"')
+
+
+def _ours(source: str) -> bool:
+    """An MCP `--from` value nexus wrote: the PyPI package or a git install of it. Local paths
+    (NEXUS_MCP_FROM, a wheel) are left alone."""
+    return source.startswith("nexus-dev-toolkit") or (source.startswith("git+") and "nexus-dev-toolkit" in source)
+
+
+def _refresh_mcp_configs(root: Path, table: Table, want: str | None = None) -> None:
+    """Point existing nexus MCP entries at a channel (default: this CLI's). Only entries nexus
+    wrote (uvx --from nexus-dev-toolkit… or git+…nexus-dev-toolkit@…) are touched; custom
+    commands are left alone. A git-installed CLI points them at its own commit."""
+    want = want or _mcp_args()[2]
+    mcp_path = root / ".mcp.json"
+    if mcp_path.is_file():
+        try:
+            data = json.loads(mcp_path.read_text())
+            args = data.get("mcpServers", {}).get("nexus", {}).get("args", [])
+            if "--from" in args:
+                i = args.index("--from") + 1
+                if i < len(args) and _ours(args[i]) and args[i] != want:
+                    args[i] = want
+                    mcp_path.write_text(json.dumps(data, indent=2))
+                    table.add_row(".mcp.json", f"[cyan]updated[/cyan] (MCP server: {escape(want)})")
+        except Exception:
+            table.add_row(".mcp.json", "[yellow]unreadable — not changed[/yellow]")
+    oc = root / "opencode.json"
+    if oc.is_file():
+        try:
+            data = json.loads(oc.read_text())
+            mcp_map = data.get("mcp", {})
+            servers = mcp_map.get("servers")
+            target = servers if isinstance(servers, dict) and "type" not in servers else mcp_map
+            cmd = target.get("nexus-mcp", {}).get("command", [])
+            if "--from" in cmd:
+                i = cmd.index("--from") + 1
+                if i < len(cmd) and _ours(cmd[i]) and cmd[i] != want:
+                    cmd[i] = want
+                    oc.write_text(json.dumps(data, indent=2))
+                    table.add_row("opencode.json", f"[cyan]updated[/cyan] (MCP server: {escape(want)})")
+        except Exception:
+            table.add_row("opencode.json", "[yellow]unreadable — not changed[/yellow]")
+    cx = root / ".codex" / "config.toml"
+    if cx.is_file():
+        text = cx.read_text(encoding="utf-8")
+        block = re.search(r"(?ms)^\[mcp_servers\.nexus\]\n.*?(?=^\[|\Z)", text)
+        if block:
+            new_block = _UVX_FROM.sub(lambda m: f'{m.group(1)}"{want}"', block.group(0))
+            if new_block != block.group(0):
+                cx.write_text(text[:block.start()] + new_block + text[block.end():], encoding="utf-8")
+                table.add_row(".codex/config.toml", f"[cyan]updated[/cyan] (MCP server: {escape(want)})")
 
 
 def _sync_project(root: Path) -> Table | None:
     """Sync built-in skills/agents into root. None if root isn't a nexus project (none of
-    .claude/, .opencode/ or .codex/ present) — callers decide how to handle that case."""
+    .claude/, .opencode/ or .codex/ present) — callers decide how to handle that case.
+
+    Also: backs up edited built-ins before replacing them, removes files nexus wrote earlier but
+    no longer ships (only if unedited), points MCP configs at this CLI's channel, and records
+    .nexus/manifest.json."""
     has_claude = (root / ".claude").is_dir()
     has_opencode = (root / ".opencode").is_dir()
     has_codex = (root / ".codex").is_dir()
@@ -783,60 +1159,33 @@ def _sync_project(root: Path) -> Table | None:
     table.add_column("File")
     table.add_column("Status")
 
-    if has_claude:
-        for fname in _BUILTIN_SKILLS:
-            src = _SKILLS_SRC / fname
-            if src.exists():
-                _sync_file(table, root / ".claude" / "commands" / fname, src.read_text(encoding="utf-8"), f".claude/commands/{fname}")
+    old = channel.load_manifest(root)
+    for problem in old.problems:
+        table.add_row(str(channel.MANIFEST), f"[yellow]{escape(problem)}[/yellow]")
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    role = old.role or "developer"
+    files = _builtin_files(root, role)
+    for rel, text in files.items():
+        _sync_file(table, root / rel, text, rel, root, old, stamp)
 
-        for fname in _BUILTIN_AGENTS:
-            src = _AGENTS_SRC / fname
-            if src.exists():
-                _sync_file(table, root / ".claude" / "agents" / fname, src.read_text(encoding="utf-8"), f".claude/agents/{fname}")
+    if has_claude and _write_claude_settings(root, graphify_hook=False):
+        table.add_row(".claude/settings.json", "[cyan]updated[/cyan] (nexus MCP server and tools approved)")
 
-    if has_opencode:
-        for fname in _BUILTIN_SKILLS:
-            src = _SKILLS_SRC / fname
-            if src.exists():
-                _sync_file(table, root / ".opencode" / "commands" / fname, src.read_text(encoding="utf-8"), f".opencode/commands/{fname}")
-
-        for fname in _BUILTIN_AGENTS:
-            src = _AGENTS_SRC / fname
-            if src.exists():
-                text = _strip_claude_frontmatter(src.read_text(encoding="utf-8"))
-                _sync_file(table, root / ".opencode" / "agents" / fname, text, f".opencode/agents/{fname}")
-
-        # The plugin for the installed OpenCode major, plus any other stock plugin already on disk.
-        # Never deleted: a repo can have teammates on different OpenCode majors, and removing the
-        # other form would flip-flop it in git on every sync.
-        wanted = _opencode_plugin_relpath(_opencode_major())
-        for plugin_rel, plugin_text in _OPENCODE_PLUGINS.items():
-            if plugin_rel == wanted or (root / plugin_rel).exists():
-                _sync_file(table, root / plugin_rel, plugin_text, plugin_rel)
-
-    if has_codex:
-        for fname in _BUILTIN_SKILLS:
-            src = _SKILLS_SRC / fname
-            if not src.exists():
-                continue
-            stem = Path(fname).stem
-            skill_md, openai_yaml = _to_codex_skill(fname, src.read_text(encoding="utf-8"))
-            _sync_file(table, root / ".agents" / "skills" / stem / "SKILL.md", skill_md, f".agents/skills/{stem}/SKILL.md")
-            if openai_yaml:
-                _sync_file(table, root / ".agents" / "skills" / stem / "agents" / "openai.yaml", openai_yaml, f".agents/skills/{stem}/agents/openai.yaml")
-
-        for fname in _BUILTIN_AGENTS:
-            src = _AGENTS_SRC / fname
-            if src.exists():
-                stem = Path(fname).stem
-                text = _to_codex_agent(fname, src.read_text(encoding="utf-8"))
-                _sync_file(table, root / ".codex" / "agents" / f"{stem}.toml", text, f".codex/agents/{stem}.toml")
-
+    if has_codex and (root / ".codex" / "hooks.json").exists():
         # Only re-add the graphify hook where the project already opted into one.
-        if (root / ".codex" / "hooks.json").exists():
-            added = _write_codex_hooks(root)
-            table.add_row(".codex/hooks.json", "[cyan]updated[/cyan]" if added else "[dim green]ok[/dim green]")
+        added = _write_codex_hooks(root)
+        table.add_row(".codex/hooks.json", "[cyan]updated[/cyan]" if added else "[dim green]ok[/dim green]")
 
+    removed, kept = channel.prune(root, old, set(files))
+    for rel in removed:
+        table.add_row(rel, "[cyan]removed[/cyan] (no longer shipped by nexus)")
+    for rel in kept:
+        table.add_row(rel, "[yellow]kept — no longer shipped, but you edited it; delete it yourself if unused[/yellow]")
+
+    for rel in _write_guides(root):
+        table.add_row(rel, "[cyan]created[/cyan] (yours to edit — never overwritten)")
+    _refresh_mcp_configs(root, table)
+    channel.save_manifest(root, _VERSION, {rel: channel.sha(text) for rel, text in files.items()}, role)
     return table
 
 
@@ -881,12 +1230,44 @@ def doctor(
         return f"[red]✗[/red]  {msg}"
 
     # ── nexus ────────────────────────────────────────────────────────────────
-    latest_version = _fetch_latest_pypi_version()
-    if latest_version:
-        if _is_outdated(_VERSION, latest_version):
-            table.add_row("nexus-dev-toolkit", warn(f"update available: v{_VERSION} → v{latest_version} (run: nexus update)"))
+    releases = _fetch_releases() if channel.is_prerelease(_VERSION) else None
+    if releases is not None:
+        target = channel.pick_update(_VERSION, releases)
+        reachable = True
+    else:
+        latest_version = _fetch_latest_pypi_version()
+        reachable = latest_version is not None
+        target = latest_version if latest_version and _is_outdated(_VERSION, latest_version) else None
+    if reachable:
+        chan = channel.channel_of(_VERSION)
+        if target:
+            table.add_row("nexus-dev-toolkit", warn(f"update available: v{_VERSION} → v{target} (run: nexus update)"))
         else:
-            table.add_row("nexus-dev-toolkit", ok(f"up to date (v{_VERSION})"))
+            table.add_row("nexus-dev-toolkit", ok(f"up to date (v{_VERSION}{', pre-release channel' if chan == 'pre' else ''})"))
+
+    manifest = channel.load_manifest(root)
+    if manifest.nexus_version:
+        if channel.is_newer(manifest.nexus_version, _VERSION):
+            table.add_row("Project synced by", warn(
+                f"v{manifest.nexus_version}, newer than the nexus you are running (v{_VERSION}): run "
+                + ("nexus update" if channel.is_prerelease(manifest.nexus_version) == channel.is_prerelease(_VERSION)
+                   else ("nexus channel v4" if channel.is_prerelease(manifest.nexus_version) else "nexus update"))))
+        elif channel.is_newer(_VERSION, manifest.nexus_version):
+            table.add_row("Project synced by", warn(f"v{manifest.nexus_version} — run nexus sync to bring it to v{_VERSION}"))
+        else:
+            table.add_row("Project synced by", ok(f"v{manifest.nexus_version}"))
+    for problem in manifest.problems:
+        table.add_row("Project manifest", warn(problem))
+
+    uv_path = shutil.which("uv")
+    uv_ver = ""
+    if uv_path:
+        try:
+            uv_ver = subprocess.run([uv_path, "--version"], capture_output=True, text=True, timeout=5).stdout.split()[1]
+        except Exception:
+            uv_ver = "?"
+    env = f"Python {sys.version.split()[0]}" + (f", uv {uv_ver}" if uv_path else ", uv not found")
+    table.add_row("Environment", ok(env) if sys.version_info >= (3, 10) else fail(env + " — nexus needs Python 3.10+"))
 
     # ── Tool ─────────────────────────────────────────────────────────────────
     has_claude_bin = bool(shutil.which("claude"))
@@ -971,54 +1352,58 @@ def doctor(
             table.add_row(".codex/config.toml", warn("exists but no [mcp_servers.nexus] entry"))
 
     # ── Skills & Agents ──────────────────────────────────────────────────────
+    role = manifest.role or "developer"
+    role_skills, role_agents = _role_skills(role), _role_agents(role)
+    if role != "developer":
+        table.add_row("Role", ok(f"{role} — {', '.join(Path(s).stem for s in role_skills)}"))
     if has_claude_dir:
         cmd_dir = root / ".claude" / "commands"
-        present = [f for f in _BUILTIN_SKILLS if (cmd_dir / f).exists()]
-        missing = len(_BUILTIN_SKILLS) - len(present)
+        present = [f for f in role_skills if (cmd_dir / f).exists()]
+        missing = len(role_skills) - len(present)
         if missing == 0:
-            table.add_row("Built-in skills (Claude)", ok(f"all {len(_BUILTIN_SKILLS)} present"))
+            table.add_row("Built-in skills (Claude)", ok(f"all {len(role_skills)} present"))
         else:
             table.add_row("Built-in skills (Claude)", warn(f"{missing} missing — run nexus sync"))
 
         ag_dir = root / ".claude" / "agents"
-        present_ag = [f for f in _BUILTIN_AGENTS if (ag_dir / f).exists()]
-        missing_ag = len(_BUILTIN_AGENTS) - len(present_ag)
+        present_ag = [f for f in role_agents if (ag_dir / f).exists()]
+        missing_ag = len(role_agents) - len(present_ag)
         if missing_ag == 0:
-            table.add_row("Built-in agents (Claude)", ok(f"all {len(_BUILTIN_AGENTS)} present"))
+            table.add_row("Built-in agents (Claude)", ok(f"all {len(role_agents)} present" if role_agents else f"none needed ({role} role)"))
         else:
             table.add_row("Built-in agents (Claude)", warn(f"{missing_ag} missing — run nexus sync"))
 
     if has_opencode_dir:
         oc_cmd_dir = root / ".opencode" / "commands"
-        present_oc = [f for f in _BUILTIN_SKILLS if (oc_cmd_dir / f).exists()]
-        missing_oc = len(_BUILTIN_SKILLS) - len(present_oc)
+        present_oc = [f for f in role_skills if (oc_cmd_dir / f).exists()]
+        missing_oc = len(role_skills) - len(present_oc)
         if missing_oc == 0:
-            table.add_row("Built-in skills (OpenCode)", ok(f"all {len(_BUILTIN_SKILLS)} present"))
+            table.add_row("Built-in skills (OpenCode)", ok(f"all {len(role_skills)} present"))
         else:
             table.add_row("Built-in skills (OpenCode)", warn(f"{missing_oc} missing — run nexus sync"))
 
         oc_ag_dir = root / ".opencode" / "agents"
-        present_oc_ag = [f for f in _BUILTIN_AGENTS if (oc_ag_dir / f).exists()]
-        missing_oc_ag = len(_BUILTIN_AGENTS) - len(present_oc_ag)
+        present_oc_ag = [f for f in role_agents if (oc_ag_dir / f).exists()]
+        missing_oc_ag = len(role_agents) - len(present_oc_ag)
         if missing_oc_ag == 0:
-            table.add_row("Built-in agents (OpenCode)", ok(f"all {len(_BUILTIN_AGENTS)} present"))
+            table.add_row("Built-in agents (OpenCode)", ok(f"all {len(role_agents)} present" if role_agents else f"none needed ({role} role)"))
         else:
             table.add_row("Built-in agents (OpenCode)", warn(f"{missing_oc_ag} missing — run nexus sync"))
 
     if has_codex_dir:
         cx_skills_dir = root / ".agents" / "skills"
-        present_cx = [f for f in _BUILTIN_SKILLS if (cx_skills_dir / Path(f).stem / "SKILL.md").exists()]
-        missing_cx = len(_BUILTIN_SKILLS) - len(present_cx)
+        present_cx = [f for f in role_skills if (cx_skills_dir / Path(f).stem / "SKILL.md").exists()]
+        missing_cx = len(role_skills) - len(present_cx)
         if missing_cx == 0:
-            table.add_row("Built-in skills (Codex)", ok(f"all {len(_BUILTIN_SKILLS)} present"))
+            table.add_row("Built-in skills (Codex)", ok(f"all {len(role_skills)} present"))
         else:
             table.add_row("Built-in skills (Codex)", warn(f"{missing_cx} missing — run nexus sync"))
 
         cx_ag_dir = root / ".codex" / "agents"
-        present_cx_ag = [f for f in _BUILTIN_AGENTS if (cx_ag_dir / f"{Path(f).stem}.toml").exists()]
-        missing_cx_ag = len(_BUILTIN_AGENTS) - len(present_cx_ag)
+        present_cx_ag = [f for f in role_agents if (cx_ag_dir / f"{Path(f).stem}.toml").exists()]
+        missing_cx_ag = len(role_agents) - len(present_cx_ag)
         if missing_cx_ag == 0:
-            table.add_row("Built-in agents (Codex)", ok(f"all {len(_BUILTIN_AGENTS)} present"))
+            table.add_row("Built-in agents (Codex)", ok(f"all {len(role_agents)} present" if role_agents else f"none needed ({role} role)"))
         else:
             table.add_row("Built-in agents (Codex)", warn(f"{missing_cx_ag} missing — run nexus sync"))
 

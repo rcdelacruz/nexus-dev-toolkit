@@ -2,7 +2,8 @@
 
 **Day 0 — Production Scaffold** (one-time project setup)
 
-Generates a complete production-grade scaffold from the architecture document and Figma export.
+Generates a complete production-grade scaffold from the architecture document and the design export
+(HTML frames + tokens, optionally a code export — any UI stack, not only React).
 Output: infrastructure + design system + UI shell + AGENTS.md + knowledge/.
 
 **Goal: structure and standards, not live integrations.**
@@ -53,16 +54,27 @@ Nexus is stack-agnostic: use the row for the stack the arch doc prescribes. If t
 ## Prerequisites
 
 Before running /scaffold:
-1. Architecture document must be in `docs/arch-docs/`
-2. Figma export ZIP must be available
-3. Run: `ingest_architecture_doc` MCP tool on `docs/arch-docs/`
-4. Run: `ingest_figma_zip` MCP tool on the Figma ZIP
+1. Requirements in `docs/requirements/` (the product's BRD/PRD) and the architecture document in
+   `docs/arch-docs/<app>/` with its epic ADR files (ideally written with `/architect`).
+2. Designs in `docs/designs/<app>/` — folder or .zip. **`/design` is optional:** designers who use
+   Claude Design (Claude Desktop) or Figma Make just copy the exported files there and commit.
+   `design.json` exists only if `/design` ran; you don't need it.
+3. Run: `ingest_architecture_doc` MCP tool with `module=<app>`. Use its `stack` — taken from the
+   doc's **Choice** lines — and its `epics`. If `stack_source` is `mentions`, the doc records no
+   decisions: stop and ask for them instead of guessing.
+4. Run: `ingest_design_export` MCP tool with `module=<app>` (preview, `write=false`) — it reads the
+   copied files directly (HTML frames, tokens, a React/Next.js/Vue export, a .zip) — or read
+   `docs/designs/<app>/design.json` if `/design` already wrote it. If its `status` is `blocked`,
+   stop and send the findings back to the designer. `needs_fixes` (e.g. off-token colours): list
+   them for the designer and go on — the scaffold uses the tokens, never the stray colours.
 
 ---
 
 ## EVALUATE — Understand the Architecture and Design
 
-Load `docs/arch-docs/` (ARCH doc + ADRs) and the Figma export. Then walk through:
+Load `docs/arch-docs/<app>/` (ARCH doc + epic ADRs) and the design summary (`design.json`, or the
+`ingest_design_export` preview's `manifest` when there is none: tokens, screens with DES IDs, which
+export component matches which frame). Then walk through:
 
 **Architecture:**
 1. The stack decisions and why they were made
@@ -101,8 +113,18 @@ files) — these can be more authoritative than the HTML page, or in rare cases
 be misplaced/leftover from a different sibling app's export (verify the
 palette and page names inside actually match this app before trusting one).
 
+**Which stack builds the UI:** the architecture doc's Choice lines decide, never the export's
+framework. The design is framework-neutral:
+- **React / Next.js stack** and the design summary lists a matching export component for a screen → you
+  may reuse that component (and its UI kit), adapted to the project's structure and tokens.
+- **Any other stack** (Vue, Angular, Svelte, Go + htmx, Flutter, SwiftUI, Compose, …) → build each
+  screen natively from its HTML frame + the tokens; use the export component only as a reference
+  for behaviour and state.
+- Frames are the visual truth. Where a frame and an export component disagree, follow the frame
+  and note it.
+
 **Design token conversion (before writing any design file):**
-Figma exports colors in oklch or hex — never copy them raw. Convert to the target stack's native format — see **Design token format by UI stack** in the Ecosystem reference.
+Exports carry colors in oklch, hex or rgb — never copy them raw. Convert to the target stack's native format — see **Design token format by UI stack** in the Ecosystem reference. Colours the design summary lists as "not in the tokens" are not tokens: ask before inventing one.
 
 Do NOT generate code yet. Produce an EVALUATE SUMMARY covering all 10 points.
 Stop and wait for confirmation before proceeding to PLAN.
@@ -111,7 +133,7 @@ Stop and wait for confirmation before proceeding to PLAN.
 
 ## PLAN — Boilerplate + UI Shell + Project Rules
 
-Based on the architecture document and Figma design, plan four things:
+Based on the architecture document and the design export, plan four things:
 
 **1. INFRASTRUCTURE BOILERPLATE**
 - Project structure — every directory, annotated
@@ -120,10 +142,10 @@ Based on the architecture document and Figma design, plan four things:
 - Auth flow — as specified in the architecture
 - Error handling — using the format from the architecture
 
-**2. UI SHELL (from Figma)**
+**2. UI SHELL (from the design export)**
 - Design system config in the stack's native format (e.g. Tailwind config + CSS custom properties for web, `ThemeData` for Flutter, `MaterialTheme` for Compose) plus font loading
 - Component architecture (name, path, props interface, variants, composition, accessibility)
-- Page layouts (every page from the Figma, structured with placeholder data)
+- Page layouts (every screen in the design summary, keyed by its DES ID, structured with placeholder data)
 - Build order (component dependency chain)
 
 **3. AGENTS.md (cross-tool project rules)**
@@ -200,8 +222,8 @@ NEVER write patch versions from AI memory — training data is always stale.
 - README with local setup instructions
 - CI pipeline config (GitHub Actions or equivalent: lint, typecheck, test, db push)
 
-**2. UI shell (matching Figma exactly):**
-- Design system config — tokens from Figma, in the stack's native format (web: tailwind.config.ts + globals.css)
+**2. UI shell (matching the HTML frames exactly):**
+- Design system config — tokens from the design export, in the stack's native format (web: tailwind.config.ts + globals.css)
 - **(Web + Tailwind)** **Any hand-written base selector in globals.css (`a`, `body`, `input:focus`,
   `thead th`, etc.) MUST be wrapped in `@layer base { ... }`.** Tailwind v4
   emits its own utilities into a cascade layer; an unlayered rule beats a
@@ -218,7 +240,7 @@ NEVER write patch versions from AI memory — training data is always stale.
   instead — don't assume `text-align: center` survives the port.
 - All components with typed props (TypeScript props, Dart/Swift/Kotlin constructor params, C# properties…) and ALL visual states:
   (default, hover, focus, disabled, loading, empty, error)
-- All page layouts responsive to Figma breakpoints
+- All page layouts responsive to the breakpoints the frames and requirements define
 - Semantic HTML + ARIA attributes throughout
 - Placeholder/mock data — NOT real API calls
 - Prop interfaces defined so Day 1 can wire real data without changing the component
@@ -278,7 +300,7 @@ If the build fails, fix ALL errors before running any other checks. Do not proce
 
 ---
 
-Review everything against the architecture doc AND Figma.
+Review everything against the architecture doc AND the design frames.
 
 **Packages:**
 1. Are all dependencies on stable versions (no beta/canary/RC)?
@@ -295,7 +317,7 @@ Review everything against the architecture doc AND Figma.
 10. Is database connection pooling set up?
 
 **UI fidelity:**
-11. Do components match the Figma design?
+11. Do components match the design frames (each screen by its DES ID)?
 12. Responsive at 320px, 768px, 1024px, 1440px?
 13. All visual states render with placeholder data?
 14. Accessibility — keyboard nav, WCAG AA contrast?

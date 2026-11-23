@@ -29,9 +29,15 @@ def test_every_release_has_an_anchor():
 
 def test_changelog_page_nav_and_version():
     assert bc.render_nav(NEXUS, "nexus") in PAGE, _HINT
-    version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
+    version = bc._current_version()   # pyproject's version, or the newest stable on the pre-release branch
     assert f'<div class="nav-version">v{version}</div>' in PAGE, _HINT
-    assert NEXUS[0]["version"] == version, "CHANGELOG.md's newest entry is not the pyproject version"
+    assert NEXUS[0]["version"] == version, "CHANGELOG.md's newest stable entry is not the site version"
+
+
+def test_prerelease_entries_stay_off_the_stable_tab():
+    text = "## [4.0.0a1] - 2026-11-23\n- pre\n\n## [3.2.0] - 2026-11-22\n- stable\n"
+    assert [r["version"] for r in bc.parse(text)] == ["3.2.0"]
+    assert [r["version"] for r in bc.parse(text, include_pre=True)] == ["4.0.0a1", "3.2.0"]
 
 
 def test_docs_whats_new_is_latest_release():
@@ -80,7 +86,16 @@ def test_highlight_shortens():
 
 
 def test_every_page_shows_the_current_version():
-    version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
+    version = bc._current_version()   # the site shows stable, also while pyproject is a pre-release
     for page in sorted((ROOT / "public").glob("*.html")):
         for shown in re.findall(r'<div class="nav-version">v([^<]+)</div>', page.read_text(encoding="utf-8")):
             assert shown == version, f"{page.name} shows v{shown}, pyproject is {version}"
+
+
+def test_v4_preview_tab_lists_only_pre_releases():
+    block = bc._between(PAGE, "changelog:v4") or ""
+    assert 'class="tab"' not in block
+    versions = re.findall(r'<h2 id="v4-([^"]+)">', block)
+    assert versions, "v4 tab is empty — run python3 scripts/build_changelog.py"
+    assert all(bc._PRE.search(v) for v in versions)
+    assert not re.search(r'<h2 id="nexus-[^"]*(a|b|rc)\d+"', PAGE)      # never on the stable tab

@@ -17,6 +17,7 @@ structured "unsupported" / "tool_missing" answer with instructions, instead of
 a silent wrong guess.
 """
 
+import asyncio
 import json
 import os
 import re
@@ -671,7 +672,7 @@ def resolve(packages: list[str], package_manager: str = "", stack_hint: str = ""
 
 def register_package_resolver_tool(mcp: FastMCP) -> None:
     @mcp.tool()
-    def resolve_package_versions(
+    async def resolve_package_versions(
         packages: list[str],
         package_manager: str = "",
         stack_hint: str = "",
@@ -700,4 +701,6 @@ def register_package_resolver_tool(mcp: FastMCP) -> None:
                     "package_manager": "npm", "lock_file": "package-lock.json",
                     "errors": [...], "instructions": "..." (when not resolved) }
         """
-        return json.dumps(resolve(packages, package_manager, stack_hint))
+        # Package managers can run for minutes; run them in a worker thread so the MCP server
+        # keeps answering other tool calls meanwhile.
+        return json.dumps(await asyncio.to_thread(resolve, packages, package_manager, stack_hint))

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{# DES-002 Clinic Schedule — from "Frame - Clinic Schedule.dc.html". Shell only; the grid is SCHED-001. #}
+{% block title %}Schedule · CareSlot{% endblock %}
+{% block content %}
+<div class="rounded-lg border border-border bg-background p-5">
+  <h2 class="text-lg font-semibold">Schedule</h2>
+  <div id="schedule-grid">{% include "components/empty_state.html" with message="No appointments for this day" %}</div>
+</div>
+{% endblock %}

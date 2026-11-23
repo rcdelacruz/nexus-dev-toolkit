@@ -1,0 +1,15 @@
+:root {
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --primary: #1F9D6B;
+  --destructive: #d4183d;
+  --border: #e4e5e1;
+  --radius: 0.625rem;
+}
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(1 0 0);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --primary: #22c38e; }
+}

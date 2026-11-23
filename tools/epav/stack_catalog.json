@@ -107,7 +107,7 @@
     {"name": "Phoenix", "category": "backend", "aliases": ["phoenix framework", "phoenix liveview", "liveview"], "exact_case": ["Phoenix"], "package_manager": "mix"},
     {"name": "Vapor", "category": "backend", "aliases": ["vapor swift", "vapor framework"], "exact_case": ["Vapor"], "package_manager": "swiftpm"},
 
-    {"name": "React Native", "category": "mobile", "aliases": ["react native", "react-native"], "package_manager": "npm"},
+    {"name": "React Native", "category": "mobile", "aliases": ["react native", "react-native"], "package_manager": "npm", "shadows": ["React"]},
     {"name": "Expo", "category": "mobile", "aliases": ["expo", "expo router"], "package_manager": "npm"},
     {"name": "Flutter", "category": "mobile", "aliases": ["flutter"], "package_manager": "pub"},
     {"name": "Swift / iOS native", "category": "mobile", "aliases": ["swiftui", "uikit", "ios native", "native ios"], "package_manager": "swiftpm"},

@@ -11,6 +11,8 @@ def test_epav_tools_register():
     assert "load_task" in tool_names
     assert "generate_project_rules" in tool_names
     assert "resolve_package_versions" in tool_names
+    assert "ingest_design_export" in tool_names
+    assert "record_change_request" in tool_names and "trace_tasks" in tool_names
 
 
 def test_epav_tools_register_idempotent():
