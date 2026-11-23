@@ -37,6 +37,9 @@ def _never_install_for_real(monkeypatch):
             raise AssertionError(f"test tried a real install: {words}")
         return real(cmd, *a, **k)
     monkeypatch.setattr("nexus_cli.subprocess.run", guard)
+    # a test runner launched through `uv run --with …` lives in uv's cache, like uvx — tests that
+    # need the uvx path set it themselves
+    monkeypatch.setattr("nexus_cli._via_uvx", lambda: False)
 
 
 @pytest.fixture(autouse=True)
@@ -1342,3 +1345,38 @@ def test_sync_moves_a_git_mcp_entry_to_the_installed_commit(tmp_project, monkeyp
     monkeypatch.setattr(nexus_cli.subprocess, "run", lambda *a, **k: type("R", (), {"returncode": 0})())
     runner.invoke(app, ["channel", "stable", "--project", str(tmp_project)], input="n\n")
     assert frm() == "nexus-dev-toolkit"
+
+
+def _no_install(*a, **k):
+    pytest.fail("running through uvx must never install")
+
+
+def test_update_through_the_nexus4_alias_installs_nothing(tmp_project, monkeypatch):
+    # `alias nexus4="uvx --refresh --from 'git+…@v4-preview' nexus"`: `nexus4 update` once replaced
+    # the person's installed nexus 3 with the preview
+    monkeypatch.setattr(nexus_cli, "_via_uvx", lambda: True)
+    monkeypatch.setattr(nexus_cli, "_direct_url", lambda: _git_info("a" * 40))
+    monkeypatch.setattr(nexus_cli, "_install", _no_install)
+    monkeypatch.setattr(nexus_cli, "_fetch_releases", lambda: pytest.fail("nothing to look up"))
+    out = _flat(runner.invoke(app, ["update"]).output)
+    assert "nothing to install" in out and "nexus4 sync" in out
+
+
+def test_channel_through_the_nexus4_alias_switches_the_project_only(tmp_project, monkeypatch):
+    monkeypatch.delenv("NEXUS_MCP_FROM", raising=False)
+    monkeypatch.setattr(nexus_cli, "_direct_url", lambda: _git_info("a" * 40))
+    runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "none"])
+    monkeypatch.setattr(nexus_cli, "_via_uvx", lambda: True)
+    monkeypatch.setattr(nexus_cli, "_install", _no_install)
+    r = runner.invoke(app, ["channel", "stable", "--project", str(tmp_project)])
+    assert r.exit_code == 0 and "installed nexus is unchanged" in _flat(r.output)
+    args = json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"]["nexus"]["args"]
+    assert args[args.index("--from") + 1] == "nexus-dev-toolkit"
+
+
+def test_via_uvx_reads_uvs_cache_layout(monkeypatch):
+    monkeypatch.undo()   # drop the autouse stub; test the real check
+    monkeypatch.setattr(nexus_cli.sys, "prefix", "/Users/x/.cache/uv/archive-v0/igOoFvcLzKcEwq5G")
+    assert nexus_cli._via_uvx()
+    monkeypatch.setattr(nexus_cli.sys, "prefix", "/Users/x/.local/share/uv/tools/nexus-dev-toolkit")
+    assert not nexus_cli._via_uvx()

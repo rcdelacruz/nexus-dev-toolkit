@@ -295,7 +295,7 @@
     <p class="lead">One small product taken through every nexus v4 step, with every file it produces —
       so product owners, architects, designers and developers can see what "done" looks like at each
       step and how a change request finds exactly the right tasks. CareSlot is made up.</p>
-    <div class="callout warn"><strong>Preview.</strong> These commands are in the nexus v4 preview, not on PyPI yet. Install: <code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — see <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a> for keeping nexus 3 too and going back.</div>
+    <div class="callout warn"><strong>Preview.</strong> nexus v4 isn't on PyPI yet. Install it from the <code>v4-preview</code> branch: <code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — or keep nexus 3 as <code>nexus</code> and run the preview as <code>nexus4</code>. Both, plus updating and going back: <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a>.</div>
 
     <h2 id="what">What It Is</h2>
     <p>Three outpatient clinics want online booking: patients book, see and cancel appointments,
@@ -376,6 +376,9 @@ Affected tasks: BOOK-005, NOTIF-002 → re-planned · BOOK-006 added · 9 others
     <pre><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'
 <span class="prompt">$</span> <span class="cmd">cp</span> -r examples/clinic-appointments ~/careslot &amp;&amp; cd ~/careslot &amp;&amp; git init -q &amp;&amp; git add -A &amp;&amp; git commit -qm start
 <span class="prompt">$</span> <span class="cmd">nexus init</span> . --role product</code></pre>
+    <p>Want to keep nexus 3 as your <code>nexus</code>? Skip the install line and run the preview without installing it, under another name:</p>
+    <pre><code><span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"
+<span class="prompt">$</span> <span class="cmd">nexus4</span> --version   <span class="comment"># then use nexus4 wherever this page says nexus</span></code></pre>
     <p>Then rehearse <strong>CR-002</strong> from the walkthrough: allow 3 future appointments instead of 2. The record
       should list AC-006, BR-002, FR-BOOK-002 and US-003 as changed, and the planner should re-plan BOOK-003, BOOK-004
       and the booking epic row — nothing else.</p>

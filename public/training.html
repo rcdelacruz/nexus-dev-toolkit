@@ -348,6 +348,7 @@ flowchart TB
 <span class="prompt">$</span> <span class="cmd">nexus</span> --version   <span class="comment"># nexus-dev-toolkit v4.0.0a1</span></code></pre>          <div class="step-desc">New to git? Read the <a href="/git-guide" style="color:var(--cyan)">git guide</a> first. Everyone in the team installs the same preview: a nexus 3 <code>nexus init</code> in this repository would point the shared <code>.mcp.json</code> back at nexus 3. Fixes pushed to the preview arrive with <code>nexus update</code>, then <code>nexus sync</code> in the repository. Back to nexus 3 after the training: <code>nexus channel stable</code>.</div>
           <div class="step-desc">Want to keep nexus 3 as your <code>nexus</code>? Skip the install line and run the preview without installing it, under another name:</div><pre><code><span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"
 <span class="prompt">$</span> <span class="cmd">nexus4</span> --version   <span class="comment"># then use nexus4 wherever this page says nexus</span></code></pre>
+          <div class="step-desc">With the alias, every run already fetches the newest preview: <code>nexus4 update</code> installs nothing, <code>nexus4 sync</code> moves the repository to the newest commit, and back to nexus 3 is <code>nexus4 channel stable</code> then <code>nexus sync</code>.</div>
         </div>
       </div>
       <div class="step" data-roles="facilitator lead">

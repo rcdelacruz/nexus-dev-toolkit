@@ -306,7 +306,7 @@
     </table>
     <p><code>/design</code> is optional. Screens follow the architect's <strong>epics</strong>
       (<code>docs/arch-docs/&lt;app&gt;/</code>, the <code>Epic:</code> line of each ADR file).</p>
-    <div class="callout warn"><strong>Preview.</strong> These commands are in the nexus v4 preview, not on PyPI yet. Install: <code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — see <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a> for keeping nexus 3 too and going back.</div>
+    <div class="callout warn"><strong>Preview.</strong> nexus v4 isn't on PyPI yet. Install it from the <code>v4-preview</code> branch: <code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — or keep nexus 3 as <code>nexus</code> and run the preview as <code>nexus4</code>. Both, plus updating and going back: <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a>.</div>
 
     <h2 id="who">Who This Is For</h2>
     <p>Product and UI designers who export from Figma, Figma Make, Claude Design or similar. You work only in
@@ -316,6 +316,9 @@
     <h2 id="setup">Set Up Once</h2>
     <pre><code><span class="prompt">$</span> <span class="cmd">uv tool install</span> --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'
 <span class="prompt">$</span> <span class="cmd">nexus init</span> . --role designer   <span class="comment"># installs /design and /change-request only</span></code></pre>
+    <p>Want to keep nexus 3 as your <code>nexus</code>? Skip the install line and run the preview without installing it, under another name:</p>
+    <pre><code><span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"
+<span class="prompt">$</span> <span class="cmd">nexus4</span> --version   <span class="comment"># then use nexus4 wherever this page says nexus</span></code></pre>
 
     <h2 id="export">What to Export</h2>
     <p>One folder or <code>.zip</code> per app, in <code>docs/designs/&lt;app&gt;/</code>, with:</p>

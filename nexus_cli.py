@@ -843,6 +843,12 @@ def init(
         console.print("  [cyan]→[/cyan]  Next: run [bold]codegraph install && codegraph init[/bold] to wire codegraph into this project (it manages its own auto-sync — no hook needed).\n")
 
 
+def _via_uvx() -> bool:
+    """True when this nexus runs from uvx's throwaway environment (e.g. the `nexus4` alias) rather
+    than an installed tool. Installing from here would replace the person's installed `nexus`."""
+    return any(part.startswith(("archive-v", "builds-v")) for part in Path(sys.prefix).parts)
+
+
 def _install(spec: str) -> bool:
     """Install `spec` as the nexus tool. `uv tool install --reinstall`, never `uv tool upgrade`
     (which can silently do nothing). True on success."""
@@ -876,6 +882,18 @@ def update(
     """Update nexus-dev-toolkit. Stays on your channel: stable, or the 4.0 pre-releases (which move
     you to stable automatically once 4.0.0 is out). Installed from a git branch (a preview):
     reinstalls the newest commit on that branch."""
+    if _via_uvx():
+        console.print("\n  [green]✓[/green]  This nexus runs through uvx (e.g. the nexus4 alias): every run already "
+                      "fetches the newest build, so there is nothing to install. Your installed "
+                      "[bold]nexus[/bold] is left as it is.\n")
+        if also_sync:
+            table = _sync_project(Path(".").resolve())
+            if table is not None:
+                console.print(table)
+        else:
+            console.print("  [dim]Run sync the same way in each project (e.g. [/dim][cyan]nexus4 sync[/cyan][dim]) — "
+                          "it points the project's MCP server at the newest commit.[/dim]\n")
+        return
     git = _git_install()
     if git:
         _update_from_git(git)
@@ -1001,6 +1019,16 @@ def channel_cmd(
         channel.save_manifest(root, old.nexus_version or _VERSION,
                               {r: h for r, h in old.files.items() if r not in removed})
 
+    if _via_uvx():  # the alias: switch the project only — never replace the installed nexus
+        if target == "v4":
+            table = _sync_project(root)
+            if table is not None:
+                console.print(table)
+            console.print(f"\n  [green]✓[/green]  Project on the v4 channel. Your installed [bold]nexus[/bold] is unchanged.\n")
+        else:
+            console.print("\n  [green]✓[/green]  Project switched back to stable. Your installed [bold]nexus[/bold] is "
+                          "unchanged — run [cyan]nexus sync[/cyan] with it here to finish.\n")
+        return
     spec = channel.PACKAGE if target == "stable" else f"{channel.PACKAGE}>=4.0.0a0"
     console.print(f"\n  [cyan]▶[/cyan]  Installing {spec}…\n")
     if not _install(spec):

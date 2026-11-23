@@ -46,6 +46,9 @@ cp -r examples/clinic-appointments ~/careslot && cd ~/careslot && git init -q &&
 nexus init . --role product                        # or architect / designer / developer
 ```
 
+Keeping nexus 3 as `nexus`? Skip the install line and run the preview as `nexus4` instead:
+`alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"`, then use `nexus4` wherever this page says `nexus`.
+
 Then open Claude Code in `~/careslot` and follow the exercise at the end of the walkthrough.
 
 ## Generated vs written by hand
