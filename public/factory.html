@@ -269,6 +269,10 @@
 
     <div class="nav-section">Article</div>
     <a href="#what">What it is</a>
+    <a href="#how" class="sub">How it works</a>
+    <a href="#challenges" class="sub">Key challenges</a>
+    <a href="#concepts" class="sub">The ideas behind it</a>
+    <a href="#where" class="sub">Where nexus sits</a>
     <a href="#line">The line</a>
     <a href="#layers">Five layers</a>
     <a href="#people">People move up</a>
@@ -302,17 +306,106 @@
     <div class="callout warn"><strong>Preview.</strong> The roles described here are in nexus v4, which isn't on PyPI yet. Run it as <code>nexus4</code>, next to your nexus 3: <a href="#try" style="color:var(--cyan)">Try it</a>.</div>
 
     <h2 id="what">What an AI Software Factory Is</h2>
-    <p>We use the definition from Cortex's article
-      <a href="https://www.cortex.io/post/what-is-an-ai-software-factory" target="_blank" rel="noopener" style="color:var(--cyan)">What is an AI software factory?</a>:
-      an organisational system that turns customer needs into shipped, reliable software, with AI agents doing the
-      building while engineers design and operate the system itself. The article describes a loop — plan, build, production,
-      feedback — standing on layers of models, context, agents, pipelines and controls, and it warns that the
-      controls are the part that isn't keeping up.</p>
-    <p>nexus is the factory floor for the part of that loop that lives in the repository: <strong>plan and build,
-      plus the change requests that feed back into them</strong>. Its answer to "the controls aren't keeping up" is to
-      make every step leave a record a person can check: stable requirement IDs, a plan that waits for approval, a
-      validation against the task's own acceptance criteria, and a pull request reviewed by the person who owns that
-      part of <code>docs/</code> or the code.</p>
+    <p>In 2026 "software factory" came to mean a way of building software in which AI agents do most of the work and
+      people design and run the system around them. The clearest current definition is Addy Osmani's in
+      <a href="https://www.oreilly.com/radar/software-factories-light-and-dark/" style="color:var(--cyan)" target="_blank" rel="noopener">Software Factories, Light and Dark</a>
+      (O'Reilly Radar, September 2026): <em>"many harnessed loops running at once, fed by a queue of work and drained
+      through a review gate into production."</em> Cortex's
+      <a href="https://www.cortex.io/post/what-is-an-ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">What is an AI software factory?</a>
+      (June 2026) takes the organisational view: the whole plan–build–production–feedback loop, and the controls around
+      it, which it says are not keeping up.</p>
+
+    <h3 id="how">How it works</h3>
+    <table>
+      <thead><tr><th>Stage</th><th>What happens</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Intake</strong></td><td>Work arrives as tickets, specs, bug reports or chat messages and is queued as tasks an agent can take.</td>
+          <td>An open-source factory splits a release PRD into linked issues and works out which can run in parallel (<a href="https://github.com/coleam00/ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">coleam00/ai-software-factory</a>); Stripe's minion runs start from a Slack message, an internal tool, or a button on a flaky-test ticket (<a href="https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents" style="color:var(--cyan)" target="_blank" rel="noopener">Stripe</a>)</td></tr>
+        <tr><td><strong>Isolated execution</strong></td><td>Each agent run works in its own environment, so parallel runs don't collide and mistakes stay contained.</td>
+          <td>An environment per change with real databases and queues, reviewed as a running preview (<a href="https://encore.dev/articles/what-is-an-ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">Encore</a>); Stripe's devboxes are isolated from production and the internet; StrongDM tests against clones of the services it depends on (<a href="https://factory.strongdm.ai/" style="color:var(--cyan)" target="_blank" rel="noopener">StrongDM</a>)</td></tr>
+        <tr><td><strong>Checks and review</strong></td><td>Tests, linters, type checks and reviewer agents check every change before it moves on.</td>
+          <td>Two reviewers that didn't write the change decide whether it merges (<a href="https://github.com/coleam00/ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">coleam00</a>); guides before the agent acts, sensors after it (<a href="https://martinfowler.com/articles/harness-engineering.html" style="color:var(--cyan)" target="_blank" rel="noopener">Böckeler</a>)</td></tr>
+        <tr><td><strong>Human governance</strong></td><td>People set the goals, standards and guardrails, and decide where a human still reviews.</td>
+          <td>"Humans steer. Agents execute." (<a href="https://openai.com/index/harness-engineering/" style="color:var(--cyan)" target="_blank" rel="noopener">OpenAI</a>)</td></tr>
+        <tr><td><strong>Governed deploy</strong></td><td>Merged work reaches staging or the team's own cloud through a deploy the platform team controls; agents don't ship to production on their own.</td>
+          <td>"nothing ships without a human approving it" (<a href="https://encore.dev/articles/what-is-an-ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">Encore</a>); you test the whole release in staging and anything off becomes a new issue (<a href="https://github.com/coleam00/ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">coleam00</a>)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="challenges">Key challenges</h3>
+    <ul style="margin:0 0 1.25rem 1.25rem;line-height:1.8">
+      <li><strong>Review is the bottleneck.</strong> Agents open pull requests faster than people can read them. Cortex
+        reports that human review of every PR is "no longer something a team can sustain", and that in its 2026 benchmark
+        incident volume rose along with PR throughput (<a href="https://www.cortex.io/post/what-is-an-ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">Cortex</a>).</li>
+      <li><strong>Trusting what nobody read.</strong> "The automation is the easy half. Being able to trust a merge you did not
+        read is the hard half" (<a href="https://github.com/coleam00/ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">coleam00/ai-software-factory</a>). Encore makes the same point: writing the code
+        has stopped being the hard part; verifying it and getting it safely to production is (<a href="https://encore.dev/articles/what-is-an-ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">Encore</a>).</li>
+      <li><strong>Isolation.</strong> Agents running in parallel collide on shared test runs and databases unless each
+        change gets its own environment (Encore).</li>
+      <li><strong>Context.</strong> Agents are only as good as the codebase knowledge, specs and standards they can read,
+        which have to be written down and kept current rather than left to tribal memory (Cortex; Böckeler's "guides").</li>
+      <li><strong>Cost.</strong> Agent spend is volatile and can climb faster than teams expect (Cortex); StrongDM's own
+        rule of thumb is at least $1,000 of tokens per engineer per day.</li>
+      <li><strong>Not an "AI factory".</strong> An AI software factory builds software. NVIDIA uses "AI factory" for
+        data-centre hardware — a different thing (Cortex).</li>
+    </ul>
+
+    <h3 id="concepts">The ideas behind it</h3>
+    <table>
+      <thead><tr><th>Idea</th><th>What it means</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Humans steer, agents execute</strong></td>
+          <td>Engineers stop typing code and instead design the environment, state the intent and build the feedback
+            loops. OpenAI's team grew from three to seven engineers and merged about 1,500 pull requests in five months
+            with no manually written code.</td>
+          <td><a href="https://openai.com/index/harness-engineering/" style="color:var(--cyan)" target="_blank" rel="noopener">OpenAI, Harness engineering</a> (Feb 2026)</td></tr>
+        <tr><td><strong>The harness</strong></td>
+          <td>Everything around the model that makes its work trustworthy: <em>guides</em> that steer the agent before it
+            acts (instructions, conventions, specs) and <em>sensors</em> that check after it acts (tests, linters, type
+            checks, AI review), so it can correct itself.</td>
+          <td><a href="https://martinfowler.com/articles/harness-engineering.html" style="color:var(--cyan)" target="_blank" rel="noopener">Böckeler, martinfowler.com</a> (Apr 2026)</td></tr>
+        <tr><td><strong>Levels, up to the dark factory</strong></td>
+          <td>Five levels of AI-assisted development, modelled on self-driving cars. At the top, the "dark factory" —
+            named after Fanuc's robot-run plant — is "a black box that turns specs into software".</td>
+          <td><a href="https://www.danshapiro.com/blog/2026/01/the-five-levels-from-spicy-autocomplete-to-the-software-factory/" style="color:var(--cyan)" target="_blank" rel="noopener">Dan Shapiro</a> (Jan 2026)</td></tr>
+        <tr><td><strong>Dark in practice</strong></td>
+          <td>StrongDM's factory: specs and end-to-end scenarios drive agents, checked against clones of the services it
+            depends on. Its rules: code must not be written, or reviewed, by humans.</td>
+          <td><a href="https://factory.strongdm.ai/" style="color:var(--cyan)" target="_blank" rel="noopener">StrongDM</a> (Feb 2026)</td></tr>
+        <tr><td><strong>Lit in practice</strong></td>
+          <td>Stripe's "Minions" start from a Slack message and run in isolated dev machines; over 1,300 pull requests a
+            week contain no human-written code, and each one is reviewed by a person.</td>
+          <td><a href="https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents-part-2" style="color:var(--cyan)" target="_blank" rel="noopener">Stripe</a> (Feb 2026)</td></tr>
+        <tr><td><strong>Light or dark is a choice per step</strong></td>
+          <td>Dark and lit are the same pipeline with the lights in different places: keep human review where a wrong
+            answer is expensive. Run it all dark, he warns, "and you're stuck tearing everything down four months later."</td>
+          <td><a href="https://www.oreilly.com/radar/software-factories-light-and-dark/" style="color:var(--cyan)" target="_blank" rel="noopener">Osmani, O'Reilly Radar</a> (Sep 2026)</td></tr>
+      </tbody>
+    </table>
+    <p>The word itself is much older. Hitachi says its
+      <a href="https://www.hitachi.co.jp/Div/soft/history.html" style="color:var(--cyan)" target="_blank" rel="noopener">Software Factory</a> became the world's first facility dedicated
+      to software in 1969, and <a href="https://doi.org/10.1109/C-M.1975.218953" style="color:var(--cyan)" target="_blank" rel="noopener">"The Software Factory"</a> was the title of a
+      1975 paper in <em>IEEE Computer</em>. We couldn't
+      find who first applied it to AI agents.</p>
+
+    <h3 id="where">Where nexus sits</h3>
+    <p>nexus is a <strong>lit</strong> factory for the part of the loop that lives in the repository: plan and build,
+      plus the change requests that feed back into them. On Shapiro's scale it works at levels 3 and 4 — people write
+      the specs, approve every plan and review every pull request. The closest open-source relative,
+      <a href="https://github.com/coleam00/ai-software-factory" style="color:var(--cyan)" target="_blank" rel="noopener">coleam00/ai-software-factory</a>, also starts from a PRD and is also "not a dark factory", but automates
+      the middle: two AI reviewers decide each merge and people judge the result in staging. nexus keeps a person at the
+      plan and at every pull request instead. In harness terms:</p>
+    <table>
+      <thead><tr><th>Factory idea</th><th>In nexus</th></tr></thead>
+      <tbody>
+        <tr><td>Intake</td><td>BRD/PRD and change requests become task CSVs, one per epic, every row traced to requirement IDs; a person starts each task with <code>/evaluate</code></td></tr>
+        <tr><td>Isolated execution</td><td>Each developer's own checkout and branch; nexus doesn't create sandboxes</td></tr>
+        <tr><td>Guides (before the agent acts)</td><td>BRD/PRD, the architecture and design guides, <code>AGENTS.md</code>, <code>knowledge/</code>, the code graph, and a plan that waits for approval</td></tr>
+        <tr><td>Sensors (after it acts)</td><td><code>/validate</code> against the task's acceptance criteria, the stack's tests and linters, six reviewer agents, and each role's document checks</td></tr>
+        <tr><td>Review gate</td><td>A pull request reviewed by the code owner of that part of <code>docs/</code> or the code</td></tr>
+        <tr><td>Feedback</td><td><code>/change-request</code>: documents first, then only the task rows that trace to the changed IDs</td></tr>
+      </tbody>
+    </table>
 
     <h2 id="line">The Line, Station by Station</h2>
     <div class="diagram">
@@ -362,8 +455,8 @@ flowchart TB
     <h3>2. Agents and the harness</h3>
     <p>The stations are plain Markdown commands that run in Claude Code, OpenCode or Codex. <code>nexus init --role</code>
       installs only what a role needs: a product owner gets <code>/brd</code>, <code>/prd</code>, <code>/requirements</code>
-      and <code>/change-request</code> and no developer tooling; a developer gets the four EPAV steps plus five reviewer
-      agents (code, database, deployment, performance, monitoring).</p>
+      and <code>/change-request</code> and no developer tooling; a developer gets the four EPAV steps plus six reviewer
+      agents (code, database, deployment, performance, monitoring, and a PR verifier).</p>
     <h3>3. Gates — where a person or a check can say no</h3>
     <ul style="margin:0 0 1.25rem 1.25rem;line-height:1.8">
       <li><strong>The plan waits.</strong> <code>/plan</code> stops until a person approves it; nothing is written before that.</li>
@@ -423,6 +516,9 @@ flowchart TB
 
     <h2 id="gaps">What nexus Doesn't Do (Yet)</h2>
     <ul style="margin:0 0 1.25rem 1.25rem;line-height:1.8">
+      <li><strong>Automatic intake and parallel runs.</strong> nexus doesn't pull work from GitHub, Linear or Sentry by itself, and a person starts one task at a time; there is no queue of agents running in parallel.</li>
+      <li><strong>Sandboxes.</strong> Agents run in the developer's own checkout, not in isolated environments that nexus creates.</li>
+      <li><strong>Releases.</strong> Deployment, staging approvals, feature flags and rollbacks are outside nexus.</li>
       <li><strong>Production and feedback.</strong> Incidents and monitoring don't flow back into the loop by themselves; today a person turns them into a change request.</li>
       <li><strong>Organisation-wide measurement.</strong> nexus checks each task, document and change request. Delivery and reliability trends across teams (DORA-style metrics) belong to other tools.</li>
       <li><strong>Earned autonomy.</strong> The rule is fixed: every plan waits for a person. There are no autonomy levels per team or task type.</li>
