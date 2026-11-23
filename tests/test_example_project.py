@@ -121,7 +121,9 @@ def test_client_pack_zip_is_what_the_team_gets_on_day_one():
     import zipfile
     pack = ROOT / "examples" / "careslot-client-pack"
     names = set(zipfile.ZipFile(ROOT / "public" / "careslot-client-pack.zip").namelist())
-    assert "careslot-client-pack/kickoff-notes.md" in names and "careslot-client-pack/design-system/tokens.css" in names
-    assert not any("/later/" in n for n in names)                         # the change request arrives later
+    # unzipped in the repository root, the files land where the commands read them
+    assert "docs/requirements/sources/kickoff-notes.md" in names and "docs/designs/design-system/tokens.css" in names
+    assert all(n.startswith(("docs/requirements/sources/", "docs/designs/design-system/")) for n in names)
+    assert not any("later" in n for n in names)                           # the change request arrives later
     assert (pack / "later" / "cr-001-client-email.md").is_file()
     assert (pack / "design-system" / "tokens.css").read_text() == (DOCS / "designs" / "design-system" / "tokens.css").read_text()

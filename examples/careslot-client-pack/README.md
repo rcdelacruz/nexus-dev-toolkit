@@ -11,10 +11,10 @@ Everyone and everything in it is invented.
 | `team-constraints.md` | Architect | `/architect` |
 | `design-system/` | Designer | `/design careslot --system …`, or your own tool (Claude Design, Figma Make) |
 
-Put the files in the project at `docs/requirements/sources/` (the design system at `docs/designs/design-system/`)
-and commit them — on a real project the client's material lives with the requirements it produced.
+Unzip `careslot-client-pack.zip` in the root of the project repository: the notes land in `docs/requirements/sources/`,
+the design system in `docs/designs/design-system/`. Commit them — the client's material lives with the requirements it produced.
 
 **Facilitator:** `later/cr-001-client-email.md` is the client's change request. It is not in the zip — send it to
-the product owner after the developers have started building (step 7 of the training).
+the product owner after the developers have started building (the training's step "Send the client's change request").
 
 Training guide: https://v4-preview.nexus-coderstudio.pages.dev/training

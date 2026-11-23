@@ -175,16 +175,24 @@ def build_pack(example: Path, pack: Path) -> None:
     shutil.copytree(example / "docs" / "designs" / "design-system", dst, ignore=_COPY_SKIP)
 
 
+def _pack_target(rel: Path) -> str:
+    """Where a pack file lands in the project: the zip is unzipped in the repository root, so its
+    paths are the project's (notes → docs/requirements/sources/, design system → docs/designs/)."""
+    if rel.parts[0] == "design-system":
+        return Path("docs/designs", *rel.parts).as_posix()
+    return Path("docs/requirements/sources", *rel.parts).as_posix()
+
+
 def pack_zip_bytes(pack: Path) -> bytes:
     """careslot-client-pack.zip — what the team receives on day one (no later/), byte-for-byte
-    reproducible (sorted entries, fixed timestamps)."""
+    reproducible (sorted entries, fixed timestamps). Unzipped in the repository root."""
     import io
     import zipfile
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(p for p in pack.rglob("*") if p.is_file() and p.name != ".DS_Store"
                         and "later" not in p.relative_to(pack).parts):     # the CR email arrives later
-            info = zipfile.ZipInfo(f"careslot-client-pack/{f.relative_to(pack).as_posix()}", date_time=(2026, 11, 23, 0, 0, 0))
+            info = zipfile.ZipInfo(_pack_target(f.relative_to(pack)), date_time=(2026, 11, 23, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
             z.writestr(info, f.read_bytes())
