@@ -128,10 +128,10 @@ _BUILTIN_AGENTS = [
 # no graphify hooks — only their commands, the MCP server and the guides.
 _ROLES = ("developer", "product", "architect", "designer")
 _ROLE_SKILLS = {
-    "product": ["brd.md", "prd.md", "requirements.md", "change-request.md"],
-    "architect": ["requirements.md", "architect.md", "change-request.md"],
-    "designer": ["design.md", "change-request.md"],
-}
+    "product": ["brd.md", "prd.md", "requirements.md", "change-request.md", "commit.md", "create-pr.md"],
+    "architect": ["requirements.md", "architect.md", "change-request.md", "commit.md", "create-pr.md"],
+    "designer": ["design.md", "change-request.md", "commit.md", "create-pr.md"],
+}   # no command commits by itself: every role commits with /commit and opens the PR with /create-pr
 
 
 def _role_skills(role: str) -> list[str]:
@@ -221,13 +221,14 @@ _PRE_COMMIT_CONFIG = ".pre-commit-config.yaml"
 
 
 def _install_commit_hook(root: Path) -> str | None:
-    """`pre-commit install --hook-type commit-msg` through uvx (uv is already required). None on
-    success, else a short reason. Tests replace this: it downloads pre-commit."""
+    """`pre-commit install` for both hook types through uvx (uv is already required): commit-msg
+    runs commitizen, pre-commit runs whatever /scaffold adds later (formatter, linter) — in every
+    clone, not only the tech lead's. None on success, else a short reason. Tests replace this."""
     uvx = shutil.which("uvx")
     if not uvx:
         return "uvx not found — install uv, then run nexus sync"
     try:
-        r = subprocess.run([uvx, "pre-commit", "install", "--hook-type", "commit-msg"],
+        r = subprocess.run([uvx, "pre-commit", "install", "--hook-type", "pre-commit", "--hook-type", "commit-msg"],
                            cwd=root, capture_output=True, text=True, timeout=300)
     except (OSError, subprocess.TimeoutExpired) as e:
         return type(e).__name__
@@ -238,13 +239,17 @@ def _install_commit_hook(root: Path) -> str | None:
 
 
 def _commit_hook_installed(root: Path) -> bool:
-    try:
-        rel = subprocess.run(["git", "rev-parse", "--git-path", "hooks/commit-msg"], cwd=root,
-                             capture_output=True, text=True, timeout=10).stdout.strip()
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    hook = root / rel if rel else None
-    return bool(hook and hook.is_file() and "pre-commit" in hook.read_text(encoding="utf-8", errors="ignore"))
+    """Both hooks (pre-commit and commit-msg) are pre-commit's in this clone."""
+    for name in ("pre-commit", "commit-msg"):
+        try:
+            rel = subprocess.run(["git", "rev-parse", "--git-path", f"hooks/{name}"], cwd=root,
+                                 capture_output=True, text=True, timeout=10).stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        hook = root / rel if rel else None
+        if not (hook and hook.is_file() and "pre-commit" in hook.read_text(encoding="utf-8", errors="ignore")):
+            return False
+    return True
 
 
 def _setup_commit_check(root: Path) -> tuple[list[str], list[str]]:
@@ -1506,6 +1511,19 @@ def doctor(
             table.add_row(".codex/config.toml", ok("nexus entry present"))
         else:
             table.add_row(".codex/config.toml", warn("exists but no [mcp_servers.nexus] entry"))
+
+    # ── Commit check (commitizen) ────────────────────────────────────────────
+    cfg = root / _PRE_COMMIT_CONFIG
+    if not cfg.is_file():
+        table.add_row("Commit check", warn(f"no {_PRE_COMMIT_CONFIG} — run nexus sync"))
+    elif "commitizen" not in cfg.read_text(encoding="utf-8", errors="ignore"):
+        table.add_row("Commit check", warn(f"{_PRE_COMMIT_CONFIG} has no commitizen entry — commit messages aren't checked"))
+    elif not (root / ".git").exists():
+        table.add_row("Commit check", warn("not a git repository yet"))
+    elif _commit_hook_installed(root):
+        table.add_row("Commit check", ok("on in this clone (commitizen; formatter/linter hooks run too)"))
+    else:
+        table.add_row("Commit check", warn("not installed in this clone — run nexus sync"))
 
     # ── Skills & Agents ──────────────────────────────────────────────────────
     role = manifest.role or "developer"

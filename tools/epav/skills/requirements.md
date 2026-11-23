@@ -12,6 +12,8 @@
 - Use the project's **existing** ID scheme. Never renumber an existing requirement: a changed requirement keeps its ID (that's what `/change-request` records).
 - Never invent requirements, numbers or acceptance criteria. Anything missing from the source is a question for the user, listed in the plan.
 - Write only under `docs/requirements/`. Never touch code, `docs/arch-docs/` or `docs/designs/`.
+- **Never commit, push or open a pull request.** Write the files, check them, then stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.
+- **Start from the team's latest docs.** First `git fetch -q origin` (skip it when `git remote` prints nothing). If `git rev-list --count HEAD..origin/main` is above 0, say how many commits behind they are and that they should pull `main` first (`git switch main && git pull`) — then wait for them.
 
 ## EVALUATE
 
@@ -50,7 +52,7 @@ Do not write anything before the user approves.
 
 ## APPLY
 
-1. Create a branch: `git switch -c docs/requirements` (or stay on the user's current docs branch).
+1. Stay on the current branch — don't create one (`/commit` does, when the user commits).
 2. Write the Markdown files. One requirement per line or table row: `ID — statement`, then its acceptance criteria (`AC-…` or a bullet list). Keep original `.docx`/`.pdf` next to the Markdown copy.
 3. `git mv` misplaced requirement files out of `docs/arch-docs/`.
 
@@ -65,15 +67,15 @@ Check every rule in the guide; report each as BLOCKER / FIX NOW / BACKLOG:
 
 Fix every BLOCKER and FIX NOW (asking the user where only they can answer), then:
 
-1. `git add docs/requirements` — **only** docs/. `git commit -m "docs: requirements …"`.
-2. If the repo has a remote (`git remote` prints one), open a pull request (`gh pr create`, title `Requirements`); with no remote (e.g. a repo that isn't on GitHub yet) stop at the commit and say so. List the new IDs in it; the repo's CODEOWNERS decides who approves.
+1. Stop — don't commit. Suggested commit message: `docs: requirements …` (pull request title `Requirements`).
+2. For the pull request (`/create-pr`): list the new IDs in it; the repo's CODEOWNERS decides who approves.
 
 ```
 REQUIREMENTS — VALIDATE COMPLETE
 ────────────────────────────────
 IDs written:   <count, by kind>
 Checks:        <rule → PASS / FIXED / BACKLOG>
-Pull request:  <url | none — no remote>
+Next:           review the changes (`git diff`), then `/commit` and `/create-pr`
 ```
 
 Next step for the architect: `/architect <app>` — it splits the product into epics.

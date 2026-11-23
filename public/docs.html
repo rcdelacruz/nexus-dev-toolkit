@@ -1792,8 +1792,7 @@ flowchart TB
     </table>
     <p>Each command runs evaluate → plan → <strong>stops for approval</strong> → apply → validate, checks the work against
       the project's guide (<code>docs/requirements/REQUIREMENTS-GUIDE.md</code>, <code>docs/arch-docs/ARCHITECTURE-GUIDE.md</code>,
-      <code>docs/designs/DESIGN-GUIDE.md</code> — written once, never overwritten), commits only <code>docs/</code> and opens a
-      pull request (or stops at the commit when the repo has no remote). Requirement IDs follow the project's own scheme (<code>US-</code>, <code>FR-AUTH-</code>, <code>NFR-</code>,
+      <code>docs/designs/DESIGN-GUIDE.md</code> — written once, never overwritten), and stops: nothing is committed until you type <code>/commit</code> (it makes the branch), and <code>/create-pr</code> opens the pull request. Requirement IDs follow the project's own scheme (<code>US-</code>, <code>FR-AUTH-</code>, <code>NFR-</code>,
       <code>AC-</code> …). New to git? <a href="/git-guide">Git guide</a>. See it all on one product in the
       <a href="/example">CareSlot example</a>, then practise your role in the <a href="/training">Team Training</a>.</p>
 

@@ -17,6 +17,8 @@
 - Business rules are testable statements ("A patient can hold at most 2 future appointments"), not features. Each gets a `BR-` ID; existing IDs are never renumbered — a changed rule keeps its ID.
 - Don't split the product into modules or epics — that's the architect's call (`/architect`).
 - Write only `docs/requirements/BRD.md` (and the templates folder if it's missing). Never touch code or other docs folders.
+- **Never commit, push or open a pull request.** Write the files, check them, then stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.
+- **Start from the team's latest docs.** First `git fetch -q origin` (skip it when `git remote` prints nothing). If `git rev-list --count HEAD..origin/main` is above 0, say how many commits behind they are and that they should pull `main` first (`git switch main && git pull`) — then wait for them.
 
 ## EVALUATE
 
@@ -55,7 +57,7 @@ Open questions: <what's still unknown, owner>
 
 ## APPLY
 
-1. Branch: `git switch -c docs/brd` (or the user's docs branch).
+1. Stay on the current branch — don't create one (`/commit` does, when the user commits).
 2. Write `BRD.md` with every template section, in order. Fill the metadata table (version, date, owner, status, sources).
 3. Business rules go in the Business Rules table with their source; success metrics name the BR they serve.
 
@@ -67,7 +69,7 @@ Check the guide's rules and report each as BLOCKER / FIX NOW / BACKLOG — at le
 - every business goal has a success metric with a baseline and a target (R7);
 - nothing stated as fact lacks a source; unknowns are in Open Questions.
 
-Fix what you can; ask for the rest. Then `git add docs/requirements` — **only** that folder — and commit (`docs: BRD v<N>`). If the repo has a remote (`git remote` prints one), open a pull request (`gh pr create`, title `BRD`); with no remote (e.g. a repo that isn't on GitHub yet) stop at the commit and say so.
+Fix what you can; ask for the rest. Then stop — don't commit. Suggested commit message: `docs: BRD v<N>` (pull request title `BRD`).
 
 ```
 BRD — VALIDATE COMPLETE
@@ -76,7 +78,7 @@ Business rules: <count> (BR-001 … BR-0nn)
 Goals/metrics:  <n>/<n>
 Open questions: <n>
 Checks:         <rule → PASS / FIXED / BACKLOG>
-Pull request:   <url | none — no remote>
+Next:           review the changes (`git diff`), then `/commit` and `/create-pr`
 ```
 
 Next: `/prd` turns these business rules into user stories and requirements.
@@ -88,11 +90,11 @@ When the user asks to go through the open questions ("ask me the open questions 
 1. Ask **one** question at a time: the question, who owns it, and the likely options where you can. Wait for the answer before asking the next.
 2. The user answers, says **skip** (it stays open), or names who will answer (update its owner).
 3. After the last question, update `docs/requirements/BRD.md`: each answer goes into its section with its source ("<who answered>, <date>"), answered items leave Open Questions, and the metadata date changes (the version too, if the BRD was already merged). Never fill in what the user didn't say.
-4. Run VALIDATE again, commit on the same branch (`docs: BRD — open questions answered`) and push, so the open pull request updates. If it was already merged, use a new branch and pull request.
+4. Run VALIDATE again and stop — don't commit. Suggested commit message: `docs: BRD — open questions answered`. The user runs `/commit`, then `/create-pr` (it updates the pull request if one is already open).
 
 ```
 BRD — OPEN QUESTIONS
 ────────────────────
 Answered: <n>   Skipped: <n>   Still open: <n> (owners)
-Pull request: <url, updated | new | none — no remote>
+Next: review the changes (`git diff`), then `/commit` and `/create-pr`
 ```

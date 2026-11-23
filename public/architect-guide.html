@@ -303,8 +303,7 @@
 
     <h2 id="who">Who This Is For</h2>
     <p>Architects, solution designers, and the product owners or business analysts who own the requirements.
-      You work in the project's git repository, but only in <code>docs/</code>. nexus does the git steps for you
-      (branch, commit, pull request) — the <a href="/git-guide" style="color:var(--cyan)">git guide</a> covers the rest.</p>
+      You work in the project's git repository, but only in <code>docs/</code>. you commit with <code>/commit</code> (it makes the branch) and open the pull request with <code>/create-pr</code> — no command commits by itself — the <a href="/git-guide" style="color:var(--cyan)">git guide</a> covers the rest.</p>
 
     <h2 id="setup">Set Up Once</h2>
     <pre><code><span class="comment"># 1. install the nexus 4 preview</span>
@@ -341,7 +340,7 @@ flowchart TB
     </div>
     <p>Every command runs the same four steps developers use: it looks first, shows you a plan,
       <strong>stops for your approval</strong>, writes, then checks its own work against your guide. Nothing is
-      written before you say go, and every command commits only <code>docs/</code>.</p>
+      written before you say go, and nothing is committed until you type <code>/commit</code>.</p>
 
     <h2 id="requirements">/requirements [source]</h2>
     <p>Imports a BRD, PRD or brief (Markdown, Word or PDF) into <code>docs/requirements/</code> — one set for the

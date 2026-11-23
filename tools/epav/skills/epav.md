@@ -37,6 +37,10 @@ The active knowledge graph backend (graphify or codegraph) stays current automat
 
 Follow the `/validate` skill exactly. Check all acceptance criteria, fix all BLOCKERs and FIX NOWs, contribute patterns back to knowledge/.
 
+## Git
+
+**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.
+
 ## Abort at any step
 
 If the user says "stop", "abort", or "cancel" at any point — stop immediately and summarize what was completed and what was not.

@@ -42,3 +42,5 @@ Skipped:   <anything intentionally deferred>
 Then prompt:
 
 > "Ready to /validate. Type `/validate` to check against acceptance criteria."
+
+**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.

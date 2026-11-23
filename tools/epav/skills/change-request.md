@@ -11,6 +11,8 @@
 - Change requests flow upstream → downstream: requirements, then architecture, then designs, then dev tasks. This command edits only `docs/requirements/`, `docs/arch-docs/`, `docs/designs/` and `docs/change-requests/` — never code, never task files (that's `/dev-tasks-planner`'s job, using this command's record).
 - A changed requirement keeps its ID. New requirements get new IDs. Removed ones are deleted from the docs, not renumbered.
 - Follow each folder's guide (requirements / architecture / design) for whatever you edit.
+- **Never commit, push or open a pull request.** Write the files, check them, then stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.
+- **Start from the team's latest docs.** First `git fetch -q origin` (skip it when `git remote` prints nothing). If `git rev-list --count HEAD..origin/main` is above 0, say how many commits behind they are and that they should pull `main` first (`git switch main && git pull`) — then wait for them.
 
 ## EVALUATE
 
@@ -43,23 +45,23 @@ Record:        docs/change-requests/<CR-id>.json
 
 ## APPLY
 
-1. Branch: `git switch -c cr/<CR-id>`.
+1. Stay on the current branch — don't create one (`/commit` does, when the user commits).
 2. Edit the requirement files, then the architecture doc/ADRs (new version file for substantial changes). For design changes, list them for the designer — they update the screens (in Claude Design / Figma Make, or with `/design`) and commit the new files.
-3. Run `record_change_request` with `cr_id`, `title`, `reason`, `base` = the branch point (e.g. `main`), **write=false**: it reads the git diff of `docs/` and returns the changed / added / removed IDs and the dev-task rows that trace to them. Show it.
+3. Run `record_change_request` with `cr_id`, `title`, `reason`, `base` = `main` (it reads your uncommitted edits too), **write=false**: it reads the git diff of `docs/` and returns the changed / added / removed IDs and the dev-task rows that trace to them. Show it.
 4. If it matches the plan, run it again with **write=true** to write `docs/change-requests/<CR-id>.json`.
 
 ## VALIDATE
 
 1. The record's IDs match the plan — nothing missing, nothing extra. `no_changes` means the edits didn't touch any ID: stop and check.
 2. The edited docs still pass their guides (`ingest_architecture_doc` for architecture; requirement IDs unique; designs re-checked when re-imported).
-3. `git add docs/` — **only** docs/. `git commit -m "docs: <CR-id> <title>"`. If the repo has a remote, `gh pr create` titled `<CR-id>: <title>` with the record and the affected task list; with no remote (e.g. a repo that isn't on GitHub yet) stop at the commit and say so.
+3. Stop — don't commit. Suggested commit message: `docs: <CR-id> <title>`; for the pull request (`/create-pr`), the record and the affected task list.
 
 ```
 CHANGE REQUEST — VALIDATE COMPLETE
 ──────────────────────────────────
 Changed:   <IDs>    Added: <IDs>    Removed: <IDs>
 Affected dev tasks: <file — task ids>   (only these get re-planned)
-Pull request: <url>
+Next:      review the changes (`git diff`), then `/commit` and `/create-pr`
 ```
 
-Next, for the tech lead: `/dev-tasks-planner cr <CR-id>` re-plans only the affected rows; developers then build them with `/evaluate`, `/plan`, `/apply`, `/validate`. (The Day 0 scaffold isn't re-run for a change request.)
+Next, for the tech lead, once the change request's pull request is merged and they've pulled `main`: `/dev-tasks-planner cr <CR-id>` re-plans only the affected rows; developers then build them with `/evaluate`, `/plan`, `/apply`, `/validate`. (The Day 0 scaffold isn't re-run for a change request.)

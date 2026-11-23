@@ -10,7 +10,7 @@ Invoke when the user wants to open a PR for the current branch's changes (e.g. "
 
 ### 0 — Run code review first
 
-Before drafting the PR, run `/code-review` (delegates to the `code-reviewer` agent) against the branch's changes.
+Before drafting the PR, run `/code-review` (delegates to the `code-reviewer` agent) against the branch's changes. Skip this step when the branch changes only `docs/` (`git diff --name-only <base>...HEAD` lists nothing outside it) — the docs commands already checked those files against the project's guides — or when `/code-review` isn't installed (product, architect and designer roles); say that it was skipped and why.
 
 - If the review reports `blocked: true` (a `critical` finding) or any `high` severity findings, stop and show them to the user — ask whether to fix them now, before opening the PR, or proceed anyway.
 - If the review comes back clean (no critical/high findings), continue to Step 1 and mention in your summary that the review passed.
@@ -56,7 +56,9 @@ Rules:
 ### 3 — Push and open the PR
 
 - If the branch has unpushed commits or isn't tracking a remote, push it (`git push -u origin <branch>`) — confirm with the user first if this is the first push of the branch.
-- Create the PR with `gh pr create --title "..." --body "$(cat <<'EOF' ... EOF)"` using a heredoc for the body.
+- If the branch already has an open PR (`gh pr view --json url,state` shows `OPEN`), the push has updated it — report its URL and stop; don't create a second one.
+- Otherwise create the PR with `gh pr create --title "..." --body "$(cat <<'EOF' ... EOF)"` using a heredoc for the body.
+- With no remote (`git remote` prints nothing), say so and stop — there's nothing to push to.
 - Do not use `--no-verify` or bypass any configured PR checks.
 
 ### 4 — Output

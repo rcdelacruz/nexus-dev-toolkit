@@ -15,13 +15,20 @@ Run in parallel:
 - `git diff` and `git diff --staged` — review both unstaged and already-staged changes.
 - `git log --oneline -10` — match this repo's existing commit message style and conventions.
 
-### 2 — Stage deliberately
+### 2 — Never on `main`
+
+If the current branch is `main` (or `master`, or the repo's default branch), create a branch for this work first — `main` is protected and is only changed through pull requests:
+- name it from the change: `<type>/<short-slug>` — e.g. `docs/brd-v2`, `feat/BOOK-004-free-slots`, `docs/CR-004-reminders`;
+- if that name exists, add `-2`, `-3`…;
+- `git switch -c <name>` (uncommitted changes come along), and tell the user the branch name.
+
+### 3 — Stage deliberately
 
 - Stage specific files by name (`git add <file> <file>`). Never use `git add -A` or `git add .` — it can sweep in unrelated work-in-progress or files that shouldn't be committed.
 - If a change touches multiple unrelated concerns, prefer separate commits over one mixed commit — ask the user if it's unclear whether to split.
 - Check staged content for anything that looks like a secret (`.env`, credentials, API keys, tokens) before committing. Warn the user and stop if found; never commit it silently.
 
-### 3 — Write the commit message
+### 4 — Write the commit message
 
 Format (Conventional Commits, since this is a team repo — consistent history matters for changelogs and skimming `git log`):
 
@@ -43,6 +50,6 @@ Rules:
 - Never use `--no-verify`, `--no-gpg-sign`, or `-c commit.gpgsign=false` unless the user explicitly asks. If a pre-commit hook fails, fix the underlying issue and create a new commit — don't bypass it.
 - Never use `--amend` unless the user explicitly asks for it.
 
-### 4 — Confirm
+### 5 — Confirm
 
 Run `git status` after committing to confirm it succeeded, and report the commit hash and subject line back to the user. Do not push unless separately asked.

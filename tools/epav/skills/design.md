@@ -22,6 +22,8 @@ Either way it hands developers a framework-neutral summary (`design.json`). Runs
 - Screens follow the **epics** from the architecture (`ingest_architecture_doc` → `epics`): each screen names its epic and the story / requirement IDs it serves.
 - Explain every finding in plain words for a designer: which screen, which colour/state, and what to do — never just a rule number.
 - Write only under `docs/designs/`. Never touch code, `docs/requirements/` or `docs/arch-docs/`. Never copy `node_modules/`, `.next/`, `dist/` or `build/`.
+- **Never commit, push or open a pull request.** Write the files, check them, then stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.
+- **Start from the team's latest docs.** First `git fetch -q origin` (skip it when `git remote` prints nothing). If `git rev-list --count HEAD..origin/main` is above 0, say how many commits behind they are and that they should pull `main` first (`git switch main && git pull`) — then wait for them.
 
 ## EVALUATE
 
@@ -66,7 +68,7 @@ Do not write anything before the designer approves.
 
 ## APPLY
 
-1. Branch: `git switch -c docs/design-<app>` (or the designer's docs branch).
+1. Stay on the current branch — don't create one (`/commit` does, when the user commits).
 2. **Create:**
    - copy the design system, unchanged, into `docs/designs/design-system/` (unzipped, build output excluded);
    - write `docs/designs/<app>/tokens.css` from the system's tokens (CSS variables, light and dark; a first-line comment says which file it came from — edit the system, not the copy);
@@ -81,8 +83,8 @@ Do not write anything before the designer approves.
 1. Run `ingest_design_export` (write=false) once more and report every finding as BLOCKER / FIX NOW / BACKLOG, in the designer's words.
 2. **Create:** fix your own frames until no BLOCKER or FIX NOW is left. **Review:** BLOCKERs (no tokens file, missing core colour roles, a UI requirement without a screen) and FIX NOWs (off-token colours, missing states, missing breakpoints) go back to the designer with the exact fix; re-import after they send a new export. Do not "fix" a designer's own export by editing their files yourself.
 3. When none are left:
-   - `git add docs/designs` — **only** docs/. `git commit -m "docs(design): <app> …"` (commit messages follow Conventional Commits — commitizen refuses others).
-   - If the repo has a remote, `gh pr create` titled `Design: <app>`, with the screen list and coverage; with no remote (e.g. a repo that isn't on GitHub yet) stop at the commit and say so.
+   - Stop — don't commit. Suggested commit message: `docs(design): <app> …` (commit messages follow Conventional Commits — commitizen refuses others).
+   - For the pull request (`/create-pr`): title `Design: <app>`, with the screen list and coverage.
 
 ```
 DESIGN — VALIDATE COMPLETE
@@ -90,7 +92,7 @@ DESIGN — VALIDATE COMPLETE
 Screens:      <n> (DES-001 … DES-0nn), by epic; paired with a code export: <n>
 Coverage:     <n/n UI requirements>
 Checks:       <rule → PASS / FIXED / BACKLOG>
-Pull request: <url | none — no remote>
+Next:           review the changes (`git diff`), then `/commit` and `/create-pr`
 ```
 
 Next: the tech lead runs `/scaffold` (Day 0, once) — it builds the screens from the frames and tokens — and then

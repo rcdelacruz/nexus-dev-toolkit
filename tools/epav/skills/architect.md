@@ -13,6 +13,8 @@
 - Every section cites the requirement IDs it covers. Never invent requirements; gaps are questions.
 - **Epics:** each epic is one ADR file `ADR-<PROJECT>-E<NNN>-<Epic-Name>-v<N>.md` starting with an `Epic: E<NNN> — <name>` line and a `Covers:` line listing its user stories and functional requirements. Every user story and functional requirement belongs to exactly one epic (shared rules such as NFRs may be cited by several). Epic IDs are never renumbered.
 - Write only under `docs/arch-docs/`. Never touch code, `docs/requirements/` or `docs/designs/`.
+- **Never commit, push or open a pull request.** Write the files, check them, then stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.
+- **Start from the team's latest docs.** First `git fetch -q origin` (skip it when `git remote` prints nothing). If `git rev-list --count HEAD..origin/main` is above 0, say how many commits behind they are and that they should pull `main` first (`git switch main && git pull`) — then wait for them.
 
 ## EVALUATE
 
@@ -56,7 +58,7 @@ Do not write anything before the user approves.
 
 ## APPLY
 
-1. Branch: `git switch -c docs/architecture-<app>` (or the user's docs branch).
+1. Stay on the current branch — don't create one (`/commit` does, when the user commits).
 2. Write the document with exactly the guide's section names; diagrams in Mermaid.
 3. Write one ADR file per epic: the `Epic:` and `Covers:` lines first, then the guide's template, one `## ADR-…-E<NNN>-NNN` heading per decision; cite each ADR on its Choice line. An epic with no decision of its own still gets its file (Covers line, and a short note on which ADRs it follows).
 4. On a substantial revision, write a new version file and keep the old one until the change request is closed.
@@ -66,8 +68,8 @@ Do not write anything before the user approves.
 1. Run `ingest_architecture_doc` again (`module=<app>`, `save_summary=false`): `required_sections_missing` must be empty, `stack_source` must be `choices`, and `epics` lists every epic.
 2. Check every guide rule and report BLOCKER / FIX NOW / BACKLOG — at least: every functional requirement covered (list any ID not cited), every required section present, decisions on Choice lines, an ADR per major decision, pattern breaks justified by an ADR, each client's stack stated and consistent with the design, every NFR ID in NFR Fulfillment, every user story and functional requirement in exactly one epic (A9).
 3. Fix every BLOCKER and FIX NOW, then:
-   - `git add docs/arch-docs` — **only** docs/. `git commit -m "docs(<app>): architecture …"`.
-   - If the repo has a remote, `gh pr create` titled `Architecture: <app>`, listing the Choices, the epics and new ADRs; with no remote (e.g. a repo that isn't on GitHub yet) stop at the commit and say so.
+   - Stop — don't commit. Suggested commit message: `docs(<app>): architecture …`.
+   - For the pull request (`/create-pr`): title `Architecture: <app>`, listing the Choices, the epics and new ADRs.
 
 ```
 ARCHITECT — VALIDATE COMPLETE
@@ -78,7 +80,7 @@ Coverage:      <n/n requirement IDs>
 Epics:         <E001 … E0nn, each with its story count>
 ADRs:          <new / total>
 Checks:        <rule → PASS / FIXED / BACKLOG>
-Pull request:  <url | none — no remote>
+Next:           review the changes (`git diff`), then `/commit` and `/create-pr`
 ```
 
 Next: designs — `/design <app> --system <design system>`, or a Claude Design / Figma Make export copied into `docs/designs/<app>/` (no command needed). Then the tech lead runs `/scaffold` (Day 0, once) and `/dev-tasks-planner <app>` against that code — one task CSV per epic.

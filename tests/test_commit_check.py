@@ -70,8 +70,8 @@ def test_commands_write_messages_commitizen_accepts():
     types = {"feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"}
     found = []
     for f in (ROOT / "tools" / "epav" / "skills").glob("*.md"):
-        for m in re.finditer(r'git commit -m "([^"$]+)"|commit \(`([^`]+)`\)', f.read_text()):
-            msg = m.group(1) or m.group(2)
+        for m in re.finditer(r'git commit -m "([^"$]+)"|commit \(`([^`]+)`\)|Suggested commit message: `([^`]+)`', f.read_text()):
+            msg = m.group(1) or m.group(2) or m.group(3)
             found.append((f.name, msg))
             assert re.match(r"^[a-z]+(\([^)]+\))?!?: ", msg) and msg.split(":")[0].split("(")[0] in types, (f.name, msg)
     assert len(found) >= 5
@@ -92,6 +92,9 @@ def test_real_hook_refuses_a_bad_message_and_accepts_a_good_one(tmp_path, monkey
     repo = _git_init(tmp_path / "repo")
     r = runner.invoke(app, ["init", str(repo), "--role", "product", "--graph-backend", "none"])
     assert "commit-msg check installed" in r.output, r.output
+    hooks = repo / ".git" / "hooks"
+    assert "pre-commit" in (hooks / "pre-commit").read_text() and "pre-commit" in (hooks / "commit-msg").read_text()
+    assert "on in this clone" in runner.invoke(app, ["doctor", str(repo)]).output
     subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
     bad = subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "CareSlot: client pack, nexus setup"],
                          capture_output=True, text=True, timeout=600)
@@ -99,3 +102,21 @@ def test_real_hook_refuses_a_bad_message_and_accepts_a_good_one(tmp_path, monkey
     good = subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "chore: add client pack and nexus setup"],
                           capture_output=True, text=True, timeout=600)
     assert good.returncode == 0, good.stdout + good.stderr
+
+
+def test_doctor_reports_a_missing_check(tmp_path):
+    _git_init(tmp_path)
+    runner.invoke(app, ["init", str(tmp_path), "--graph-backend", "none"])
+    out = runner.invoke(app, ["doctor", str(tmp_path)]).output
+    assert "Commit check" in out and "not installed in this clone" in out      # the install was faked
+
+
+def test_no_command_commits_by_itself():
+    """Only /commit commits and only /create-pr pushes or opens a pull request — the owner's rule:
+    every other command writes, checks and stops, so nothing reaches git unreviewed."""
+    import re
+    for f in (ROOT / "tools" / "epav" / "skills").glob("*.md"):
+        if f.name in ("commit.md", "create-pr.md"):
+            continue
+        text = f.read_text()
+        assert not re.search(r"git commit\b|git push\b|gh pr create|git add\b|git switch -c", text), f.name

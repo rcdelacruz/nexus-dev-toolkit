@@ -163,3 +163,53 @@ def test_paths_with_spaces_and_unicode():
     assert crm._diff_path("b/docs/designs/core/Frame - Login.dc.html\t") == "docs/designs/core/Frame - Login.dc.html"
     assert crm._diff_path('"b/docs/caf\\303\\251.md"') == "docs/café.md"
     assert crm._diff_path("/dev/null") is None
+
+
+def _example_repo(tmp_path, monkeypatch):
+    ex = Path(__file__).parent.parent / "examples" / "clinic-appointments"
+    shutil.copytree(ex / "docs", tmp_path / "docs")
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "chore: baseline")
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+def test_an_architecture_only_change_is_recorded_and_replans_its_epic(tmp_path, monkeypatch):
+    """CR "notifications via a queue": only the epic E003 ADR changes, no requirement ID — the
+    record still gets written and the notifications epic is re-planned, nothing else."""
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    repo = _example_repo(tmp_path, monkeypatch)
+    adr = next((repo / "docs" / "arch-docs" / "careslot").glob("ADR-CARESLOT-E003-*.md"))
+    adr.write_text(adr.read_text() + "\nReminders now go through a managed queue instead of Celery beat.\n")
+    r = _tool("record_change_request", cr_id="CR-010", title="Queue for reminders", write=True)
+    assert r["status"] == "ok" and "E003" in r["record"]["changed_ids"], r
+    files = {Path(a["file"]).name for a in r["affected_tasks"]}
+    assert files == {"notifications-tasks.csv"}
+    assert r["files_written"] == ["docs/change-requests/CR-010.json"]
+
+
+def test_a_design_only_change_replans_the_rows_that_trace_the_screen(tmp_path, monkeypatch):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    repo = _example_repo(tmp_path, monkeypatch)
+    dj = repo / "docs" / "designs" / "careslot" / "design.json"
+    data = json.loads(dj.read_text())
+    screen = next(s for s in data["screens"] if s.get("id") == "DES-003")
+    screen["name"] = screen.get("name", "") + " (redesigned)"
+    dj.write_text(json.dumps(data, indent=2))
+    r = _tool("record_change_request", cr_id="CR-011", title="Redo DES-003")
+    assert r["status"] == "ok" and "DES-003" in r["record"]["changed_ids"], r
+    assert r["affected_tasks"] and all("DES-003" in a["ids"] for a in r["affected_tasks"])
+
+
+def test_a_reexported_frame_counts_as_its_screen(tmp_path, monkeypatch):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    repo = _example_repo(tmp_path, monkeypatch)
+    frame = repo / "docs" / "designs" / "careslot" / "Frame - My Appointments.dc.html"
+    frame.write_text(frame.read_text() + "\n<!-- cancel reason field -->\n")
+    screen = next(s["id"] for s in json.loads((frame.parent / "design.json").read_text())["screens"]
+                  if s.get("frame") == frame.name)
+    assert crm.diff_ids("HEAD")["other"] == [screen]

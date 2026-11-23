@@ -158,8 +158,55 @@ def diff_ids(base: str, patterns: dict | None = None, include_untracked: bool = 
     removed = {i for i in minus_ids - plus_ids if i not in current}
     req = lambda ids: sorted(i for i in ids if kind_of(i, patterns) not in ("adr", "design", "change", "epic"))  # noqa: E731
     other |= {i for i in plus_ids | minus_ids | parents if kind_of(i, patterns) in ("adr", "design", "epic")}
+    other |= _artifact_ids(files, base, patterns)
     return {"files": sorted(set(files)), "changed": req(changed), "added": req(added), "removed": req(removed),
             "other": sorted(other)}
+
+
+def _artifact_ids(files: list[str], base: str, patterns: dict | None) -> set[str]:
+    """IDs of the architecture artefacts a change touched even when no changed line names them:
+    an epic ADR file's epic (its "Epic: E001" line or file name) and an ADR ID in a file name."""
+    from tools.epav.arch_ingest import epic_of
+    out = set()
+    for f in files:
+        if f.startswith("docs/designs/"):
+            out |= _screen_ids(f, base)
+            continue
+        if not f.startswith("docs/arch-docs/"):
+            continue
+        p = Path(f)
+        out |= {i for i in extract_ids(p.name, patterns) if kind_of(i, patterns) == "adr"}
+        text = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else _file_at(base, f)
+        epic = epic_of(p, text or "")
+        if epic:
+            out.add(epic[0])
+    return out
+
+
+def _screens(text: str) -> dict[str, dict]:
+    try:
+        return {sc["id"]: sc for sc in json.loads(text or "{}").get("screens", []) if isinstance(sc, dict) and sc.get("id")}
+    except (ValueError, AttributeError):
+        return {}
+
+
+def _screen_ids(f: str, base: str) -> set[str]:
+    """Design screens a changed design file belongs to: in design.json, the screens whose entry
+    changed (or was added/removed); for a frame or component file, the screens that point at it."""
+    p = Path(f)
+    if p.name == "design.json":
+        new = _screens(p.read_text(encoding="utf-8", errors="replace") if p.is_file() else "")
+        old = _screens(_file_at(base, f))
+        return {i for i in new.keys() | old.keys() if new.get(i) != old.get(i)}
+    for d in [p.parent, *p.parents]:
+        dj = d / "design.json"
+        if dj.is_file():
+            rel = p.relative_to(d).as_posix()
+            return {i for i, sc in _screens(dj.read_text(encoding="utf-8", errors="replace")).items()
+                    if rel in (sc.get("frame"), sc.get("component"))}
+        if d.as_posix() in ("docs/designs", "docs", "."):
+            break
+    return set()
 
 
 def _seen_before(ident: str, base: str, dirs: list[str]) -> bool:
@@ -175,11 +222,17 @@ def task_files() -> list[Path]:
 
 
 def affected(cr: cr_format.ChangeRequest, patterns: dict | None = None) -> list[dict]:
+    """Rows that trace a touched ID. A touched epic (an architecture change to that epic) re-plans
+    its whole task file: the file whose Epic row names it."""
+    epics = {i for i in cr.touched_ids if kind_of(i, patterns) == "epic"}
     out = []
     for f in task_files():
         tf = tasks.read_tasks(f)
-        for row in cr_format.affected_rows(tf.rows, cr, patterns):
-            hit = sorted(set(cr.touched_ids) & set(extract_ids(" ".join(row.values()), patterns)))
+        epic_file = bool(epics) and any(
+            r.get("issue_type", "").lower() == "epic" and epics & set(extract_ids(" ".join(r.values()), patterns))
+            for r in tf.rows)
+        for row in (tf.rows if epic_file else cr_format.affected_rows(tf.rows, cr, patterns)):
+            hit = sorted(set(cr.touched_ids) & set(extract_ids(" ".join(row.values()), patterns))) or sorted(epics)
             out.append({"file": str(f), "task_id": row.get("task_id", ""), "summary": row.get("summary", ""),
                         "status": row.get("status", ""), "ids": hit})
     return out
@@ -238,6 +291,9 @@ def register_change_request_tools(mcp: FastMCP) -> None:
                 return json.dumps({"status": "invalid", "error": f"cr_id must look like CR-004, got {cr_id!r}"})
             patterns = _patterns()
             d = diff_ids(base, patterns)
+            if not (d["changed"] or d["added"] or d["removed"]) and d["other"]:
+                # an architecture- or design-only change: its ADR / epic / screen IDs are what changed
+                d["changed"] = d["other"]
             record = cr_format.ChangeRequest(cr_id, title, date.today().isoformat(), changed_ids=d["changed"],
                                              added_ids=d["added"], removed_ids=d["removed"], files=d["files"], reason=reason)
             rows = affected(record, patterns)
@@ -250,7 +306,7 @@ def register_change_request_tools(mcp: FastMCP) -> None:
             return json.dumps({"status": status, "record": json.loads(record.to_json()),
                                "other_ids_touched": d["other"], "affected_tasks": rows,
                                "files_written": written,
-                               **({"hint": f"No requirement IDs changed in docs/ since {base}."} if status == "no_changes" else {})},
+                               **({"hint": f"No requirement, ADR, epic or screen IDs changed in docs/ since {base}."} if status == "no_changes" else {})},
                               indent=2)
         except GitError as e:
             return json.dumps({"status": "git_error", "error": str(e)})

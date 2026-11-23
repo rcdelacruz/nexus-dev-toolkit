@@ -8,6 +8,10 @@
 
 ## Steps
 
+### 0 — Up to date?
+
+Start from the team's latest work: `git fetch -q origin` (skip it when `git remote` prints nothing); if `git rev-list --count HEAD..origin/main` is above 0, say how many commits behind the user is and that they should pull `main` first (`git switch main && git pull`) — then wait for them.
+
 ### 1 — Orient with your knowledge graph (if one exists)
 
 Check which backend this project has built, and use the matching query:

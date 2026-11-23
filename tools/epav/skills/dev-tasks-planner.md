@@ -18,6 +18,8 @@ It can also be pointed at existing CSVs to re-evaluate/correct them (as opposed 
 
 ## Prerequisites — MANDATORY, check before doing anything else
 
+0. Start from the team's latest work: `git fetch -q origin` (skip it when `git remote` prints nothing); if `git rev-list --count HEAD..origin/main` is above 0, say how many commits behind the user is and that they should pull `main` first (`git switch main && git pull`) — then wait for them.
+
 Both of the following must be true before this command does any real work. Verify each with an actual check (`ls`/`find`, not an assumption) — do not skip straight to EVALUATE on the assumption they're probably fine.
 
 1. **The module's ARCH doc (+ per-epic ADR files, if any) exist under `docs/arch-docs/<module>/`.** Without a real spec to generate tasks from, there is nothing to reconcile against — a CSV built from no source is fabrication, not planning, no matter how well-formatted it looks.
@@ -202,4 +204,6 @@ Issues fixed:     <list, if any>
 Backlog items:    <retro file added, if any>
 ```
 
-> "Task complete."
+> "Task complete. Review the CSVs, then `/commit` and `/create-pr`."
+
+**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`. Suggested commit message: `docs(tasks): <module> dev tasks`.

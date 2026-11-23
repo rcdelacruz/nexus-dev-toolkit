@@ -323,8 +323,10 @@
       <tbody>
         <tr><td>Get the latest docs</td><td><code>git switch main &amp;&amp; git pull</code></td><td>You</td></tr>
         <tr><td>Do the work</td><td><code>/requirements</code>, <code>/architect</code>, <code>/design</code>, <code>/change-request</code></td><td>You, in Claude Code</td></tr>
-        <tr><td>Branch, commit <code>docs/</code>, open a pull request</td><td>—</td><td>The nexus command, after you approve its plan</td></tr>
-        <tr><td>Answer review comments</td><td>Run the command again with the feedback</td><td>You</td></tr>
+        <tr><td>Look at what changed</td><td><code>git diff</code></td><td>You</td></tr>
+        <tr><td>Branch and commit</td><td><code>/commit</code></td><td>You, when the changes look right — no command commits by itself</td></tr>
+        <tr><td>Open the pull request</td><td><code>/create-pr</code></td><td>You</td></tr>
+        <tr><td>Answer review comments</td><td>Run the command again with the feedback, then <code>/commit</code> and <code>/create-pr</code> (it updates the open pull request)</td><td>You</td></tr>
         <tr><td>Merge</td><td>The green button on the pull request</td><td>A reviewer (CODEOWNERS)</td></tr>
       </tbody>
     </table>

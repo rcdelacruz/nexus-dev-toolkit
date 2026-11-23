@@ -340,7 +340,7 @@ flowchart TB
         <tr><td>shows a plan and stops</td><td><code>go</code> — or what to change first: <code>you missed the 2-hour cancellation cutoff</code></td></tr>
         <tr><td>did something you don't understand</td><td><code>why this stack and not React?</code> — a question changes nothing</td></tr>
         <tr><td>goes the wrong way</td><td>press <kbd>Esc</kbd>, then say what you want instead</td></tr>
-        <tr><td>has finished</td><td><code>what did you change, and what's still open?</code></td></tr>
+        <tr><td>has finished</td><td><code>what did you change, and what's still open?</code> — then <code>/commit</code> (makes the branch and the commit) and <code>/create-pr</code> (pushes and opens the pull request). No command commits by itself.</td></tr>
       </tbody>
     </table>
     <p>Never type a fact you don't know as if it were true — say <em>"don't know, leave it open"</em>, and it stays an Open Question with an owner.</p>
@@ -386,17 +386,19 @@ flowchart TB
 <pre><code><span class="prompt">$</span> <span class="cmd">gh</span> repo clone <span class="gh-owner">YOUR-ORG</span>/careslot &amp;&amp; cd careslot
 <span class="prompt">$</span> <span class="cmd">nexus4</span> init . --role <span class="role-arg">product</span>
 <span class="prompt">$</span> <span class="cmd">git</span> status   <span class="comment"># nothing to commit — your setup stays on your machine</span>
-<span class="prompt">$</span> <span class="cmd">claude</span></code></pre>          <div class="step-desc">Claude Code asks once whether you trust the folder — say yes; nexus has already approved its MCP server and tools, so there's no second question. Every command then looks first, shows a plan, <strong>stops for your approval</strong>, writes, checks its own work, commits only its own folder and opens the pull request.</div>
+<span class="prompt">$</span> <span class="cmd">claude</span></code></pre>          <div class="step-desc">Claude Code asks once whether you trust the folder — say yes; nexus has already approved its MCP server and tools, so there's no second question. Every command then looks first, shows a plan, <strong>stops for your approval</strong>, writes and checks its own work — then stops. Nothing goes into git until you say so: look at the changes, then type <code>/commit</code> and <code>/create-pr</code>.</div>
         </div>
       </div>
       <div class="step" data-roles="product">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Write the BRD<span class="step-who">product owner</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/brd</span> docs/requirements/sources/kickoff-notes.md docs/requirements/sources/no-show-report.md docs/requirements/sources/front-desk-interview.md</code></pre>          <div class="step-desc">Claude writes one BRD for the whole product. It asks about what the notes don't answer: answer what you know, and anything nobody knows stays an Open Question with an owner. When you're done with the follow-ups below, merge the pull request and pull <code>main</code>.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> 1: fewer no-shows matters most. 2: not sure — leave it open, owner: Joy   <span class="comment"># answering its questions</span>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/brd</span> docs/requirements/sources/kickoff-notes.md docs/requirements/sources/no-show-report.md docs/requirements/sources/front-desk-interview.md</code></pre>          <div class="step-desc">Claude writes one BRD for the whole product. It asks about what the notes don't answer: answer what you know, and anything nobody knows stays an Open Question with an owner. When you're done with the follow-ups below, <code>/commit</code> and <code>/create-pr</code>; once the pull request is reviewed and merged, everyone pulls <code>main</code>.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> 1: fewer no-shows matters most. 2: not sure — leave it open, owner: Joy   <span class="comment"># answering its questions</span>
 <span class="prompt">&gt;</span> you missed the 2-hour cancellation cutoff from the kickoff notes   <span class="comment"># before go: correct the plan</span>
 <span class="prompt">&gt;</span> go
-<span class="prompt">&gt;</span> ask me the open questions one by one   <span class="comment"># after it&#x27;s written; type skip to leave one open</span></code></pre>
+<span class="prompt">&gt;</span> ask me the open questions one by one   <span class="comment"># after it&#x27;s written; type skip to leave one open</span>
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="product">
@@ -406,7 +408,9 @@ flowchart TB
 <pre><code><span class="prompt">&gt;</span> <span class="skill">/prd</span></code></pre>          <div class="step-desc">Claude turns the BRD into user stories, requirements and acceptance criteria, and links each one to the business rule it serves. It doesn't split the product into modules — the architect does that next.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> patients book on their phones; receptionists and doctors use desktops   <span class="comment"># answering: personas and devices</span>
 <span class="prompt">&gt;</span> split the booking story: book a slot, and see my upcoming appointments   <span class="comment"># before go</span>
 <span class="prompt">&gt;</span> go
-<span class="prompt">&gt;</span> ask me the open questions one by one</code></pre>
+<span class="prompt">&gt;</span> ask me the open questions one by one
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="architect">
@@ -416,7 +420,9 @@ flowchart TB
 <pre><code><span class="prompt">&gt;</span> <span class="skill">/architect</span> careslot — the team's constraints are in docs/requirements/sources/team-constraints.md</code></pre>          <div class="step-desc">Pull <code>main</code> first. Claude writes the architecture: the tech stack (one “Choice” line per technology, which the scaffold reads later), an ADR for each big decision, and the epics — the product split into modules, with every story in exactly one. Everything after this step follows your epics.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> why this stack, and not React?   <span class="comment"># a question changes nothing</span>
 <span class="prompt">&gt;</span> record why we don&#x27;t build on the designer&#x27;s React export
 <span class="prompt">&gt;</span> go
-<span class="prompt">&gt;</span> which stories ended up in which epic?   <span class="comment"># after it&#x27;s written</span></code></pre>
+<span class="prompt">&gt;</span> which stories ended up in which epic?   <span class="comment"># after it&#x27;s written</span>
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="designer">
@@ -426,7 +432,9 @@ flowchart TB
 <pre><code><span class="prompt">&gt;</span> <span class="skill">/design</span> careslot --system docs/designs/design-system</code></pre>          <div class="step-desc">Claude designs one screen per story, epic by epic, using only the colours and components of the design system. Using Claude Design or Figma Make instead? Export the screens, copy the files into <code>docs/designs/careslot/</code>, commit and open a pull request — you don't need the command.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> the screen list is right   <span class="comment"># confirming the plan</span>
 <span class="prompt">&gt;</span> the red on the cancel button is a mistake — use the system&#x27;s danger colour   <span class="comment"># an off-token colour</span>
 <span class="prompt">&gt;</span> go
-<span class="prompt">&gt;</span> which requirements have no screen yet?</code></pre>
+<span class="prompt">&gt;</span> which requirements have no screen yet?
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="lead">
@@ -435,7 +443,9 @@ flowchart TB
           <div class="step-title">Day 0 — the scaffold<span class="step-who">tech lead</span></div>
 <pre><code><span class="prompt">&gt;</span> <span class="skill">/scaffold</span></code></pre>          <div class="step-desc">Run this once, after the architecture and designs are merged. Claude builds the empty app: the stack from the Choice lines with exact versions, the theme from the design tokens, one page template per screen, Docker, CI, <code>AGENTS.md</code>, the stack's lines added to <code>.gitignore</code> (dependencies, build output, <code>.env</code> — never <code>.env.example</code>) and a build check that must pass. No business logic yet. Merge it before planning the tasks. Allow about an hour: CareSlot's took about 70 minutes in our own team run. When Claude Code asks to change <code>.pre-commit-config.yaml</code> (it adds the stack's formatter and linter next to the commit-message check), approve it.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> yes, that summary is right   <span class="comment"># after its first summary</span>
 <span class="prompt">&gt;</span> /apply   <span class="comment"># approves the plan</span>
-<span class="prompt">&gt;</span> the build gate failed — show me the error and fix it</code></pre>
+<span class="prompt">&gt;</span> the build gate failed — show me the error and fix it
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="lead">
@@ -444,7 +454,9 @@ flowchart TB
           <div class="step-title">Plan the dev tasks against the code<span class="step-who">tech lead</span></div>
 <pre><code><span class="prompt">&gt;</span> <span class="skill">/dev-tasks-planner</span> careslot based on docs/arch-docs/careslot/</code></pre>          <div class="step-desc">Claude writes one task list (a CSV file) per epic in <code>docs/dev-tasks/careslot/</code>, and every task names the files it changes. Give each developer a task ID.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> the summary is right — plan it   <span class="comment"># after its first summary</span>
 <span class="prompt">&gt;</span> BOOK-004 is too big — split it in two   <span class="comment"># before you approve the plan</span>
-<span class="prompt">&gt;</span> go</code></pre>
+<span class="prompt">&gt;</span> go
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="developer lead">
@@ -456,7 +468,9 @@ flowchart TB
 <span class="prompt">&gt;</span> <span class="skill">/apply</span>
 <span class="prompt">&gt;</span> <span class="skill">/validate</span></code></pre>          <div class="step-desc">Run them one after the other and read each result before the next. Pick different tasks so you don't collide; the tech lead reviews the pull requests.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> why these files?   <span class="comment"># after /plan</span>
 <span class="prompt">&gt;</span> keep the change smaller: no refactoring outside the task   <span class="comment"># before /apply</span>
-<span class="prompt">&gt;</span> one check failed — show me why, then fix it   <span class="comment"># after /validate</span></code></pre>
+<span class="prompt">&gt;</span> one check failed — show me why, then fix it   <span class="comment"># after /validate</span>
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="facilitator">
@@ -471,14 +485,18 @@ flowchart TB
         <div class="step-content">
           <div class="step-title">Record the change request<span class="step-who">product owner, architect, designer</span></div>
 <pre><code><span class="prompt">&gt;</span> <span class="skill">/change-request</span> CR-001 "Reminder 2 hours before; cancellation reason"</code></pre>          <div class="step-desc">Requirements change first (a changed requirement keeps its ID), then architecture and screens; the architect and designer review. The record lists exactly which IDs changed and which tasks they touch.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> go   <span class="comment"># after checking the list of IDs it will change</span>
-<span class="prompt">&gt;</span> which dev tasks does this touch?   <span class="comment"># after it&#x27;s recorded</span></code></pre>
+<span class="prompt">&gt;</span> which dev tasks does this touch?   <span class="comment"># after it&#x27;s recorded</span>
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="lead">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Re-plan only the affected tasks<span class="step-who">tech lead</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/dev-tasks-planner</span> cr CR-001</code></pre>          <div class="step-desc">Claude re-plans only the tasks the change request lists; every other task stays exactly as it was.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> show me before and after for each changed row</code></pre>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/dev-tasks-planner</span> cr CR-001</code></pre>          <div class="step-desc">Claude re-plans only the tasks the change request lists; every other task stays exactly as it was.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> show me before and after for each changed row
+<span class="prompt">&gt;</span> /commit   <span class="comment"># when the changes look right</span>
+<span class="prompt">&gt;</span> /create-pr   <span class="comment"># pushes and opens the pull request</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="everyone">

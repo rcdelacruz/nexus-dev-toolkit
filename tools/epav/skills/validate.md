@@ -54,4 +54,6 @@ Issues fixed:     <list>
 Backlog items:    <list added to knowledge/retros/>
 ```
 
-> "Task complete. Ready for the next `/evaluate`."
+> "Task complete. Review the changes (`git diff`), then `/commit` and `/create-pr` — then the next `/evaluate`."
+
+**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.

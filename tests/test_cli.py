@@ -1163,7 +1163,7 @@ def test_architect_role_gets_only_its_commands(tmp_project):
     r = runner.invoke(app, ["init", str(tmp_project), "--role", "architect"])
     assert r.exit_code == 0, r.output
     cmds = sorted(f.name for f in (tmp_project / ".claude" / "commands").iterdir())
-    assert cmds == ["architect.md", "change-request.md", "requirements.md"]
+    assert cmds == ["architect.md", "change-request.md", "commit.md", "create-pr.md", "requirements.md"]
     assert not (tmp_project / ".claude" / "agents").exists() or not any((tmp_project / ".claude" / "agents").iterdir())
     assert "graphify" not in (tmp_project / ".claude" / "settings.json").read_text()   # no graphify hook — no code
     assert (tmp_project / ".mcp.json").exists()                              # role commands use the MCP tools
@@ -1173,7 +1173,7 @@ def test_architect_role_gets_only_its_commands(tmp_project):
 def test_designer_role_on_codex(tmp_project):
     runner.invoke(app, ["init", str(tmp_project), "--tool", "codex", "--role", "designer"])
     skills = sorted(d.name for d in (tmp_project / ".agents" / "skills").iterdir())
-    assert skills == ["change-request", "design"]
+    assert skills == ["change-request", "commit", "create-pr", "design"]
     assert (tmp_project / ".agents" / "skills" / "design" / "agents" / "openai.yaml").exists()   # explicit-only
     assert not (tmp_project / ".codex" / "hooks.json").exists()
 
@@ -1181,14 +1181,14 @@ def test_designer_role_on_codex(tmp_project):
 def test_sync_keeps_the_role(tmp_project):
     runner.invoke(app, ["init", str(tmp_project), "--role", "designer"])
     runner.invoke(app, ["sync", str(tmp_project)])
-    assert sorted(f.name for f in (tmp_project / ".claude" / "commands").iterdir()) == ["change-request.md", "design.md"]
+    assert sorted(f.name for f in (tmp_project / ".claude" / "commands").iterdir()) == ["change-request.md", "commit.md", "create-pr.md", "design.md"]
 
 
 def test_doctor_checks_the_role_set(tmp_project):
     runner.invoke(app, ["init", str(tmp_project), "--role", "designer"])
     out = _flat(runner.invoke(app, ["doctor", str(tmp_project)]).output)
-    assert "designer — design, change-request" in out
-    assert "all 2 present" in out and "none needed (designer role)" in out
+    assert "designer — commit, create-pr, design, change-request" in out
+    assert "all 4 present" in out and "none needed (designer role)" in out
 
 
 def test_unknown_role(tmp_project):
@@ -1245,7 +1245,7 @@ def test_product_role_gets_brd_prd_and_templates(tmp_project):
     r = runner.invoke(app, ["init", str(tmp_project), "--role", "product"])
     assert r.exit_code == 0, r.output
     cmds = sorted(f.name for f in (tmp_project / ".claude" / "commands").iterdir())
-    assert cmds == ["brd.md", "change-request.md", "prd.md", "requirements.md"]
+    assert cmds == ["brd.md", "change-request.md", "commit.md", "create-pr.md", "prd.md", "requirements.md"]
     for name in ("BRD-TEMPLATE.md", "PRD-TEMPLATE.md"):
         assert (tmp_project / "docs" / "requirements" / "templates" / name).is_file()
     assert _manifest(tmp_project)["role"] == "product"

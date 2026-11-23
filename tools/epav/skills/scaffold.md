@@ -24,7 +24,7 @@ Nexus is stack-agnostic: use the row for the stack the arch doc prescribes. If t
 
 | Ecosystem | `package_manager` | Manifest → lock file | Install + dev | Build (VALIDATE gate) | Lint / format | Pre-commit hooks |
 |---|---|---|---|---|---|---|
-| Node / TS (Next.js, Vite, Nuxt, SvelteKit, Angular, NestJS, Express…) | npm / pnpm / yarn / bun | `package.json` → `package-lock.json` / `pnpm-lock.yaml` / `yarn.lock` / `bun.lock` | `npm install && npm run dev` | `npm run build` | ESLint + Prettier (or Biome) | husky + lint-staged + commitlint |
+| Node / TS (Next.js, Vite, Nuxt, SvelteKit, Angular, NestJS, Express…) | npm / pnpm / yarn / bun | `package.json` → `package-lock.json` / `pnpm-lock.yaml` / `yarn.lock` / `bun.lock` | `npm install && npm run dev` | `npm run build` | ESLint + Prettier (or Biome) | husky + lint-staged |
 | Python (Django, FastAPI, Flask…) | uv / poetry / pipenv / pip | `pyproject.toml` → `uv.lock` / `poetry.lock`; `Pipfile` → `Pipfile.lock` | `uv sync && uv run <server>` | `uv build` or `python -m compileall .` + tests | ruff (lint + format) + mypy/pyright | pre-commit framework |
 | Java / Kotlin (Spring Boot, Quarkus, Micronaut, Ktor, Android) | maven / gradle | `pom.xml` / `build.gradle(.kts)` (+ `gradle.lockfile` with locking on) | `./mvnw spring-boot:run` / `./gradlew run` | `./mvnw package -DskipTests` / `./gradlew build -x test` | Checkstyle or Spotless; ktlint/detekt for Kotlin | pre-commit framework or Gradle/Maven git-hook plugin |
 | Scala (Play, Akka/Pekko) | sbt | `build.sbt` | `sbt run` | `sbt compile` | scalafmt + scalafix | pre-commit framework |
@@ -52,6 +52,8 @@ Nexus is stack-agnostic: use the row for the stack the arch doc prescribes. If t
 ---
 
 ## Prerequisites
+
+Start from the team's latest work: `git fetch -q origin` (skip it when `git remote` prints nothing); if `git rev-list --count HEAD..origin/main` is above 0, say how many commits behind the user is and that they should pull `main` first (`git switch main && git pull`) — then wait for them.
 
 Before running /scaffold:
 1. Requirements in `docs/requirements/` (the product's BRD/PRD) and the architecture document in
@@ -348,8 +350,10 @@ Review everything against the architecture doc AND the design frames.
 18. Design system spec saved to knowledge/?
 
 **Git hygiene:**
-19. Pre-commit hooks configured and working? (the stack's Pre-commit hooks column — e.g. husky executable + lint-staged for npm, `pre-commit install` done for the pre-commit framework) — and commit messages still checked: `git commit --allow-empty -m "bad message"` must be refused (nothing is committed), `git commit --allow-empty -m "chore: check commit messages"` must pass (then `git reset --soft HEAD~1`)
+19. Pre-commit hooks configured and working? (the stack's Pre-commit hooks column — e.g. husky executable + lint-staged for npm, `pre-commit install` done for the pre-commit framework) — and commit messages still checked, without committing anything: write `bad message` to a temp file and `git hook run commit-msg -- <file>` must fail; the same with `chore: check commit messages` must pass
 20. Ignore files — no line that was in `.gitignore` before scaffold is gone: `git diff main -- .gitignore | grep '^-[^-]'` prints nothing. One path per check (`git check-ignore -q` takes a single path): `for p in .env graphify-out .claude; do git check-ignore -q "$p" || echo "NOT ignored: $p"; done` prints nothing (use your tool's folder instead of `.claude`), `git check-ignore -q .env.example` fails (it must stay committed), and `.graphifyignore` exists with nexus's lines plus the stack's vendored/generated paths?
 
 Classify every issue: [BLOCKER] / [FIX NOW] / [BACKLOG]
 Fix every [BLOCKER] and [FIX NOW] before calling Day 0 complete.
+
+**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`. Suggested commit message: `chore: day 0 scaffold`.
