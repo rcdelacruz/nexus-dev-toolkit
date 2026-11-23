@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import re
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -10,6 +11,11 @@ from tools.epav import graph_backend
 logger = logging.getLogger(__name__)
 
 _TASK_FIELDS = ["task_id", "user_story", "description", "acceptance_criteria", "dependencies"]
+
+
+def _normalize_header(header: str) -> str:
+    """`TASK_ID` / `Task ID` / `task-id` → `task_id`: /dev-tasks-planner writes upper-case headers."""
+    return re.sub(r"[^a-z0-9]+", "_", (header or "").replace("\ufeff", "").strip().lower()).strip("_")
 
 
 def _find_csv(hint: str) -> Path | None:
@@ -64,22 +70,19 @@ def register_task_loader_tool(mcp: FastMCP) -> None:
                              "with your task CSVs."
                 })
 
-            rows: list[dict] = []
             with csv_file.open(encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
-                rows = list(reader)
+                raw_rows = list(reader)
+            rows = [{_normalize_header(k): (v or "") for k, v in r.items() if k is not None} for r in raw_rows]
 
             if not rows:
                 return json.dumps({"error": f"CSV is empty: {csv_file}"})
 
-            # Find the target row
-            task: dict | None = None
+            # Find the target row (task IDs match regardless of case)
             if task_id:
-                task = next(
-                    (r for r in rows if r.get("task_id", "").strip() == task_id.strip()),
-                    None,
-                )
-                if not task:
+                want = task_id.strip().lower()
+                idx = next((i for i, r in enumerate(rows) if r.get("task_id", "").strip().lower() == want), None)
+                if idx is None:
                     return json.dumps({
                         "error": f"task_id '{task_id}' not found in {csv_file}",
                         "available_ids": [r.get("task_id", "") for r in rows[:20]],
@@ -89,12 +92,13 @@ def register_task_loader_tool(mcp: FastMCP) -> None:
                     return json.dumps({
                         "error": f"row_index {row_index} out of range (CSV has {len(rows)} rows)"
                     })
-                task = rows[row_index]
+                idx = row_index
+            task = rows[idx]
 
             # Extract standard EPAV fields (graceful if columns differ)
             context = {f: task.get(f, "").strip() for f in _TASK_FIELDS}
             context["_csv_file"] = str(csv_file)
-            context["_all_fields"] = dict(task)
+            context["_all_fields"] = dict(raw_rows[idx])  # the CSV's own column names
 
             # Knowledge-graph blast radius (graphify or codegraph, whichever is active)
             description = context.get("description") or context.get("user_story", "")

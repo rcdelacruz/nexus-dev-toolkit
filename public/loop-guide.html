@@ -245,7 +245,7 @@
 
   <nav>
     <div class="nav-logo">NEXUS</div>
-    <div class="nav-version">v3.2.0</div>
+    <div class="nav-version">v3.2.1</div>
 
     <div class="nav-section">Loop Guide</div>
     <a href="#why">Why a loop</a>
@@ -280,13 +280,13 @@
   <main>
     <a href="/" class="back">← back to home</a>
 
-    <div class="badge">Proposal — not shipped yet (as of v3.2.0)</div>
+    <div class="badge">Proposal — not shipped yet (as of v3.2.1)</div>
     <h1>EPAV as an Autonomous Loop</h1>
     <p class="lead">Loop engineering is the discipline of designing the loop an AI agent runs inside — act, observe, decide, repeat — until a verifier says done. EPAV is already an engineered loop with a human gate and a verifier step. This guide shows how to close it, so the apply ↔ validate cycle retries itself within an approved plan instead of waiting for a human to crank every phase.</p>
 
     <!-- why -->
     <h2 id="why">Why a Loop</h2>
-    <div class="callout warn"><strong>Status:</strong> nothing on this page is in nexus yet. In v3.2.0, <code>/validate</code> fixes BLOCKERs and FIX NOWs in the same pass, but there is no retry budget, no structured failure list for <code>/apply</code>, and no escalation report. This page is the design for when it ships; the <a href="/changelog" style="color:var(--cyan)">changelog</a> will say when it does.</div>
+    <div class="callout warn"><strong>Status:</strong> nothing on this page is in nexus yet. In v3.2.1, <code>/validate</code> fixes BLOCKERs and FIX NOWs in the same pass, but there is no retry budget, no structured failure list for <code>/apply</code>, and no escalation report. This page is the design for when it ships; the <a href="/changelog" style="color:var(--cyan)">changelog</a> will say when it does.</div>
     <p>Today, every phase transition in EPAV is a human action. <code>/validate</code> tries to fix what it finds in the same pass, but when that doesn't converge there is no defined next step — no retry budget, no structured failure list, no escalation — so a human reads the output and restarts. That works — but the agent is capable of consuming its own validation failures and fixing them, and the whole point of a verifier is that it can be trusted to say "not done yet" without a human re-reading everything.</p>
     <p>Two principles from loop engineering drive this design:</p>
     <ul>

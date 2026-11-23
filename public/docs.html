@@ -438,7 +438,7 @@
   <nav>
     <div class="nav-logo">NEXUS</div>
 
-    <div class="nav-version">v3.2.0</div>
+    <div class="nav-version">v3.2.1</div>
 
     <div class="nav-section">Getting Started</div>
     <a href="#overview">Overview</a>
@@ -541,20 +541,12 @@
 
     <div class="callout">
 <!-- whats-new:nexus:start -->
-    <p class="whats-new-title"><strong>v3.2.0</strong> (2026-11-22)</p>
-    <p><strong>Added</strong></p>
-    <ul>
-      <li>Stack detection for most of the world's stacks</li>
-      <li><code>resolve_package_versions</code> supports 22 package managers</li>
-      <li>The result now carries a <code>status</code></li>
-      <li><code>/scaffold</code> is stack-neutral</li>
-    </ul>
+    <p class="whats-new-title"><strong>v3.2.1</strong> (2026-11-23)</p>
     <p><strong>Fixed</strong></p>
     <ul>
-      <li><code>resolve_package_versions</code> returned no versions for Go and Dart/Flutter (no module/project was initialised in the temp directory).</li>
-      <li>Version specs: <code>~5.1</code> and exact <code>5.2.3</code> pins are read correctly for Python, and pre-releases (alpha, beta, RC, milestone, snapshot) are skipped when picking the newest version.</li>
+      <li><code>load_task</code> could not read the task CSVs <code>/dev-tasks-planner</code> writes.</li>
     </ul>
-    <p><a href="/changelog#nexus-3.2.0">Full 3.2.0 notes →</a> · <a href="/changelog">all releases</a></p>
+    <p><a href="/changelog#nexus-3.2.1">Full 3.2.1 notes →</a> · <a href="/changelog">all releases</a></p>
 <!-- whats-new:nexus:end -->
     </div>
 

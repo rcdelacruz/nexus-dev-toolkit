@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.2.1] - 2026-11-23
+
+### Fixed
+- `load_task` could not read the task CSVs `/dev-tasks-planner` writes. Their headers are upper case (`TASK_ID`, `DESCRIPTION`, …), and `load_task` only looked up lower-case names, so a task ID was "not found" and a loaded row came back with an empty task ID, description and acceptance criteria. Headers are now matched regardless of case, spaces, hyphens or a byte-order mark (`TASK_ID`, `Task ID` and `task-id` all read as `task_id`), and task IDs match regardless of case. `_all_fields` keeps the CSV's own column names.
+
 ## [3.2.0] - 2026-11-22
 
 ### Added

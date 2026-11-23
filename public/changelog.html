@@ -251,16 +251,16 @@
 
   <nav>
     <div class="nav-logo">NEXUS</div>
-    <div class="nav-version">v3.2.0</div>
+    <div class="nav-version">v3.2.1</div>
 
     <div class="nav-section">Changelog</div>
     <a href="#nexus" onclick="showTab('nexus')">nexus-dev-toolkit</a>
+    <a href="#nexus-3.2.1" class="sub" onclick="showTab('nexus')">→ v3.2.1</a>
     <a href="#nexus-3.2.0" class="sub" onclick="showTab('nexus')">→ v3.2.0</a>
     <a href="#nexus-3.1.12" class="sub" onclick="showTab('nexus')">→ v3.1.12</a>
     <a href="#nexus-3.1.11" class="sub" onclick="showTab('nexus')">→ v3.1.11</a>
     <a href="#nexus-3.1.10" class="sub" onclick="showTab('nexus')">→ v3.1.10</a>
     <a href="#nexus-3.1.9" class="sub" onclick="showTab('nexus')">→ v3.1.9</a>
-    <a href="#nexus-3.1.8" class="sub" onclick="showTab('nexus')">→ v3.1.8</a>
     <a href="#jev" onclick="showTab('jev')">nexus-jev</a>
     <a href="#jev-3.2.0" class="sub" onclick="showTab('jev')">→ v3.2.0</a>
     <a href="#jev-3.1.12" class="sub" onclick="showTab('jev')">→ v3.1.12</a>
@@ -285,6 +285,12 @@
 
     <section class="panel" id="nexus" role="tabpanel" aria-labelledby="tab-nexus">
 <!-- changelog:nexus:start -->
+      <h2 id="nexus-3.2.1">v3.2.1<span class="release-date">2026-11-23</span></h2>
+      <h3>Fixed</h3>
+      <ul>
+        <li><code>load_task</code> could not read the task CSVs <code>/dev-tasks-planner</code> writes. Their headers are upper case (<code>TASK_ID</code>, <code>DESCRIPTION</code>, …), and <code>load_task</code> only looked up lower-case names, so a task ID was "not found" and a loaded row came back with an empty task ID, description and acceptance criteria. Headers are now matched regardless of case, spaces, hyphens or a byte-order mark (<code>TASK_ID</code>, <code>Task ID</code> and <code>task-id</code> all read as <code>task_id</code>), and task IDs match regardless of case. <code>_all_fields</code> keeps the CSV's own column names.</li>
+      </ul>
+
       <h2 id="nexus-3.2.0">v3.2.0<span class="release-date">2026-11-22</span></h2>
       <h3>Added</h3>
       <ul>
