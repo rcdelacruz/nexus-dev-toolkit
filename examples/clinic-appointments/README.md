@@ -44,6 +44,7 @@ To explore this finished copy instead:
 alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"   # the nexus 4 preview; your nexus 3 stays as it is
 cp -r examples/clinic-appointments ~/careslot && cd ~/careslot && git init -q && git add -A && git commit -qm "start"
 nexus4 init . --role product                       # or architect / designer / developer
+export TYPESAFE_API_KEY=<your key>                 # optional: TypeSafe judgments; without it, nexus's built-in rules
 ```
 
 Then open Claude Code in `~/careslot` and follow the exercise at the end of the walkthrough.

@@ -1,0 +1,28 @@
+# What the knowledge graph skips. graphify reads .gitignore first, then this file,
+# and already skips node_modules/, dist/, build/, .venv/ and graphify-out/ on its own.
+# Yours to edit: add your stack's vendored or generated paths below. nexus only ever
+# appends lines that are missing, never removes yours.
+
+# nexus bookkeeping and the per-role tool folders
+.nexus/
+.claude/
+.opencode/
+.codex/
+.agents/
+
+# minified, vendored and generated files
+*.min.js
+*.min.css
+*.map
+vendor/
+
+# lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+uv.lock
+poetry.lock
+Cargo.lock
+composer.lock
+Gemfile.lock
+go.sum

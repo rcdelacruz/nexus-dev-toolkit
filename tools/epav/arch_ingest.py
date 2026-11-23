@@ -5,7 +5,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from tools.epav import stack_catalog
+from tools.epav import judgment, stack_catalog
 from tools.epav.formats import guides
 from tools.epav.formats.ids import extract_ids, kind_of
 
@@ -24,6 +24,66 @@ _ARCH_SECTIONS = [
 ]
 
 GUIDE_PATH = Path("docs/arch-docs/ARCHITECTURE-GUIDE.md")
+
+# TypeSafe path for the same fallback (key set): each heading is judged from its heading AND a
+# snippet of its body — a generic heading like "Overview" carries no signal on its own (jev
+# measured 0.80 "other" on title alone vs 0.83 for the right category with the body). Each
+# question embeds its own heading; an indexed shared list let answers bind to the wrong index.
+_ARCH_CATEGORIES = {
+    "stack": "Technology stack, frameworks, languages, or runtime/platform choices",
+    "components": "System overview, components, modules or services and how they fit together",
+    "data_model": "Data model, database schema, or entity/table design",
+    "auth": "Authentication or authorization (login, sessions, tokens, permissions)",
+    "error_handling": "Error handling conventions or the error response format",
+    "security": "Security rules, CORS, headers, secrets, data protection",
+    "decision": "An architecture decision record or a specific named architecture decision",
+    "api": "API or integration design: endpoints, contracts, events, external systems",
+    "infrastructure": "Deployment, hosting, infrastructure, middleware, environments, observability",
+    "nfr": "Non-functional requirements: performance, availability, scalability targets",
+    "other": "Not architecture (table of contents, changelog, timeline, meeting notes, unrelated text)",
+}
+_BODY_SNIPPET_LEN = 500
+_MAX_JUDGED_HEADINGS = 80   # one call per doc; a longer doc uses the built-in rules
+
+
+def _split_by_heading(text: str) -> tuple[str, list[tuple[str, str]]]:
+    """Every '#' heading starts a block: (preamble, [(heading, block text)])."""
+    pre: list[str] = []
+    blocks: list[tuple[str, list[str]]] = []
+    for line in text.splitlines():
+        if line.startswith("#"):
+            blocks.append((line.lstrip("#").strip(), [line]))
+        elif blocks:
+            blocks[-1][1].append(line)
+        else:
+            pre.append(line)
+    return "\n".join(pre).strip(), [(h, "\n".join(b).strip()) for h, b in blocks]
+
+
+async def _sections_for_unguided_doc(text: str) -> tuple[dict, str]:
+    """Sections of a doc that doesn't follow the guide: TypeSafe when the key is set, else (or on
+    any failure) the heading-keyword rules. Returns (sections, "typesafe" | "built-in")."""
+    if judgment.enabled():
+        preamble, blocks = _split_by_heading(text)
+        if 0 < len(blocks) <= _MAX_JUDGED_HEADINGS:
+            result = await judgment.system_one_async(state={}, questions={
+                f"h{i}": judgment.Choice(
+                    instructions=("Which part of a software architecture document is this section? "
+                                  f'Heading: "{heading}". Content: """{body[:_BODY_SNIPPET_LEN]}"""'),
+                    criteria=_ARCH_CATEGORIES)
+                for i, (heading, body) in enumerate(blocks)})
+            try:
+                picks = [result.choices[f"h{i}"].choice for i in range(len(blocks))] if result else None
+            except Exception:  # an answer missing or malformed — don't trust any of it
+                picks = None
+            if picks:
+                sections = {"preamble": preamble} if preamble else {}
+                for (heading, body), pick in zip(blocks, picks):
+                    if pick != "other":
+                        sections[heading.lower()] = body
+                return sections, judgment.TYPESAFE
+    return _extract_sections(text), judgment.BUILT_IN
+
 _SKIP_DIRS = {"node_modules", ".next", "dist", "build", "graphify-out", ".git"}
 # Requirements documents sometimes sit in arch-docs/; they are not architecture.
 _REQUIREMENT_FILE = re.compile(r"(?i)(\bbrd\b|\bprd\b|requirement|_brd|_prd|-brd|-prd|\bepic\s*\d+\b|\bepic\b.*\.docx)")
@@ -231,9 +291,12 @@ def register_arch_ingest_tool(mcp: FastMCP) -> None:
                         epics.append(new)
                     elif _version(f.name) >= _version(Path(old["file"]).name):   # v2 of an epic's ADR file replaces v1
                         epics[epics.index(old)] = new
-                if not a["required_found"]:                 # doc doesn't follow the guide — keyword fallback
-                    a["sections"] = _extract_sections(text)
-                entry = {"file": str(f), "stack": a["stack"], "stack_source": a["stack_source"],
+                sections_from = "guide"
+                if not a["required_found"] and is_adr:      # ADRs have their own template — keyword rules
+                    a["sections"], sections_from = _extract_sections(text), judgment.BUILT_IN
+                elif not a["required_found"]:               # doc doesn't follow the guide — TypeSafe or keywords
+                    a["sections"], sections_from = await _sections_for_unguided_doc(text)
+                entry = {"file": str(f), "sections_from": sections_from, "stack": a["stack"], "stack_source": a["stack_source"],
                          "adr_ids": a["adr_ids"][:200], "requirement_ids": a["requirement_ids"][:500]}
                 if not is_adr:
                     entry["required_sections_found"] = list(a["required_found"])

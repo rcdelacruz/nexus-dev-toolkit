@@ -31,7 +31,7 @@ from typing import Callable
 
 from mcp.server.fastmcp import FastMCP
 
-from tools.epav import stack_catalog
+from tools.epav import judgment, stack_catalog
 
 _TIMEOUT = 120
 _HTTP_TIMEOUT = 20
@@ -589,15 +589,39 @@ _MANUAL_INSTRUCTIONS = (
 )
 
 
-def _detect_package_manager(hint: str | None) -> str:
-    """Package manager named in the hint, else the first catalog tech that has one, else ""."""
+# Below this the Choice's own distribution is too flat to trust (jev measured 0.50 on an
+# out-of-registry stack).
+_PM_CONFIDENCE = 0.6
+
+
+def _pick_package_manager(hint: str | None) -> tuple[str, str]:
+    """(package manager, where it came from): named in the hint ("hint"), else a confident
+    TypeSafe Choice when the key is set ("typesafe"), else the first catalog tech that has one
+    ("catalog"), else ("", "none")."""
     if not hint:
-        return ""
+        return "", "none"
     for pm, cfg in _PM_REGISTRY.items():
         for alias in cfg["aliases"]:
             if re.search(rf"(?<![A-Za-z0-9_]){re.escape(alias)}(?![A-Za-z0-9_])", hint, re.I):
-                return pm
-    return stack_catalog.package_manager_for(hint)
+                return pm, "hint"
+    if judgment.enabled():
+        result = judgment.system_one(state={}, questions={"package_manager": judgment.Choice(
+            instructions=(f'A project is described as "{hint[:500]}". Which package manager should resolve '
+                          "and pin its dependency versions? Answer none if it can't be told."),
+            criteria={**{pm: ", ".join(cfg["aliases"]) for pm, cfg in _PM_REGISTRY.items()},
+                      "none": "Not enough information, or a package manager not in this list"})})
+        try:
+            pick = result.choices["package_manager"] if result else None
+        except Exception:
+            pick = None
+        if pick is not None and pick.choice in _PM_REGISTRY and pick.confidence >= _PM_CONFIDENCE:
+            return pick.choice, judgment.TYPESAFE
+    pm = stack_catalog.package_manager_for(hint)
+    return (pm, "catalog") if pm else ("", "none")
+
+
+def _detect_package_manager(hint: str | None) -> str:
+    return _pick_package_manager(hint)[0]
 
 
 def _status(versions: dict, names: list[str]) -> tuple[str, list[str]]:
@@ -608,7 +632,14 @@ def _status(versions: dict, names: list[str]) -> tuple[str, list[str]]:
 
 
 def resolve(packages: list[str], package_manager: str = "", stack_hint: str = "") -> dict:
-    pm = package_manager.strip().lower() or _detect_package_manager(stack_hint)
+    given = package_manager.strip().lower()
+    pm, source = (given, "given") if given else _pick_package_manager(stack_hint)
+    out = _resolve_with(pm, packages)
+    out["package_manager_from"] = source
+    return out
+
+
+def _resolve_with(pm: str, packages: list[str]) -> dict:
     if pm not in _PM_REGISTRY:
         return {
             "status": "unsupported",

@@ -41,12 +41,13 @@ PACK_ZIP = ROOT / "public" / "careslot-client-pack.zip"
 _SKIP_NAMES = ("__pycache__", ".ruff_cache", ".DS_Store", "node_modules", ".venv", "db.sqlite3", "graphify-out")
 _COPY_SKIP = shutil.ignore_patterns("__pycache__", ".ruff_cache", ".DS_Store", "node_modules", ".venv", "db.sqlite3", "graphify-out")
 MODULE = "careslot"
-TEMPLATES = {  # same mapping as nexus_cli._GUIDES (minus CODEOWNERS)
+TEMPLATES = {  # same mapping as nexus_cli._GUIDES (minus CODEOWNERS), plus .graphifyignore
     "docs/requirements/REQUIREMENTS-GUIDE.md": "REQUIREMENTS-GUIDE.md",
     "docs/arch-docs/ARCHITECTURE-GUIDE.md": "ARCHITECTURE-GUIDE.md",
     "docs/designs/DESIGN-GUIDE.md": "DESIGN-GUIDE.md",
     "docs/requirements/templates/BRD-TEMPLATE.md": "BRD-TEMPLATE.md",
     "docs/requirements/templates/PRD-TEMPLATE.md": "PRD-TEMPLATE.md",
+    ".graphifyignore": "graphifyignore",  # what nexus init writes for graph users (nexus_cli._write_ignores)
 }
 CR = {"id": "CR-001", "title": "SMS reminder 2 hours before (was 24); cancellation reason required",
       "date": "2026-11-30",

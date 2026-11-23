@@ -170,6 +170,49 @@ def _write_guides(project_dir: Path) -> list[str]:
     return created
 
 
+# ── .gitignore / .graphifyignore ──────────────────────────────────────────────
+
+# Per-role tool folder for each tool (everyone's commands differ by role, so they stay out of git).
+_TOOL_DIRS = {"claude": [".claude/"], "opencode": [".opencode/"], "codex": [".codex/", ".agents/"]}
+
+
+def _pattern_key(line: str) -> str:
+    return line.strip().strip("/")
+
+
+def _merge_ignore(path: Path, lines: list[str], template: str = "") -> list[str]:
+    """Append the patterns in `lines` that `path` doesn't have yet; never remove or reorder a line.
+    A missing file is created from `template` (when given) or from the lines. Returns the
+    patterns added."""
+    if not path.exists():
+        path.write_text(template or "".join(f"{l}\n" for l in lines), encoding="utf-8")
+        return [l for l in lines if l.strip() and not l.startswith("#")]
+    text = path.read_text(encoding="utf-8")
+    have = {_pattern_key(l) for l in text.splitlines() if l.strip() and not l.lstrip().startswith("#")}
+    missing = [l for l in lines if l.strip() and not l.startswith("#") and _pattern_key(l) not in have]
+    if missing:
+        sep = "" if not text or text.endswith("\n") else "\n"
+        path.write_text(text + sep + "\n# added by nexus\n" + "".join(f"{l}\n" for l in missing), encoding="utf-8")
+    return missing
+
+
+def _write_ignores(root: Path, tool_dirs: list[str], graph: bool) -> list[str]:
+    """.gitignore gets the per-role tool folders and graphify-out/; .graphifyignore (graph users only)
+    keeps nexus's bookkeeping, vendored/minified files and lock files out of the knowledge graph.
+    Both files belong to the team: nexus only appends what's missing. Returns lines for the report."""
+    out = []
+    added = _merge_ignore(root / ".gitignore", [*tool_dirs, "graphify-out/"])
+    if added:
+        out.append(f".gitignore (+ {', '.join(added)})")
+    if graph:
+        template = (_TEMPLATES_SRC / "graphifyignore").read_text(encoding="utf-8")
+        existed = (root / ".graphifyignore").exists()
+        added = _merge_ignore(root / ".graphifyignore", template.splitlines(), template)
+        if added:
+            out.append(".graphifyignore" if not existed else f".graphifyignore (+ {', '.join(added)})")
+    return out
+
+
 # ── .claude/settings.json ────────────────────────────────────────────────────
 
 _CLAUDE_SETTINGS = {
@@ -811,6 +854,7 @@ def init(
 
     if tool == "opencode":
         created = _init_opencode(root, backend, role)
+        created += _write_ignores(root, _TOOL_DIRS["opencode"], graph=backend == "graphify" and role == "developer")
         _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
@@ -820,6 +864,7 @@ def init(
         console.print(f"\n  [bold green]Done.[/bold green] Open [bold]{root}[/bold] in OpenCode and type [cyan]/{_FIRST_COMMAND[role]}[/cyan]\n")
     elif tool == "codex":
         created = _init_codex(root, backend, role)
+        created += _write_ignores(root, _TOOL_DIRS["codex"], graph=backend == "graphify" and role == "developer")
         _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
@@ -829,6 +874,7 @@ def init(
         console.print(f"\n  [bold green]Done.[/bold green] Run [bold]codex[/bold] in [bold]{root}[/bold], trust the project when asked (.codex/ config and hooks only load in trusted projects), and type [cyan]${_FIRST_COMMAND[role]}[/cyan]\n")
     else:
         created = _init_project(root, backend, role)
+        created += _write_ignores(root, _TOOL_DIRS["claude"], graph=backend == "graphify" and role == "developer")
         _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
@@ -1212,6 +1258,11 @@ def _sync_project(root: Path) -> Table | None:
 
     for rel in _write_guides(root):
         table.add_row(rel, "[cyan]created[/cyan] (yours to edit — never overwritten)")
+    tool_dirs = [d for t, present in (("claude", has_claude), ("opencode", has_opencode), ("codex", has_codex))
+                 if present for d in _TOOL_DIRS[t]]
+    graph = (root / ".graphifyignore").exists() or (root / "graphify-out").is_dir()
+    for line in _write_ignores(root, tool_dirs, graph):
+        table.add_row(line, "[cyan]updated[/cyan] (only missing lines added)")
     _refresh_mcp_configs(root, table)
     channel.save_manifest(root, _VERSION, {rel: channel.sha(text) for rel, text in files.items()}, role)
     return table
@@ -1306,6 +1357,9 @@ def doctor(
     opencode_label = f"installed (v{opencode_major})" if opencode_major is not None else "installed"
     table.add_row("OpenCode", ok(opencode_label) if has_opencode_bin else warn(f"not found — install: {_TOOL_CHECK['opencode']['install']}"))
     table.add_row("Codex", ok("installed") if has_codex_bin else warn("not found — install: npm install -g @openai/codex"))
+    from tools.epav import judgment
+    table.add_row("TypeSafe", ok("on — TYPESAFE_API_KEY is set in this shell (MCP tools see it when your AI tool is started from here)")
+                  if judgment.enabled() else ok("off — built-in rules (optional: export TYPESAFE_API_KEY=<your key>)"))
 
     # ── Project ──────────────────────────────────────────────────────────────
     has_claude_dir = (root / ".claude").is_dir()

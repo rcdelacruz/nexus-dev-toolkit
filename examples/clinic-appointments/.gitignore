@@ -5,3 +5,7 @@ staticfiles/
 node_modules/
 static/css/app.css
 db.sqlite3
+
+# added by nexus
+.claude/
+graphify-out/

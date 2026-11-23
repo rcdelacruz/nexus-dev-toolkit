@@ -1754,12 +1754,26 @@ flowchart TB
       <thead><tr><th>To</th><th>Run</th></tr></thead>
       <tbody>
         <tr><td>Try the preview (now)</td><td><code>alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"</code>, then <code>nexus4 init</code> in a v4 project. Your <code>nexus</code> (nexus 3) and other projects stay as they are; every run picks up the newest preview commit</td></tr>
+        <tr><td>Optional: TypeSafe</td><td><code>export TYPESAFE_API_KEY=&lt;your key&gt;</code> in your shell profile, then start your AI tool from that terminal — see <a href="#typesafe">TypeSafe</a></td></tr>
         <tr><td>Newest preview in a project</td><td><code>nexus4 sync</code> — updates the commands and points the project's MCP server at the newest commit</td></tr>
         <tr><td>Back to nexus 3 in a project</td><td><code>nexus4 channel stable</code>, then <code>nexus sync</code> — removes the v4-only commands nexus wrote (never ones you edited) and resets the MCP config. Nothing is installed or removed</td></tr>
         <tr><td>Once v4 is on PyPI</td><td><code>uv tool install 'nexus-dev-toolkit&gt;=4.0.0a0'</code> (or <code>curl -fsSL https://nexus.coderstudio.co/install.sh | NEXUS_CHANNEL=v4 bash</code>); then <code>nexus update</code> follows a1 → a2 → b1 → rc1 and moves to stable at 4.0.0, and <code>nexus channel stable</code> goes back</td></tr>
         <tr><td>Check</td><td><code>nexus4 channel show</code>, <code>nexus4 doctor</code> — doctor shows the nexus version and role this checkout was set up with</td></tr>
       </tbody>
     </table>
+
+    <h3 id="typesafe">TypeSafe (optional)</h3>
+    <p>Set <code>TYPESAFE_API_KEY</code> and nexus asks <a href="https://typesafe.ai" target="_blank" rel="noopener">TypeSafe</a> in four places where it would otherwise guess from keywords. Explicit sources always win: the guide's section names, <strong>Choice</strong> lines, a package manager named in the hint. Without the key nothing is sent and the built-in rules answer; any TypeSafe error also falls back to them. Every result says which path answered.</p>
+    <table>
+      <thead><tr><th>Where</th><th>Asked only when</th><th>Result field</th></tr></thead>
+      <tbody>
+        <tr><td><code>ingest_architecture_doc</code></td><td>a doc doesn't follow the architecture guide (ADRs keep the built-in rules)</td><td><code>sections_from</code></td></tr>
+        <tr><td><code>ingest_design_export</code></td><td>a token name the rules can't place (<code>--c-sea-500</code>)</td><td><code>token_roles_from</code></td></tr>
+        <tr><td><code>generate_project_rules</code></td><td>the doc has no Choice lines: keeps what it uses, drops what it only mentions</td><td><code>stack_from</code></td></tr>
+        <tr><td><code>resolve_package_versions</code></td><td>the hint names no package manager (used at confidence ≥ 0.6)</td><td><code>package_manager_from</code></td></tr>
+      </tbody>
+    </table>
+    <p>Keep the key in <code>~/.zshrc</code> (or <code>~/.bashrc</code>), never in <code>.mcp.json</code>: that file is shared in git. Claude Code passes your shell's environment to the nexus MCP server, so start it from a terminal that has the key. <code>nexus4 doctor</code> shows whether it's set.</p>
     <p><code>.nexus/</code> is nexus's bookkeeping for one checkout — its role and the files nexus wrote for it — and
       git-ignores itself, so teammates with different roles in one repository never overwrite each other's. With it,
       <code>nexus sync</code> backs up a built-in you edited before replacing it and never deletes your files. In a

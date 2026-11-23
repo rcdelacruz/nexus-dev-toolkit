@@ -312,6 +312,8 @@
     <pre><code><span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"   <span class="comment"># the nexus 4 preview</span>
 <span class="prompt">$</span> <span class="cmd">nexus4 init</span> . --role product   <span class="comment"># /brd, /prd, /requirements, /change-request — no developer tools</span></code></pre>
     <p><code>nexus4</code> is the preview under its own name: your <code>nexus</code> (nexus 3) and your other projects stay as they are, and every run picks up the newest preview by itself. To keep <code>nexus4</code> in new terminals, add the <code>alias</code> line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>).</p>
+    <pre><code><span class="prompt">$</span> <span class="cmd">export</span> TYPESAFE_API_KEY=&lt;your key&gt;   <span class="comment"># optional: TypeSafe judgments</span></code></pre>
+    <p><strong>Optional — TypeSafe.</strong> With a key, nexus asks <a href="https://typesafe.ai" target="_blank" rel="noopener" style="color:var(--cyan)">TypeSafe</a> where it would otherwise guess from keywords: the sections of a doc that doesn't follow the guide, design tokens its rules can't place, and which technologies a doc really uses. Without a key, nexus uses its built-in rules and nothing is sent. Add the line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>) and start Claude Code from that terminal. Never put the key in <code>.mcp.json</code>: it's shared in git.</p>
     <p>It also adds <code>docs/requirements/templates/BRD-TEMPLATE.md</code> and <code>PRD-TEMPLATE.md</code> and the
       requirements guide — yours to edit; nexus never overwrites them.</p>
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from tools.epav import stack_catalog
+from tools.epav import judgment, stack_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,32 @@ def _infer_stack(arch_text: str) -> str:
     return ", ".join(parts) if parts else "(update with your stack)"
 
 
+_MAX_JUDGED_TECHS = 40
+
+
+async def _infer_stack_judged(arch_text: str) -> tuple[str, str]:
+    """(stack, where it came from). Choice lines win ("choices"). Without them, TypeSafe — when the
+    key is set — keeps only the catalog matches the doc says the project uses, not ones it merely
+    mentions, evaluates or rejected ("typesafe"); else the keyword rules ("mentions")."""
+    chosen = stack_catalog.detect_from_choices(arch_text)
+    if chosen:
+        return ", ".join(chosen), "choices"
+    candidates = [tech for _, tech in stack_catalog.find(arch_text)][:_MAX_JUDGED_TECHS]
+    if candidates and judgment.enabled():
+        result = await judgment.system_one_async(state={"architecture_document": arch_text[:60_000]}, questions={
+            f"t{i}": judgment.Noul(instructions=(
+                f"Does `architecture_document` say the project uses {tech['name']} (a {tech['category']} "
+                "technology), as opposed to only mentioning, comparing, evaluating or rejecting it?"))
+            for i, tech in enumerate(candidates)})
+        try:
+            used = [tech["name"] for i, tech in enumerate(candidates) if result.nouls[f"t{i}"].noul >= 0.5] if result else None
+        except Exception:
+            used = None
+        if used is not None:
+            return (", ".join(used) if used else "(update with your stack)"), judgment.TYPESAFE
+    return _infer_stack(arch_text), "mentions"
+
+
 def register_project_rules_tool(mcp: FastMCP) -> None:
 
     @mcp.tool()
@@ -136,7 +162,7 @@ def register_project_rules_tool(mcp: FastMCP) -> None:
                 })
 
             repo = project_name or Path(".").resolve().name
-            stack = _infer_stack(arch_text)
+            stack, stack_from = await _infer_stack_judged(arch_text)
             rules = (
                 "- Follow the conventions in the architecture document\n"
                 "- No console.log in production code — use the project logger\n"
@@ -186,6 +212,7 @@ def register_project_rules_tool(mcp: FastMCP) -> None:
             return json.dumps({
                 "source_used": source_used,
                 "stack_detected": stack,
+                "stack_from": stack_from,
                 "dirs_created": dirs_created,
                 "files_written": files_written,
             }, indent=2)

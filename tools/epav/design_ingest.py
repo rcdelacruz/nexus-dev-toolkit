@@ -28,6 +28,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from tools.epav import judgment
 from tools.epav.formats import design as design_format
 from tools.epav.formats import guides
 from tools.epav.formats.ids import extract_ids, kind_of
@@ -132,6 +133,47 @@ def token_role(name: str) -> str:
         if re.search(pattern, n):
             return role
     return "other"
+
+
+_ROLE_CRITERIA = {
+    "background": "A page, surface or card background colour",
+    "foreground": "A text or icon colour",
+    "primary": "The brand, primary or accent colour",
+    "secondary": "A secondary brand or action colour",
+    "error": "Error, danger or destructive colour",
+    "success": "Success or positive colour",
+    "warning": "Warning or caution colour",
+    "border": "Border, divider, outline, input or focus-ring colour",
+    "neutral": "A muted, neutral or grey colour",
+    "radius": "Corner radius",
+    "shadow": "Shadow or elevation",
+    "typography": "Font family, font size, weight, line height or letter spacing",
+    "spacing": "Spacing, gap, margin or padding",
+    "other": "None of these (an animation timing, z-index, breakpoint, or unclear)",
+}
+_MAX_JUDGED_TOKENS = 120
+
+
+async def judge_unplaced_tokens(roles: dict[str, str], values: dict[str, str]) -> tuple[dict[str, str], str]:
+    """Token names the rules above leave as "other" ("--brand-500", "--btn-danger-bg", "--c-ink-2"…):
+    TypeSafe picks the role when the key is set, from the name and its value. The rules' answers are
+    never replaced. Returns (roles, "typesafe" | "built-in")."""
+    unplaced = [n for n, r in roles.items() if r == "other"][:_MAX_JUDGED_TOKENS]
+    if not unplaced or not judgment.enabled():
+        return roles, judgment.BUILT_IN
+    result = await judgment.system_one_async(state={}, questions={
+        f"t{i}": judgment.Choice(
+            instructions=f'Which design-token role is the CSS custom property "--{name.lstrip("-")}" '
+                         f'(value: "{values.get(name, "")[:80]}")?',
+            criteria=_ROLE_CRITERIA)
+        for i, name in enumerate(unplaced)})
+    if result is None:
+        return roles, judgment.BUILT_IN
+    try:
+        picks = {name: result.choices[f"t{i}"].choice for i, name in enumerate(unplaced)}
+    except Exception:
+        return roles, judgment.BUILT_IN
+    return {**roles, **{n: r for n, r in picks.items() if r in _ROLE_CRITERIA}}, judgment.TYPESAFE
 
 
 # ── token files ──────────────────────────────────────────────────────────────
@@ -572,6 +614,7 @@ def register_design_ingest_tool(mcp: FastMCP) -> None:
                 except Exception as e:
                     logger.warning("previous design.json unreadable: %s", e)
             manifest, info = build_manifest(root, module, previous, guide.id_patterns, [str(src)])
+            info["token_roles"], roles_from = await judge_unplaced_tokens(info["token_roles"], manifest.tokens.get("light", {}))
             findings = check(manifest, guide, info, requirement_ids)
             written = []
             if write:
@@ -583,6 +626,7 @@ def register_design_ingest_tool(mcp: FastMCP) -> None:
                 "manifest": json.loads(manifest.to_json()),
                 "manifest_problems": manifest.problems(),
                 "findings": findings,
+                "token_roles_from": roles_from,
                 "reference_frames": info["reference_frames"],
                 "notes": info["notes"],
                 "skipped_build_output": sorted(set(info["skipped_dirs"]) | set(skipped_zip)),

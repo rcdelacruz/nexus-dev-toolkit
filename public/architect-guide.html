@@ -315,6 +315,8 @@
 
 <span class="comment"># 3. open Claude Code there and type /requirements or /architect</span></code></pre>
     <p><code>nexus4</code> is the preview under its own name: your <code>nexus</code> (nexus 3) and your other projects stay as they are, and every run picks up the newest preview by itself. To keep <code>nexus4</code> in new terminals, add the <code>alias</code> line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>).</p>
+    <pre><code><span class="prompt">$</span> <span class="cmd">export</span> TYPESAFE_API_KEY=&lt;your key&gt;   <span class="comment"># optional: TypeSafe judgments</span></code></pre>
+    <p><strong>Optional — TypeSafe.</strong> With a key, nexus asks <a href="https://typesafe.ai" target="_blank" rel="noopener" style="color:var(--cyan)">TypeSafe</a> where it would otherwise guess from keywords: the sections of a doc that doesn't follow the guide, design tokens its rules can't place, and which technologies a doc really uses. Without a key, nexus uses its built-in rules and nothing is sent. Add the line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>) and start Claude Code from that terminal. Never put the key in <code>.mcp.json</code>: it's shared in git.</p>
     <p><code>--role architect</code> installs only <code>/requirements</code>, <code>/architect</code> and
       <code>/change-request</code> — no developer tools. It also adds the guides to <code>docs/</code> if they
       aren't there yet. Check the setup any time with <code>nexus4 doctor</code>.</p>

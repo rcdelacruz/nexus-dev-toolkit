@@ -1380,3 +1380,53 @@ def test_via_uvx_reads_uvs_cache_layout(monkeypatch):
     assert nexus_cli._via_uvx()
     monkeypatch.setattr(nexus_cli.sys, "prefix", "/Users/x/.local/share/uv/tools/nexus-dev-toolkit")
     assert not nexus_cli._via_uvx()
+
+
+# ── .gitignore / .graphifyignore ─────────────────────────────────────────────
+
+def _lines(p: Path) -> list[str]:
+    return [l for l in p.read_text().splitlines() if l.strip() and not l.startswith("#")]
+
+
+def test_init_writes_both_ignore_files(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "graphify"])
+    assert {".claude/", "graphify-out/"} <= set(_lines(tmp_project / ".gitignore"))
+    graph = _lines(tmp_project / ".graphifyignore")
+    # measured in a real run: a vendored htmx.min.js and .nexus/manifest.json were 138 of 1021 graph nodes
+    assert ".nexus/" in graph and "*.min.js" in graph and "package-lock.json" in graph
+
+
+def test_ignore_files_only_ever_gain_missing_lines(tmp_project):
+    (tmp_project / ".gitignore").write_text("# ours\n.env\n/graphify-out\nnode_modules/")   # no trailing newline
+    (tmp_project / ".graphifyignore").write_text("docs/legacy/\n*.min.js\n")
+    runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "graphify"])
+    git = (tmp_project / ".gitignore").read_text()
+    assert git.startswith("# ours\n.env\n/graphify-out\nnode_modules/\n")       # untouched, in order
+    assert _lines(tmp_project / ".gitignore").count(".claude/") == 1 and "graphify-out/" not in git  # /graphify-out counts
+    graph = _lines(tmp_project / ".graphifyignore")
+    assert graph[:2] == ["docs/legacy/", "*.min.js"] and graph.count("*.min.js") == 1 and ".nexus/" in graph
+    before = (git, (tmp_project / ".graphifyignore").read_text())
+    runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "graphify"])
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert before == ((tmp_project / ".gitignore").read_text(), (tmp_project / ".graphifyignore").read_text())
+
+
+def test_roles_without_a_graph_get_no_graphifyignore(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--role", "product"])
+    assert ".claude/" in _lines(tmp_project / ".gitignore")
+    assert not (tmp_project / ".graphifyignore").exists()
+
+
+def test_codex_ignores_its_own_folders(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--tool", "codex", "--graph-backend", "none"])
+    assert {".codex/", ".agents/", "graphify-out/"} <= set(_lines(tmp_project / ".gitignore"))
+    assert not (tmp_project / ".graphifyignore").exists()
+
+
+def test_sync_brings_an_older_project_up_to_date(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project), "--graph-backend", "graphify"])
+    (tmp_project / ".gitignore").unlink()
+    (tmp_project / ".graphifyignore").write_text("vendor/\n")
+    runner.invoke(app, ["sync", str(tmp_project)])
+    assert ".claude/" in _lines(tmp_project / ".gitignore")
+    assert _lines(tmp_project / ".graphifyignore")[0] == "vendor/" and ".nexus/" in _lines(tmp_project / ".graphifyignore")
