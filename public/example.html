@@ -375,7 +375,7 @@ Affected tasks: BOOK-005, NOTIF-002 → re-planned · BOOK-006 added · 9 others
     <p>To build CareSlot yourselves, as a team with real roles, use the <a href="/training" style="color:var(--cyan)">team training</a>.
       Or explore the finished project:</p>
     <pre><code><span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"   <span class="comment"># the nexus 4 preview</span>
-<span class="prompt">$</span> <span class="cmd">cp</span> -r examples/clinic-appointments ~/careslot &amp;&amp; cd ~/careslot &amp;&amp; git init -q &amp;&amp; git add -A &amp;&amp; git commit -qm start
+<span class="prompt">$</span> <span class="cmd">cp</span> -r examples/clinic-appointments ~/careslot &amp;&amp; cd ~/careslot &amp;&amp; git init -q &amp;&amp; git add -A &amp;&amp; git commit -qm "chore: start"
 <span class="prompt">$</span> <span class="cmd">nexus4 init</span> . --role product</code></pre>
     <p><code>nexus4</code> is the preview under its own name: your <code>nexus</code> (nexus 3) and your other projects stay as they are, and every run picks up the newest preview by itself. To keep <code>nexus4</code> in new terminals, add the <code>alias</code> line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>).</p>
     <pre><code><span class="prompt">$</span> <span class="cmd">export</span> TYPESAFE_API_KEY=&lt;your key&gt;   <span class="comment"># optional: TypeSafe judgments</span></code></pre>

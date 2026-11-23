@@ -81,7 +81,7 @@ Do not write anything before the designer approves.
 1. Run `ingest_design_export` (write=false) once more and report every finding as BLOCKER / FIX NOW / BACKLOG, in the designer's words.
 2. **Create:** fix your own frames until no BLOCKER or FIX NOW is left. **Review:** BLOCKERs (no tokens file, missing core colour roles, a UI requirement without a screen) and FIX NOWs (off-token colours, missing states, missing breakpoints) go back to the designer with the exact fix; re-import after they send a new export. Do not "fix" a designer's own export by editing their files yourself.
 3. When none are left:
-   - `git add docs/designs` — **only** docs/. `git commit -m "design(<app>): …"`.
+   - `git add docs/designs` — **only** docs/. `git commit -m "docs(design): <app> …"` (commit messages follow Conventional Commits — commitizen refuses others).
    - If the repo has a remote, `gh pr create` titled `Design: <app>`, with the screen list and coverage; with no remote (e.g. a repo that isn't on GitHub yet) stop at the commit and say so.
 
 ```

@@ -213,6 +213,66 @@ def _write_ignores(root: Path, tool_dirs: list[str], graph: bool) -> list[str]:
     return out
 
 
+# ── commit messages: commitizen from the first commit ─────────────────────────
+
+# Git hooks don't travel with `git clone`, so every clone installs its own — which is why init
+# (run by every role, in every clone) does it, not /scaffold (run once, on the tech lead's machine).
+_PRE_COMMIT_CONFIG = ".pre-commit-config.yaml"
+
+
+def _install_commit_hook(root: Path) -> str | None:
+    """`pre-commit install --hook-type commit-msg` through uvx (uv is already required). None on
+    success, else a short reason. Tests replace this: it downloads pre-commit."""
+    uvx = shutil.which("uvx")
+    if not uvx:
+        return "uvx not found — install uv, then run nexus sync"
+    try:
+        r = subprocess.run([uvx, "pre-commit", "install", "--hook-type", "commit-msg"],
+                           cwd=root, capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return type(e).__name__
+    if r.returncode != 0:
+        lines = (r.stderr or r.stdout or "").strip().splitlines()
+        return lines[-1][:160] if lines else f"exit {r.returncode}"
+    return None
+
+
+def _commit_hook_installed(root: Path) -> bool:
+    try:
+        rel = subprocess.run(["git", "rev-parse", "--git-path", "hooks/commit-msg"], cwd=root,
+                             capture_output=True, text=True, timeout=10).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    hook = root / rel if rel else None
+    return bool(hook and hook.is_file() and "pre-commit" in hook.read_text(encoding="utf-8", errors="ignore"))
+
+
+def _setup_commit_check(root: Path) -> tuple[list[str], list[str]]:
+    """Write .pre-commit-config.yaml with the commitizen commit-msg check (only if the file is
+    missing — an existing one is the team's and is never edited) and install the hook in this
+    clone. Returns (what was set up, notes on what wasn't)."""
+    out = []
+    cfg = root / _PRE_COMMIT_CONFIG
+    if not cfg.exists():
+        cfg.write_text((_TEMPLATES_SRC / "pre-commit-config.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+        out.append(f"{_PRE_COMMIT_CONFIG} (commit messages checked by commitizen)")
+    elif "commitizen" not in cfg.read_text(encoding="utf-8", errors="ignore"):
+        return [], [f"{_PRE_COMMIT_CONFIG} has no commitizen check — left as it is; add it to check commit messages"]
+    if not (root / ".git").exists():
+        return out, ["commit-msg check not installed: not a git repository yet — git init, then nexus sync"]
+    if _commit_hook_installed(root):
+        return out, []
+    err = _install_commit_hook(root)
+    if err:
+        return out, [f"commit-msg check not installed: {err}"]
+    return out + ["commit-msg check installed (commitizen)"], []
+
+
+def _print_notes(notes: list[str]) -> None:
+    for n in notes:
+        console.print(f"  [yellow]![/yellow]  {escape(n)}")
+
+
 # ── .claude/settings.json ────────────────────────────────────────────────────
 
 _CLAUDE_SETTINGS = {
@@ -855,9 +915,12 @@ def init(
     if tool == "opencode":
         created = _init_opencode(root, backend, role)
         created += _write_ignores(root, _TOOL_DIRS["opencode"], graph=backend == "graphify" and role == "developer")
+        made, notes = _setup_commit_check(root)
+        created += made
         _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
+        _print_notes(notes)
         if not created:
             console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
             return
@@ -865,9 +928,12 @@ def init(
     elif tool == "codex":
         created = _init_codex(root, backend, role)
         created += _write_ignores(root, _TOOL_DIRS["codex"], graph=backend == "graphify" and role == "developer")
+        made, notes = _setup_commit_check(root)
+        created += made
         _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
+        _print_notes(notes)
         if not created:
             console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
             return
@@ -875,9 +941,12 @@ def init(
     else:
         created = _init_project(root, backend, role)
         created += _write_ignores(root, _TOOL_DIRS["claude"], graph=backend == "graphify" and role == "developer")
+        made, notes = _setup_commit_check(root)
+        created += made
         _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
+        _print_notes(notes)
         if not created:
             console.print("  [yellow]·[/yellow]  Already initialized — nothing to do")
             return
@@ -1263,6 +1332,11 @@ def _sync_project(root: Path) -> Table | None:
     graph = (root / ".graphifyignore").exists() or (root / "graphify-out").is_dir()
     for line in _write_ignores(root, tool_dirs, graph):
         table.add_row(line, "[cyan]updated[/cyan] (only missing lines added)")
+    made, notes = _setup_commit_check(root)
+    for line in made:
+        table.add_row(line, "[cyan]set up[/cyan]")
+    for line in notes:
+        table.add_row(escape(line), "[yellow]check[/yellow]")
     _refresh_mcp_configs(root, table)
     channel.save_manifest(root, _VERSION, {rel: channel.sha(text) for rel, text in files.items()}, role)
     return table

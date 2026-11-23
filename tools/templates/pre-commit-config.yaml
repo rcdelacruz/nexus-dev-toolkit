@@ -1,0 +1,9 @@
+# Checks that run on every commit, in every clone. nexus init wrote this file once; it's yours to edit.
+# Commit messages must follow Conventional Commits — feat:, fix:, docs:, chore:, refactor:, test: … —
+# checked by commitizen. /scaffold adds the stack's formatter and linter below; keep the commitizen entry.
+default_install_hook_types: [pre-commit, commit-msg]
+repos:
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.20.0
+    hooks:
+      - id: commitizen

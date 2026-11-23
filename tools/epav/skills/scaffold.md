@@ -215,14 +215,15 @@ NEVER write patch versions from AI memory — training data is always stale.
 - Health-check endpoint
 - Seed script — idempotent test data
 - Linter + formatter config — the stack's **Lint / format** column in the Ecosystem reference
-- Pre-commit hooks — the stack's **Pre-commit hooks** column. Details for the common ones:
-  - **npm:** husky + lint-staged + commitlint
+- Pre-commit hooks — the stack's **Pre-commit hooks** column. Commit messages are already checked: `nexus init` wrote `.pre-commit-config.yaml` with the **commitizen** `commit-msg` check and installed it in every clone. Keep that one rule for the whole team — never add a second message checker (no commitlint). Details for the common ones:
+  - **pre-commit framework** (Python, Go, Rust, JVM, Elixir, C/C++, Haskell, Swift): **add** the stack's formatter + linter hooks to the existing `.pre-commit-config.yaml` — never replace the file, keep the commitizen entry — then `uvx pre-commit install` (its `default_install_hook_types` installs both the pre-commit and commit-msg hooks)
+  - **npm:** husky + lint-staged
     - `package.json` must have `"prepare": "husky"` in scripts
     - Write `.husky/pre-commit` with `npx lint-staged`, then `chmod +x .husky/pre-commit`
     - Write `.lintstagedrc.json` (lint + format on staged files)
-    - Write `.commitlintrc.json` with `@commitlint/config-conventional`
+    - husky takes over git hooks (`core.hooksPath`), so the commitizen check must move into it: write `.husky/commit-msg` with `uvx --from commitizen==4.20.0 cz check --allow-abort --commit-msg-file "$1"`, then `chmod +x .husky/commit-msg`
     - CI pipeline must set `HUSKY=0` env var — husky fails in CI without a git repo
-  - **pre-commit framework** (Python, Go, Rust, JVM, Elixir, C/C++, Haskell, Swift): `.pre-commit-config.yaml` running the stack's formatter + linter, plus a conventional-commit `commit-msg` hook
+  - **Other hook tools** (lefthook, overcommit, GrumPHP, Husky.Net, cargo-husky, git_hooks): if the tool writes its own git hooks, give it a `commit-msg` hook running the same `cz check` command above
   - **Ruby:** lefthook (`lefthook.yml`) or overcommit · **PHP:** GrumPHP · **.NET:** Husky.Net
 - README with local setup instructions
 - CI pipeline config (GitHub Actions or equivalent: lint, typecheck, test, db push)
@@ -344,7 +345,7 @@ Review everything against the architecture doc AND the design frames.
 18. Design system spec saved to knowledge/?
 
 **Git hygiene:**
-19. Pre-commit hooks configured and working? (the stack's Pre-commit hooks column — e.g. husky executable + lint-staged for npm, `pre-commit install` done for the pre-commit framework)
+19. Pre-commit hooks configured and working? (the stack's Pre-commit hooks column — e.g. husky executable + lint-staged for npm, `pre-commit install` done for the pre-commit framework) — and commit messages still checked: `git commit --allow-empty -m "bad message"` must be refused (nothing is committed), `git commit --allow-empty -m "chore: check commit messages"` must pass (then `git reset --soft HEAD~1`)
 20. Ignore files — one path per check (`git check-ignore -q` takes a single path): `for p in .env graphify-out .claude; do git check-ignore -q "$p" || echo "NOT ignored: $p"; done` prints nothing (use your tool's folder instead of `.claude`), `git check-ignore -q .env.example` fails (it must stay committed), and `.graphifyignore` exists with nexus's lines plus the stack's vendored/generated paths?
 
 Classify every issue: [BLOCKER] / [FIX NOW] / [BACKLOG]
