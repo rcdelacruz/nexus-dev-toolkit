@@ -253,6 +253,9 @@
     .step-desc strong { color: var(--white); }
     .step-who { color: var(--cyan); font-size: 0.72rem; margin-left: 0.5rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
     .step-content pre { margin: 0.5rem 0 0.75rem; }
+    .owner-box { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text2); margin: 0.5rem 0 0; }
+    .owner-box input { background: var(--surface); border: 1px solid var(--border); color: var(--white); padding: 0.4rem 0.6rem; border-radius: 4px; font-family: inherit; font-size: 0.8rem; width: 14rem; max-width: 100%; }
+    .owner-box input:focus { outline: none; border-color: var(--cyan); }
     .role-picker { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1.75rem; }
     .role-picker button { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 0.4rem 0.8rem; border-radius: 999px; font-family: inherit; font-size: 0.75rem; cursor: pointer; }
     .role-picker button.active { border-color: var(--cyan); color: var(--cyan); }
@@ -328,7 +331,8 @@ flowchart TB
     </div>
 
     <h2 id="steps">The Steps</h2>
-    <p>Pick your role to see only your steps — the commands follow it. Every command block has a copy button.</p>
+    <p>Type your team's GitHub organisation (or your username), then pick your role. The commands fill in both — copy them as they are.</p>
+    <label class="owner-box">GitHub org or username <input id="gh-owner" type="text" placeholder="YOUR-ORG" autocomplete="off" spellcheck="false"></label>
     <div class="role-picker">
       <button data-role="all">Everyone</button>
       <button data-role="facilitator">Facilitator</button>
@@ -353,17 +357,17 @@ flowchart TB
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Create the team repository<span class="step-who">tech lead</span></div>
-          <div class="step-desc">On GitHub: a new private repository <code>careslot</code>; invite the team. Then:</div><pre><code><span class="prompt">$</span> <span class="cmd">git</span> clone git@github.com:YOUR-ORG/careslot.git &amp;&amp; cd careslot
+          <div class="step-desc"><strong>1. Create the repository on GitHub.</strong> Go to <a href="https://github.com/new" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/new</a>. Owner: <span class="gh-owner">YOUR-ORG</span>. Repository name: <code>careslot</code>. Choose <strong>Private</strong>. Leave “Add a README” off. Click <strong>Create repository</strong>. Then invite the team: the repository's Settings → Collaborators.</div><div class="step-desc"><strong>2. In your terminal:</strong></div><pre><code><span class="prompt">$</span> <span class="cmd">gh</span> repo clone <span class="gh-owner">YOUR-ORG</span>/careslot &amp;&amp; cd careslot
 <span class="prompt">$</span> <span class="cmd">curl</span> -fLO https://v4-preview.nexus-coderstudio.pages.dev/careslot-client-pack.zip &amp;&amp; unzip careslot-client-pack.zip &amp;&amp; rm careslot-client-pack.zip
 <span class="prompt">$</span> <span class="cmd">nexus4</span> init . --role developer
-<span class="prompt">$</span> <span class="cmd">git</span> add -A &amp;&amp; git commit -m "CareSlot: client pack, nexus setup" &amp;&amp; git push -u origin main</code></pre>          <div class="step-desc">The client pack unzips straight into place: kickoff notes, last quarter's no-show report, a front-desk interview and the team's constraints in <code>docs/requirements/sources/</code>, the designer's design system in <code>docs/designs/design-system/</code>. The client's change request isn't in it — the facilitator sends it later.</div><div class="step-desc">Then put your people's GitHub names in <code>.github/CODEOWNERS.nexus-template</code>, rename it to <code>CODEOWNERS</code>, push, and protect <code>main</code> (Settings → Branches): require a pull request and a review from code owners. <code>nexus4 init</code> also writes <code>.gitignore</code> and <code>.graphifyignore</code>: <code>.claude/</code> stays out of git because everyone's commands depend on their role, <code>graphify-out/</code> because each person's graph is built on their machine, and the graph skips nexus's bookkeeping, minified files and lock files. The team shares <code>.mcp.json</code>, <code>docs/</code> and later <code>AGENTS.md</code>; <code>/scaffold</code> adds the stack's own lines to both files.</div>
+<span class="prompt">$</span> <span class="cmd">git</span> add -A &amp;&amp; git commit -m "CareSlot: client pack, nexus setup" &amp;&amp; git branch -M main &amp;&amp; git push -u origin main</code></pre>          <div class="step-desc">The zip puts the client's notes in <code>docs/requirements/sources/</code> and the design system in <code>docs/designs/design-system/</code>.</div><div class="step-desc"><strong>3. Name the reviewers.</strong> Open <code>.github/CODEOWNERS.nexus-template</code>, replace the team names with your people's GitHub names, rename the file to <code>CODEOWNERS</code>, then commit and push.</div><div class="step-desc"><strong>4. Protect main.</strong> On GitHub: the repository's Settings → Branches → add a rule for <code>main</code>: require a pull request and a review from code owners.</div>
         </div>
       </div>
       <div class="step" data-roles="product architect designer developer">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Clone and set up your role<span class="step-who">everyone except the tech lead (done in the setup step)</span></div>
-<pre><code><span class="prompt">$</span> <span class="cmd">git</span> clone git@github.com:YOUR-ORG/careslot.git &amp;&amp; cd careslot
+<pre><code><span class="prompt">$</span> <span class="cmd">gh</span> repo clone <span class="gh-owner">YOUR-ORG</span>/careslot &amp;&amp; cd careslot
 <span class="prompt">$</span> <span class="cmd">nexus4</span> init . --role <span class="role-arg">product</span>
 <span class="prompt">$</span> <span class="cmd">git</span> status   <span class="comment"># nothing to commit — your setup stays on your machine</span>
 <span class="prompt">$</span> <span class="cmd">claude</span></code></pre>          <div class="step-desc">Claude Code asks once whether you trust the folder — say yes; nexus has already approved its MCP server and tools, so there's no second question. Every command then looks first, shows a plan, <strong>stops for your approval</strong>, writes, checks its own work, commits only its own folder and opens the pull request.</div>
@@ -516,6 +520,19 @@ flowchart TB
         });
         pre.appendChild(b);
       });
+    })();
+    // GitHub owner box: fills every command, remembered on this browser.
+    (function () {
+      var box = document.getElementById('gh-owner');
+      if (!box) return;
+      function fill() {
+        var v = box.value.trim().replace(/^@/, '').replace(/[^A-Za-z0-9-]/g, '');
+        document.querySelectorAll('.gh-owner').forEach(function (s) { s.textContent = v || 'YOUR-ORG'; });
+        try { localStorage.setItem('nexus-training-owner', v); } catch (e) {}
+      }
+      try { box.value = localStorage.getItem('nexus-training-owner') || ''; } catch (e) {}
+      box.addEventListener('input', fill);
+      fill();
     })();
     // Role picker (training page): show only the steps for the chosen role; the init command follows it.
     (function () {
