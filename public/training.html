@@ -272,6 +272,7 @@
 
     <div class="nav-section">Team Training</div>
     <a href="#team">The team</a>
+    <a href="#talk">Talking to Claude</a>
     <a href="#steps">The steps</a>
     <a href="#after">After the run</a>
 
@@ -330,6 +331,20 @@ flowchart TB
 </pre>
     </div>
 
+    <h2 id="talk">Talking to Claude</h2>
+    <p>Every step starts with a command. After that it's a conversation in plain words: Claude reads, asks, shows a plan and <strong>stops</strong> until you answer.</p>
+    <table>
+      <thead><tr><th>When Claude…</th><th>You type, for example</th></tr></thead>
+      <tbody>
+        <tr><td>asks numbered questions</td><td><code>1: fewer no-shows. 2: not sure — leave it open, owner: Joy</code></td></tr>
+        <tr><td>shows a plan and stops</td><td><code>go</code> — or what to change first: <code>you missed the 2-hour cancellation cutoff</code></td></tr>
+        <tr><td>did something you don't understand</td><td><code>why this stack and not React?</code> — a question changes nothing</td></tr>
+        <tr><td>goes the wrong way</td><td>press <kbd>Esc</kbd>, then say what you want instead</td></tr>
+        <tr><td>has finished</td><td><code>what did you change, and what's still open?</code></td></tr>
+      </tbody>
+    </table>
+    <p>Never type a fact you don't know as if it were true — say <em>"don't know, leave it open"</em>, and it stays an Open Question with an owner.</p>
+
     <h2 id="steps">The Steps</h2>
     <p>Type your team's GitHub organisation (or your username), then pick your role. The commands fill in both — copy them as they are.</p>
     <label class="owner-box">GitHub org or username <input id="gh-owner" type="text" placeholder="YOUR-ORG" autocomplete="off" spellcheck="false"></label>
@@ -377,42 +392,58 @@ flowchart TB
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Write the BRD<span class="step-who">product owner</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/brd</span> docs/requirements/sources/kickoff-notes.md docs/requirements/sources/no-show-report.md docs/requirements/sources/front-desk-interview.md</code></pre>          <div class="step-desc">One BRD for the whole product. Answer its questions from the notes; what nobody knows stays an Open Question with an owner. Merge its pull request, then pull <code>main</code>.</div>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/brd</span> docs/requirements/sources/kickoff-notes.md docs/requirements/sources/no-show-report.md docs/requirements/sources/front-desk-interview.md</code></pre>          <div class="step-desc">One BRD for the whole product. Answer its questions from the notes; what nobody knows stays an Open Question with an owner. Merge its pull request once you're done with the follow-ups below, then pull <code>main</code>.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> 1: fewer no-shows matters most. 2: not sure — leave it open, owner: Joy   <span class="comment"># answering its questions</span>
+<span class="prompt">&gt;</span> you missed the 2-hour cancellation cutoff from the kickoff notes   <span class="comment"># before go: correct the plan</span>
+<span class="prompt">&gt;</span> go
+<span class="prompt">&gt;</span> ask me the open questions one by one   <span class="comment"># after it&#x27;s written; type skip to leave one open</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="product">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Write the PRD<span class="step-who">product owner</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/prd</span></code></pre>          <div class="step-desc">User stories, functional and non-functional requirements, acceptance criteria — each citing the business rule it serves. Don't split into modules: the architect does that next.</div>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/prd</span></code></pre>          <div class="step-desc">User stories, functional and non-functional requirements, acceptance criteria — each citing the business rule it serves. Don't split into modules: the architect does that next.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> patients book on their phones; receptionists and doctors use desktops   <span class="comment"># answering: personas and devices</span>
+<span class="prompt">&gt;</span> split the booking story: book a slot, and see my upcoming appointments   <span class="comment"># before go</span>
+<span class="prompt">&gt;</span> go
+<span class="prompt">&gt;</span> ask me the open questions one by one</code></pre>
         </div>
       </div>
       <div class="step" data-roles="architect">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Architecture and the epics<span class="step-who">architect</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/architect</span> careslot — the team's constraints are in docs/requirements/sources/team-constraints.md</code></pre>          <div class="step-desc">Pull <code>main</code> first. The stack on <code>**Choice**</code> lines, ADRs for the big decisions, and the product <strong>split into epics</strong> — one ADR file each, every story in exactly one. Everything downstream follows your epics.</div>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/architect</span> careslot — the team's constraints are in docs/requirements/sources/team-constraints.md</code></pre>          <div class="step-desc">Pull <code>main</code> first. The stack on <code>**Choice**</code> lines, ADRs for the big decisions, and the product <strong>split into epics</strong> — one ADR file each, every story in exactly one. Everything downstream follows your epics.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> why this stack, and not React?   <span class="comment"># a question changes nothing</span>
+<span class="prompt">&gt;</span> record why we don&#x27;t build on the designer&#x27;s React export
+<span class="prompt">&gt;</span> go
+<span class="prompt">&gt;</span> which stories ended up in which epic?   <span class="comment"># after it&#x27;s written</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="designer">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">The screens<span class="step-who">designer</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/design</span> careslot --system docs/designs/design-system</code></pre>          <div class="step-desc">One screen per story, epic by epic, from the design system only. Working in Claude Design (Claude Desktop) or Figma Make instead? Export, copy the files into <code>docs/designs/careslot/</code>, commit and open the pull request — no command needed.</div>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/design</span> careslot --system docs/designs/design-system</code></pre>          <div class="step-desc">One screen per story, epic by epic, from the design system only. Working in Claude Design (Claude Desktop) or Figma Make instead? Export, copy the files into <code>docs/designs/careslot/</code>, commit and open the pull request — no command needed.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> the screen list is right   <span class="comment"># confirming the plan</span>
+<span class="prompt">&gt;</span> the red on the cancel button is a mistake — use the system&#x27;s danger colour   <span class="comment"># an off-token colour</span>
+<span class="prompt">&gt;</span> go
+<span class="prompt">&gt;</span> which requirements have no screen yet?</code></pre>
         </div>
       </div>
       <div class="step" data-roles="lead">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Day 0 — the scaffold<span class="step-who">tech lead</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/scaffold</span></code></pre>          <div class="step-desc">Once, after architecture and designs are merged: the stack from the Choice lines, exact versions, the theme from the tokens, one template per screen, Docker, CI, <code>AGENTS.md</code>, a passing build gate — no business logic. Merge it before planning. Plan for about an hour: CareSlot's scaffold took about 70 minutes in our own team run. Claude Code asks before writing <code>.pre-commit-config.yaml</code> — approve it.</div>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/scaffold</span></code></pre>          <div class="step-desc">Once, after architecture and designs are merged: the stack from the Choice lines, exact versions, the theme from the tokens, one template per screen, Docker, CI, <code>AGENTS.md</code>, a passing build gate — no business logic. Merge it before planning. Plan for about an hour: CareSlot's scaffold took about 70 minutes in our own team run. Claude Code asks before writing <code>.pre-commit-config.yaml</code> — approve it.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> yes, that summary is right   <span class="comment"># after its first summary</span>
+<span class="prompt">&gt;</span> /apply   <span class="comment"># approves the plan</span>
+<span class="prompt">&gt;</span> the build gate failed — show me the error and fix it</code></pre>
         </div>
       </div>
       <div class="step" data-roles="lead">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Plan the dev tasks against the code<span class="step-who">tech lead</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/dev-tasks-planner</span> careslot based on docs/arch-docs/careslot/</code></pre>          <div class="step-desc">One CSV per epic in <code>docs/dev-tasks/careslot/</code>; every task names the files it changes. Hand each developer a task ID.</div>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/dev-tasks-planner</span> careslot based on docs/arch-docs/careslot/</code></pre>          <div class="step-desc">One CSV per epic in <code>docs/dev-tasks/careslot/</code>; every task names the files it changes. Hand each developer a task ID.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> the summary is right — plan it   <span class="comment"># after its first summary</span>
+<span class="prompt">&gt;</span> BOOK-004 is too big — split it in two   <span class="comment"># before you approve the plan</span>
+<span class="prompt">&gt;</span> go</code></pre>
         </div>
       </div>
       <div class="step" data-roles="developer lead">
@@ -422,7 +453,9 @@ flowchart TB
 <pre><code><span class="prompt">&gt;</span> <span class="skill">/evaluate</span> BOOK-004   <span class="comment"># your task ID</span>
 <span class="prompt">&gt;</span> <span class="skill">/plan</span>
 <span class="prompt">&gt;</span> <span class="skill">/apply</span>
-<span class="prompt">&gt;</span> <span class="skill">/validate</span></code></pre>          <div class="step-desc">Run them one after the other and read each result before the next. Pick different tasks so you don't collide; the tech lead reviews the pull requests.</div>
+<span class="prompt">&gt;</span> <span class="skill">/validate</span></code></pre>          <div class="step-desc">Run them one after the other and read each result before the next. Pick different tasks so you don't collide; the tech lead reviews the pull requests.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> why these files?   <span class="comment"># after /plan</span>
+<span class="prompt">&gt;</span> keep the change smaller: no refactoring outside the task   <span class="comment"># before /apply</span>
+<span class="prompt">&gt;</span> one check failed — show me why, then fix it   <span class="comment"># after /validate</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="facilitator">
@@ -436,14 +469,15 @@ flowchart TB
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Record the change request<span class="step-who">product owner, architect, designer</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/change-request</span> CR-001 "Reminder 2 hours before; cancellation reason"</code></pre>          <div class="step-desc">Requirements change first (a changed requirement keeps its ID), then architecture and screens; the architect and designer review. The record lists exactly which IDs changed and which tasks they touch.</div>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/change-request</span> CR-001 "Reminder 2 hours before; cancellation reason"</code></pre>          <div class="step-desc">Requirements change first (a changed requirement keeps its ID), then architecture and screens; the architect and designer review. The record lists exactly which IDs changed and which tasks they touch.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> go   <span class="comment"># after checking the list of IDs it will change</span>
+<span class="prompt">&gt;</span> which dev tasks does this touch?   <span class="comment"># after it&#x27;s recorded</span></code></pre>
         </div>
       </div>
       <div class="step" data-roles="lead">
         <div class="step-num">·</div>
         <div class="step-content">
           <div class="step-title">Re-plan only the affected tasks<span class="step-who">tech lead</span></div>
-<pre><code><span class="prompt">&gt;</span> <span class="skill">/dev-tasks-planner</span> cr CR-001</code></pre>          <div class="step-desc">Only the rows the change request lists are re-planned; every other task stays exactly as it was.</div>
+<pre><code><span class="prompt">&gt;</span> <span class="skill">/dev-tasks-planner</span> cr CR-001</code></pre>          <div class="step-desc">Only the rows the change request lists are re-planned; every other task stays exactly as it was.</div><div class="step-desc talk">Then talk to it — examples, say it your own way:</div><pre><code><span class="prompt">&gt;</span> show me before and after for each changed row</code></pre>
         </div>
       </div>
       <div class="step" data-roles="everyone">

@@ -80,3 +80,19 @@ Pull request:   <url | none — no remote>
 ```
 
 Next: `/prd` turns these business rules into user stories and requirements.
+
+## FOLLOW-UP — the open questions, one by one
+
+When the user asks to go through the open questions ("ask me the open questions one by one"):
+
+1. Ask **one** question at a time: the question, who owns it, and the likely options where you can. Wait for the answer before asking the next.
+2. The user answers, says **skip** (it stays open), or names who will answer (update its owner).
+3. After the last question, update `docs/requirements/BRD.md`: each answer goes into its section with its source ("<who answered>, <date>"), answered items leave Open Questions, and the metadata date changes (the version too, if the BRD was already merged). Never fill in what the user didn't say.
+4. Run VALIDATE again, commit on the same branch (`docs: BRD — open questions answered`) and push, so the open pull request updates. If it was already merged, use a new branch and pull request.
+
+```
+BRD — OPEN QUESTIONS
+────────────────────
+Answered: <n>   Skipped: <n>   Still open: <n> (owners)
+Pull request: <url, updated | new | none — no remote>
+```
