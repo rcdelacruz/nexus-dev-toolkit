@@ -298,7 +298,7 @@
     <p class="lead">You write the requirements and the architecture that developers build from. nexus gives you
       commands that follow your team's own templates, check every requirement is covered, and hand
       developers exactly what changed when a change request comes in — without you touching any code.</p>
-    <div class="callout warn"><strong>Preview.</strong> nexus v4 isn't on PyPI yet. Install it from the <code>v4-preview</code> branch: <code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — or keep nexus 3 as <code>nexus</code> and run the preview as <code>nexus4</code>. Both, plus updating and going back: <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a>.</div>
+    <div class="callout warn"><strong>Preview.</strong> nexus v4 isn't on PyPI yet. This page runs it as <code>nexus4</code>, next to your nexus 3, which stays exactly as it is. Set it up with one line: <a href="#setup" style="color:var(--cyan)">Set Up Once</a>.</div>
 
     <h2 id="who">Who This Is For</h2>
     <p>Architects, solution designers, and the product owners or business analysts who own the requirements.
@@ -307,18 +307,16 @@
 
     <h2 id="setup">Set Up Once</h2>
     <pre><code><span class="comment"># 1. install the nexus 4 preview</span>
-<span class="prompt">$</span> <span class="cmd">uv tool install</span> --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'
+<span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"   <span class="comment"># the nexus 4 preview</span>
 
 <span class="comment"># 2. in your copy of the project repository</span>
-<span class="prompt">$</span> <span class="cmd">nexus init</span> . --role architect
+<span class="prompt">$</span> <span class="cmd">nexus4 init</span> . --role architect
 
 <span class="comment"># 3. open Claude Code there and type /requirements or /architect</span></code></pre>
-    <p>Want to keep nexus 3 as your <code>nexus</code>? Skip the install line and run the preview without installing it, under another name:</p>
-    <pre><code><span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"
-<span class="prompt">$</span> <span class="cmd">nexus4</span> --version   <span class="comment"># then use nexus4 wherever this page says nexus</span></code></pre>
+    <p><code>nexus4</code> is the preview under its own name: your <code>nexus</code> (nexus 3) and your other projects stay as they are, and every run picks up the newest preview by itself. To keep <code>nexus4</code> in new terminals, add the <code>alias</code> line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>).</p>
     <p><code>--role architect</code> installs only <code>/requirements</code>, <code>/architect</code> and
       <code>/change-request</code> — no developer tools. It also adds the guides to <code>docs/</code> if they
-      aren't there yet. Check the setup any time with <code>nexus doctor</code>.</p>
+      aren't there yet. Check the setup any time with <code>nexus4 doctor</code>.</p>
 
     <h2 id="flow">Where You Fit</h2>
     <div class="diagram">

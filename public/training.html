@@ -294,11 +294,11 @@
       the real commands, and every piece of work reaching <code>main</code> through a reviewed pull request. The project is
       CareSlot — three made-up clinics that want online booking. It ends the way real projects do: the client changes
       their mind.</p>
-    <div class="callout warn"><strong>Preview.</strong> nexus v4 isn't on PyPI yet: the team installs it from the <code>v4-preview</code> branch (step 1). Your nexus 3 projects keep working — see <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a> for running both and going back.</div>
+    <div class="callout warn"><strong>Preview.</strong> nexus v4 isn't on PyPI yet. The training runs it as <code>nexus4</code> (step 1), next to your nexus 3, which stays exactly as it is — nothing to undo afterwards.</div>
 
     <h2 id="team">The Team</h2>
     <table>
-      <thead><tr><th>Who</th><th><code>nexus init . --role …</code></th><th>Does</th><th>Reviews</th></tr></thead>
+      <thead><tr><th>Who</th><th><code>nexus4 init . --role …</code></th><th>Does</th><th>Reviews</th></tr></thead>
       <tbody>
         <tr><td><strong>Facilitator</strong> (trainer)</td><td>—</td><td>Hands over the client pack, plays the client, merges nothing</td><td>—</td></tr>
         <tr><td><strong>Product owner / BA</strong></td><td><code>product</code></td><td><code>/brd</code>, <code>/prd</code>, <code>/change-request</code></td><td>requirements</td></tr>
@@ -344,11 +344,8 @@ flowchart TB
           <div class="step-title">Install Claude Code, git, the GitHub CLI and nexus v4<span class="step-who">everyone</span></div>
 <pre><code><span class="prompt">$</span> <span class="cmd">npm</span> install -g @anthropic-ai/claude-code
 <span class="prompt">$</span> <span class="cmd">gh</span> auth login
-<span class="prompt">$</span> <span class="cmd">uv</span> tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'
-<span class="prompt">$</span> <span class="cmd">nexus</span> --version   <span class="comment"># nexus-dev-toolkit v4.0.0a1</span></code></pre>          <div class="step-desc">New to git? Read the <a href="/git-guide" style="color:var(--cyan)">git guide</a> first. Everyone in the team installs the same preview: a nexus 3 <code>nexus init</code> in this repository would point the shared <code>.mcp.json</code> back at nexus 3. Fixes pushed to the preview arrive with <code>nexus update</code>, then <code>nexus sync</code> in the repository. Back to nexus 3 after the training: <code>nexus channel stable</code>.</div>
-          <div class="step-desc">Want to keep nexus 3 as your <code>nexus</code>? Skip the install line and run the preview without installing it, under another name:</div><pre><code><span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"
-<span class="prompt">$</span> <span class="cmd">nexus4</span> --version   <span class="comment"># then use nexus4 wherever this page says nexus</span></code></pre>
-          <div class="step-desc">With the alias, every run already fetches the newest preview: <code>nexus4 update</code> installs nothing, <code>nexus4 sync</code> moves the repository to the newest commit, and back to nexus 3 is <code>nexus4 channel stable</code> then <code>nexus sync</code>.</div>
+<span class="prompt">$</span> <span class="cmd">alias</span> nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"
+<span class="prompt">$</span> <span class="cmd">nexus4</span> --version   <span class="comment"># nexus-dev-toolkit v4.0.0a1</span></code></pre>          <div class="step-desc"><code>nexus4</code> is the preview under its own name: your <code>nexus</code> (nexus 3) and your other projects stay as they are, and every run picks up the newest preview by itself. To keep it in new terminals, add the <code>alias</code> line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>). In the careslot repository always use <code>nexus4</code>. New to git? Read the <a href="/git-guide" style="color:var(--cyan)">git guide</a> first.</div>
         </div>
       </div>
       <div class="step" data-roles="facilitator lead">
@@ -368,7 +365,7 @@ flowchart TB
 <span class="prompt">$</span> <span class="cmd">cp</span> ../careslot-client-pack/*.md docs/requirements/sources/
 <span class="prompt">$</span> <span class="cmd">cp</span> -R ../careslot-client-pack/design-system docs/designs/design-system
 <span class="prompt">$</span> <span class="cmd">printf</span> '.claude/\ngraphify-out/\n.venv/\nnode_modules/\n' &gt; .gitignore
-<span class="prompt">$</span> <span class="cmd">nexus</span> init . --role developer
+<span class="prompt">$</span> <span class="cmd">nexus4</span> init . --role developer
 <span class="prompt">$</span> <span class="cmd">mv</span> .github/CODEOWNERS.nexus-template .github/CODEOWNERS
 <span class="prompt">$</span> <span class="cmd">git</span> add -A &amp;&amp; git commit -m "CareSlot: client pack, nexus setup" &amp;&amp; git push -u origin main</code></pre>          <div class="step-desc">Put your people's GitHub names in <code>.github/CODEOWNERS</code>, then protect <code>main</code> (Settings → Branches): require a pull request and a review from code owners. <code>.claude/</code> stays out of git because everyone's commands depend on their role; the team shares <code>.mcp.json</code>, <code>docs/</code> and later <code>AGENTS.md</code>.</div>
         </div>
@@ -378,7 +375,7 @@ flowchart TB
         <div class="step-content">
           <div class="step-title">Clone and set up your role<span class="step-who">everyone except the tech lead (done in the setup step)</span></div>
 <pre><code><span class="prompt">$</span> <span class="cmd">git</span> clone git@github.com:YOUR-ORG/careslot.git &amp;&amp; cd careslot
-<span class="prompt">$</span> <span class="cmd">nexus</span> init . --role <span class="role-arg">product</span>
+<span class="prompt">$</span> <span class="cmd">nexus4</span> init . --role <span class="role-arg">product</span>
 <span class="prompt">$</span> <span class="cmd">git</span> status   <span class="comment"># nothing to commit — your setup stays on your machine</span>
 <span class="prompt">$</span> <span class="cmd">claude</span></code></pre>          <div class="step-desc">Claude Code asks once whether you trust the folder — say yes; nexus has already approved its MCP server and tools, so there's no second question. Every command then looks first, shows a plan, <strong>stops for your approval</strong>, writes, checks its own work, commits only its own folder and opens the pull request.</div>
         </div>

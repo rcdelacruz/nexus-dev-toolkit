@@ -41,13 +41,10 @@ with their own role — follow the team training (https://nexus.coderstudio.co/t
 To explore this finished copy instead:
 
 ```bash
-uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'   # the nexus 4 preview (not on PyPI yet)
+alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"   # the nexus 4 preview; your nexus 3 stays as it is
 cp -r examples/clinic-appointments ~/careslot && cd ~/careslot && git init -q && git add -A && git commit -qm "start"
-nexus init . --role product                        # or architect / designer / developer
+nexus4 init . --role product                       # or architect / designer / developer
 ```
-
-Keeping nexus 3 as `nexus`? Skip the install line and run the preview as `nexus4` instead:
-`alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"`, then use `nexus4` wherever this page says `nexus`.
 
 Then open Claude Code in `~/careslot` and follow the exercise at the end of the walkthrough.
 

@@ -1719,8 +1719,7 @@ Findings grouped by severity: [BLOCKER] / [FIX NOW] / [BACKLOG]</code></pre>
 
     <div class="callout warn">
       <strong>Preview.</strong> nexus 4.0 will ship as pre-releases (<code>4.0.0a1</code>, <code>a2</code>, …) of the same
-      <code>nexus-dev-toolkit</code> package; until the first one is on PyPI, install the preview from the
-      <code>v4-preview</code> branch (below). If you're on 3.x, nothing changes: installers and
+      <code>nexus-dev-toolkit</code> package; until the first one is on PyPI, run the preview as <code>nexus4</code> next to your nexus 3 (below). If you're on 3.x, nothing changes: installers and
       <code>nexus update</code> on 3.x never pick a pre-release or a branch. See the <a href="/changelog#v4">v4 changelog</a>.
     </div>
 
@@ -1752,13 +1751,11 @@ flowchart TB
     <table>
       <thead><tr><th>To</th><th>Run</th></tr></thead>
       <tbody>
-        <tr><td>Try the preview (now)</td><td><code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — the project's <code>.mcp.json</code> then runs that exact commit on every teammate's machine</td></tr>
-        <tr><td>Keep nexus 3 as <code>nexus</code></td><td><code>alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"</code>, then <code>nexus4 init</code> / <code>nexus4 sync</code> in v4 projects and <code>nexus</code> everywhere else. Keep each project on one version: a 3.x <code>nexus init</code> points its <code>.mcp.json</code> back at 3.x</td></tr>
-        <tr><td>Try v4 (once on PyPI)</td><td><code>uv tool install 'nexus-dev-toolkit&gt;=4.0.0a0'</code> — or <code>curl -fsSL https://nexus.coderstudio.co/install.sh | NEXUS_CHANNEL=v4 bash</code></td></tr>
-        <tr><td>Bring a project along</td><td><code>nexus sync</code> — updates the commands and points the project's MCP server at v4</td></tr>
-        <tr><td>Upgrade</td><td><code>nexus update</code> — follows a1 → a2 → b1 → rc1, then moves you to stable when 4.0.0 is out. Installed from the preview branch, it reinstalls the branch's newest commit; then <code>nexus sync</code> points the project's MCP server at it. With the <code>nexus4</code> alias, every run already fetches the newest commit: <code>nexus4 sync</code> is enough, and <code>nexus4 update</code> installs nothing</td></tr>
-        <tr><td>Go back to 3.x</td><td><code>nexus channel stable</code> — removes the v4-only commands nexus wrote (never ones you edited), resets the MCP config, installs the latest stable. With the <code>nexus4</code> alias: <code>nexus4 channel stable</code> in the project (it installs nothing), then <code>nexus sync</code> there with your nexus 3</td></tr>
-        <tr><td>Check</td><td><code>nexus channel show</code>, <code>nexus doctor</code> — doctor shows the nexus version and role this checkout was set up with</td></tr>
+        <tr><td>Try the preview (now)</td><td><code>alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"</code>, then <code>nexus4 init</code> in a v4 project. Your <code>nexus</code> (nexus 3) and other projects stay as they are; every run picks up the newest preview commit</td></tr>
+        <tr><td>Newest preview in a project</td><td><code>nexus4 sync</code> — updates the commands and points the project's MCP server at the newest commit</td></tr>
+        <tr><td>Back to nexus 3 in a project</td><td><code>nexus4 channel stable</code>, then <code>nexus sync</code> — removes the v4-only commands nexus wrote (never ones you edited) and resets the MCP config. Nothing is installed or removed</td></tr>
+        <tr><td>Once v4 is on PyPI</td><td><code>uv tool install 'nexus-dev-toolkit&gt;=4.0.0a0'</code> (or <code>curl -fsSL https://nexus.coderstudio.co/install.sh | NEXUS_CHANNEL=v4 bash</code>); then <code>nexus update</code> follows a1 → a2 → b1 → rc1 and moves to stable at 4.0.0, and <code>nexus channel stable</code> goes back</td></tr>
+        <tr><td>Check</td><td><code>nexus4 channel show</code>, <code>nexus4 doctor</code> — doctor shows the nexus version and role this checkout was set up with</td></tr>
       </tbody>
     </table>
     <p><code>.nexus/</code> is nexus's bookkeeping for one checkout — its role and the files nexus wrote for it — and

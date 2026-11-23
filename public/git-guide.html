@@ -296,7 +296,7 @@
     <p class="lead">Requirements, architecture and designs live in the same repository as the code, in
       <code>docs/</code>. That's what lets a change request reach exactly the right developer tasks. You need only a
       handful of git steps — and the nexus commands run most of them for you.</p>
-    <div class="callout warn"><strong>Preview.</strong> nexus v4 isn't on PyPI yet. Install it from the <code>v4-preview</code> branch: <code>uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'</code> — or keep nexus 3 as <code>nexus</code> and run the preview as <code>nexus4</code>. Both, plus updating and going back: <a href="/docs#v4-install" style="color:var(--cyan)">nexus v4 in the docs</a>.</div>
+    <div class="callout warn"><strong>Preview.</strong> nexus v4 isn't on PyPI yet. This page runs it as <code>nexus4</code>, next to your nexus 3, which stays exactly as it is. Set it up with one line: <code>alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"</code>.</div>
 
     <h2 id="why">Why Git</h2>
     <ul>
@@ -312,7 +312,7 @@
 <span class="prompt">$</span> <span class="cmd">brew install</span> git gh
 <span class="prompt">$</span> <span class="cmd">gh auth login</span>                       <span class="comment"># sign in to GitHub once</span>
 <span class="prompt">$</span> <span class="cmd">gh repo clone</span> &lt;org&gt;/&lt;project&gt;       <span class="comment"># your copy of the project</span>
-<span class="prompt">$</span> <span class="cmd">cd</span> &lt;project&gt; &amp;&amp; <span class="cmd">nexus init</span> . --role designer   <span class="comment"># or --role architect</span></code></pre>
+<span class="prompt">$</span> <span class="cmd">cd</span> &lt;project&gt; &amp;&amp; <span class="cmd">nexus4 init</span> . --role designer   <span class="comment"># or --role architect</span></code></pre>
     <p>Prefer clicking? GitHub Desktop does the same steps with buttons; the nexus commands still open pull
       requests for you.</p>
 

@@ -2,7 +2,7 @@
 
 ## [4.0.0a1] - 2026-11-22
 
-First pre-release of nexus 4 (branch `v4`). Not on PyPI yet — the preview installs from git: `uv tool install --reinstall 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview'`, or keep nexus 3 as `nexus` with `alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"`. Once on PyPI: `curl -fsSL https://nexus.coderstudio.co/install.sh | NEXUS_CHANNEL=v4 bash` or `uv tool install 'nexus-dev-toolkit>=4.0.0a0'`. 3.x users are not affected: installers and `nexus update` on 3.x never pick pre-releases.
+First pre-release of nexus 4 (branch `v4`). Not on PyPI yet — run the preview as `nexus4`, next to nexus 3: `alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"`. Once on PyPI: `curl -fsSL https://nexus.coderstudio.co/install.sh | NEXUS_CHANNEL=v4 bash` or `uv tool install 'nexus-dev-toolkit>=4.0.0a0'`. 3.x users are not affected: installers and `nexus update` on 3.x never pick pre-releases.
 
 ### Added
 - Release channels. `nexus update` on a pre-release follows the next pre-release (a1 → a2 → b1 → rc1) and moves you to the stable channel once 4.0.0 is out. `nexus channel show | v4 | stable` switches the CLI and the current project together; going back to stable removes v4-only files nexus wrote (never ones you edited) and resets the MCP config. Upgrades use `uv tool install --reinstall` with a version range — never `uv tool upgrade` (can silently do nothing) and never a pin (never upgrades).
