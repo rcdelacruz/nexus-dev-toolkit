@@ -318,19 +318,22 @@
     <div class="diagram">
 <pre class="mermaid">
 flowchart TB
-  B["/brd · /prd · product owner"] --> A["/architect · epics, ADRs"]
-  A --> D["/design · designer"]
-  D --> S["/scaffold · tech lead · Day 0"]
-  S --> T["/dev-tasks-planner · one CSV per epic"]
-  T --> E["/evaluate → /plan"]
+  B["/brd · /prd · the whole product · docs/requirements/"] --> A["/architect · the epics · docs/arch-docs/app/"]
+  A --> D["/design --system · optional · docs/designs/app/"]
+  A -.->|"or copy a Claude Design / Figma Make export"| X["docs/designs/app/"]
+  D --> P{{"pull request · reviewed by CODEOWNERS"}}
+  X --> P
+  P --> S["/scaffold · tech lead · Day 0, once"]
+  S --> T["/dev-tasks-planner · tech lead · one CSV per epic"]
+  T --> E["/evaluate · /plan · developers, per task"]
   E --> G{"plan approved?"}
-  G --> V["/apply → /validate"]
+  G --> V["/apply · /validate"]
   V --> R(["pull request · code owners review"])
   R -.->|"later, the client asks for a change"| CR(["/change-request"])
   CR -.->|"docs first"| B
-  CR -.->|"then only the affected task rows"| T
-  class B,A,D,S,T,E,V step
-  class G gate
+  CR -.->|"then only the affected tasks"| T
+  class B,A,D,X,S,T,E,V step
+  class P,G gate
   class R,CR human
 </pre>
     </div>

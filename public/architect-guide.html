@@ -328,9 +328,10 @@ flowchart TB
   D --> P{"pull request · reviewed by CODEOWNERS"}
   P --> S["/scaffold · tech lead · Day 0, once"]
   S --> T["/dev-tasks-planner · tech lead · one CSV per epic"]
-  CR(["/change-request"]) -.->|"edits docs first"| R
+  T -.->|"later, the client asks for a change"| CR(["/change-request"])
+  CR -.->|"docs first"| R
   CR -.-> A
-  CR -.->|"exact task list"| T
+  CR -.->|"then only the affected tasks"| T
   class R,A,D step
   class P gate
   class CR human

@@ -324,8 +324,9 @@ flowchart TB
   A --> D["designs · /design or a copied export (designers)"]
   D --> S["/scaffold · tech lead · Day 0, once"]
   S --> T["/dev-tasks-planner · tech lead · one CSV per epic"]
-  CR(["/change-request"]) -.->|"requirements first"| P
-  CR -.->|"only the affected tasks"| T
+  T -.->|"later, the client asks for a change"| CR(["/change-request"])
+  CR -.->|"requirements first"| P
+  CR -.->|"then only the affected tasks"| T
   class B,P,A,D,S,T step
   class CR human
 </pre>

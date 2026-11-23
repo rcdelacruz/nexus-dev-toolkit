@@ -320,7 +320,7 @@ flowchart TB
   AR -->|"pull request"| DE["Designer · /design or a copied export"]
   DE -->|"pull request"| TL["Tech lead · /scaffold · /dev-tasks-planner"]
   TL -->|"pull request"| DV["Developers · /evaluate · /plan · /apply · /validate"]
-  F -.->|"client email"| CR["Product owner · /change-request CR-001"]
+  DV -.->|"later, the client emails a change (facilitator)"| CR["Product owner · /change-request CR-001"]
   CR -->|"only the affected tasks"| TL
   class PO,AR,DE,TL,DV,CR step
   class F human
