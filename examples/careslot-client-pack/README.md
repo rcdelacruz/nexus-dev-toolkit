@@ -17,4 +17,4 @@ and commit them — on a real project the client's material lives with the requi
 **Facilitator:** `later/cr-001-client-email.md` is the client's change request. It is not in the zip — send it to
 the product owner after the developers have started building (step 7 of the training).
 
-Training guide: https://nexus.coderstudio.co/training
+Training guide: https://v4-preview.nexus-coderstudio.pages.dev/training

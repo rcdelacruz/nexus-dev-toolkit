@@ -35,7 +35,7 @@ Read it in order with [WALKTHROUGH.md](WALKTHROUGH.md), or jump to a file:
 ## Try it
 
 To **build** CareSlot yourselves as a team — product owner, architect, designer, tech lead, developers, each
-with their own role — follow the team training (https://nexus.coderstudio.co/training) with the client pack in
+with their own role — follow the team training (https://v4-preview.nexus-coderstudio.pages.dev/training) with the client pack in
 [`../careslot-client-pack/`](../careslot-client-pack/). This folder is what a finished run looks like.
 
 To explore this finished copy instead:
