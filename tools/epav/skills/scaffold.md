@@ -205,6 +205,9 @@ NEVER write patch versions from AI memory — training data is always stale.
 - `.gitignore` — **merge** into the existing file (`nexus init` already added the tool folder, e.g. `.claude/`, and
   `graphify-out/`): add the stack's dependencies (node_modules, .venv, vendor), `.env*` (keep `!.env.example`),
   build output and OS/editor files. Never remove or reorder a line that is already there.
+  A project generator (create-next-app, `django-admin startproject`, `flutter create`, `dotnet new`, …) may write
+  its own `.gitignore` over this one: afterwards, put back every line that was there before scaffold, then add the
+  generator's lines that are missing.
 - `.graphifyignore` — what the knowledge graph skips (graphify reads `.gitignore` first, then this). `nexus init`
   wrote nexus's lines; keep them and **append** the stack's vendored, minified and generated paths
   (e.g. `static/vendor/`, generated API clients, compiled CSS such as Tailwind's output).
@@ -346,7 +349,7 @@ Review everything against the architecture doc AND the design frames.
 
 **Git hygiene:**
 19. Pre-commit hooks configured and working? (the stack's Pre-commit hooks column — e.g. husky executable + lint-staged for npm, `pre-commit install` done for the pre-commit framework) — and commit messages still checked: `git commit --allow-empty -m "bad message"` must be refused (nothing is committed), `git commit --allow-empty -m "chore: check commit messages"` must pass (then `git reset --soft HEAD~1`)
-20. Ignore files — one path per check (`git check-ignore -q` takes a single path): `for p in .env graphify-out .claude; do git check-ignore -q "$p" || echo "NOT ignored: $p"; done` prints nothing (use your tool's folder instead of `.claude`), `git check-ignore -q .env.example` fails (it must stay committed), and `.graphifyignore` exists with nexus's lines plus the stack's vendored/generated paths?
+20. Ignore files — no line that was in `.gitignore` before scaffold is gone: `git diff main -- .gitignore | grep '^-[^-]'` prints nothing. One path per check (`git check-ignore -q` takes a single path): `for p in .env graphify-out .claude; do git check-ignore -q "$p" || echo "NOT ignored: $p"; done` prints nothing (use your tool's folder instead of `.claude`), `git check-ignore -q .env.example` fails (it must stay committed), and `.graphifyignore` exists with nexus's lines plus the stack's vendored/generated paths?
 
 Classify every issue: [BLOCKER] / [FIX NOW] / [BACKLOG]
 Fix every [BLOCKER] and [FIX NOW] before calling Day 0 complete.
