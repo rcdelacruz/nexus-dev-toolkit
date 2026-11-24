@@ -44,10 +44,23 @@ Touches:     <files / modules / graph communities or symbols>
 Depends on:  <what must already exist>
 Constraints: <from AGENTS.md, arch doc, acceptance criteria>
 Risk:        <god nodes or high-degree nodes in blast radius>
+Branch:      <current branch> — <"this task's branch" / "recommended: a new branch, see below">
 ```
 
-### 4 — Stop
+### 4 — Recommend a branch for this task
+
+Each task gets its own branch, so its pull request holds only this task. Check `git branch --show-current`:
+
+- **On `main`** (or `master`, the repo's default branch) → recommend a new branch named from the task: `<type>/<TASK-ID>-<short-slug>` — `feat` for new behaviour, `fix` for a bug, `refactor`/`test`/`docs` when that's the whole task; the slug is 2–5 lowercase words from the task title, e.g. `feat/BOOK-004-free-slots`. If that name exists, add `-2`, `-3`…. If there are uncommitted changes, say they'll come along to the new branch.
+- **On a branch whose name has this task's ID** → nothing to do; say so on the Branch line.
+- **On another task's branch** → say so, and recommend finishing that one first (`/commit`), then `git switch main && git pull`, then this task's branch.
+
+Recommend it — don't create it on your own. Create the branch (`git switch -c <name>`) only when the user says yes; nothing else in git changes.
+
+### 5 — Stop
 
 Do NOT plan. Do NOT write code. End with:
 
-> "Ready to /plan. Type `/plan` when you want the implementation blueprint."
+> "Ready to /plan. Recommended first: a branch for this task — `feat/BOOK-004-free-slots`; say yes and I'll create it. Then type `/plan` for the implementation blueprint."
+
+(Leave out the branch sentence when the user is already on this task's branch.)

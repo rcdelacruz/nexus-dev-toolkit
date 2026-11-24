@@ -1,6 +1,6 @@
 ---
 name: deployment
-description: MUST BE USED for deployment strategies, CI/CD pipelines, Docker, Kubernetes, infrastructure configuration, and production environment setup. Use proactively for deployment configuration.
+description: Deployment strategies, CI/CD pipelines, Docker, Kubernetes, infrastructure configuration, and production environment setup. Runs when the user asks for a review (/deployment-review) — not on its own after changes.
 tools: Read, Write, Edit, Bash
 model: sonnet
 ---

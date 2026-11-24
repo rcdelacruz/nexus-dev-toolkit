@@ -1,6 +1,6 @@
 ---
 name: performance
-description: MUST BE USED for performance optimization, response time analysis, bundle size, caching strategies, query performance, and resource usage. Use proactively for performance analysis.
+description: Performance optimization, response time analysis, bundle size, caching strategies, query performance, and resource usage. Runs when the user asks for a review (/performance-review) — not on its own after changes.
 tools: Read, Write, Edit, Bash
 model: sonnet
 ---

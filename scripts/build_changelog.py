@@ -43,18 +43,19 @@ WHATS_NEW_MAX = 6        # highlights shown in a What's new block
 # ── markdown subset → HTML ──────────────────────────────────────────────────
 
 def _inline(text: str) -> str:
-    """Escape, then render `code`, **bold** and [text](url). Code spans are left untouched."""
-    out = []
-    for i, part in enumerate(re.split(r"(`[^`]*`)", text)):
-        if i % 2:
-            out.append(f"<code>{html.escape(part[1:-1])}</code>")
-            continue
-        s = html.escape(part, quote=False)
-        s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
-        s = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)",
-                   lambda m: f'<a href="{html.escape(m.group(2))}" target="_blank">{m.group(1)}</a>', s)
-        out.append(s)
-    return "".join(out)
+    """Escape, then render `code`, **bold** and [text](url). Code spans are left untouched; bold may
+    span code (**`/create-pr` does X**)."""
+    codes: list[str] = []
+
+    def stash(m):
+        codes.append(f"<code>{html.escape(m.group(1))}</code>")
+        return f"\x00{len(codes) - 1}\x00"
+    s = re.sub(r"`([^`]*)`", stash, text)
+    s = html.escape(s, quote=False)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    s = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)",
+               lambda m: f'<a href="{html.escape(m.group(2))}" target="_blank">{m.group(1)}</a>', s)
+    return re.sub(r"\x00(\d+)\x00", lambda m: codes[int(m.group(1))], s)
 
 
 def _render_body(lines: list[str], indent: str = "      ") -> str:

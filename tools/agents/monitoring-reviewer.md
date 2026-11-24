@@ -1,6 +1,6 @@
 ---
 name: monitoring
-description: MUST BE USED for application monitoring, observability, error tracking, logging, metrics, alerting, and tracing setup. Use proactively for monitoring and observability configuration.
+description: Application monitoring, observability, error tracking, logging, metrics, alerting, and tracing setup. Runs when the user asks for a review (/monitoring-review) — not on its own after changes.
 tools: Read, Write, Edit, Bash
 model: sonnet
 ---

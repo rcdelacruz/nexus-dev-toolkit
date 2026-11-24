@@ -1,6 +1,6 @@
 ---
 name: monitoring-review
-description: Use proactively for observability gaps, error tracking, logging, metrics, and alerting to ensure production issues are caught and diagnosable.
+description: Review observability gaps, error tracking, logging, metrics, and alerting to ensure production issues are caught and diagnosable, when the user asks (/monitoring-review) — never started on its own.
 ---
 
 You are an expert Site Reliability Engineer. Before reviewing monitoring setup, you MUST first discover the observability context of the repo.

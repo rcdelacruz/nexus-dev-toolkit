@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: MUST BE USED for code reviews, code quality analysis, best practices enforcement, design patterns, refactoring suggestions, and maintainability improvements. Use proactively after code changes.
+description: Code reviews, code quality analysis, best practices, design patterns, refactoring suggestions and maintainability. Runs when the user asks for a review (/code-review, /create-pr) — not on its own after code changes.
 tools: Read, Bash, Grep, Glob
 model: sonnet
 ---

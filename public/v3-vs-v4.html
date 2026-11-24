@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>v3 vs v4 — nexus</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta name="description" content="What changed from nexus 3 to nexus 4, side by side: roles, slash commands, agents, CLI commands, MCP tools, project files and the git rules." />
+  <script>
+    (function () {
+      var t = localStorage.getItem('nexus-theme');
+      if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 110%; }
+
+    :root {
+      --bg: #121419;
+      --surface: #181b22;
+      --surface2: #1e222b;
+      --border: #2b303b;
+      --cyan: #22c3dc;
+      --cyan-dim: #4fb3c8;
+      --white: #e4e8ee;
+      --muted: #8a94a3;
+      --green: #3fd47a;
+      --yellow: #e8b931;
+      --text2: #aab3c0;
+      --row-border: #20242c;
+      --red: #ef4444;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #eef2f6;
+      --border: #d9e2ec;
+      --cyan: #0e7490;
+      --cyan-dim: #0b6578;
+      --white: #0f172a;
+      --green: #15803d;
+      --yellow: #946200;
+      --text2: #3d4a5c;
+      --row-border: #e5eaf0;
+      --red: #b91c1c;
+      --muted: #556275;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      transition: background 0.2s, color 0.2s;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    nav {
+      width: 220px;
+      min-height: 100vh;
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .nav-logo { color: var(--cyan); font-size: 1rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .nav-version { color: var(--muted); font-size: 0.65rem; margin-bottom: 2rem; }
+
+    .nav-section {
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 0.3rem 0;
+      transition: color 0.15s;
+    }
+
+    nav a:hover, nav a.active { color: var(--cyan); }
+    nav a.sub { padding-left: 1rem; font-size: 0.7rem; }
+
+    main {
+      flex: 1;
+      padding: 3rem 3rem 5rem;
+      max-width: 1100px;
+      min-width: 0; /* wide code blocks scroll inside their own box instead of widening the page */
+    }
+
+    h1 { color: var(--white); font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+    h2 {
+      color: var(--white);
+      font-size: 1rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 { color: var(--cyan); font-size: 0.85rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+
+    p { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 1rem; }
+
+    .lead { color: var(--text2); font-size: 0.85rem; margin-bottom: 2rem; }
+
+    ul { margin: 0 0 1rem 1.25rem; }
+    li { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-bottom: 0.35rem; }
+    li strong { color: var(--text2); font-weight: normal; }
+
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    pre code { color: var(--white); font-size: 0.8rem; line-height: 1.6; }
+
+    .prompt { color: var(--muted); }
+    .cmd { color: var(--cyan); }
+    .comment { color: var(--muted); }
+    .str { color: var(--green); }
+    .skill { color: var(--yellow); }
+    .fail { color: var(--red); }
+    .pass { color: var(--green); }
+
+    .callout {
+      background: var(--surface);
+      border-left: 3px solid var(--cyan);
+      border-radius: 0 6px 6px 0;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.78rem;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    .callout.warn { border-color: var(--yellow); }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: 0.78rem; }
+
+    th {
+      color: var(--muted);
+      text-align: left;
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: normal;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.65rem;
+    }
+
+    td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--row-border);
+      color: var(--text2);
+      vertical-align: top;
+    }
+
+    td code, p code, li code { color: var(--cyan); font-size: 0.78rem; }
+    tr:last-child td { border-bottom: none; }
+
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.72rem;
+      margin-bottom: 2rem;
+      transition: color 0.15s;
+    }
+
+    .back:hover { color: var(--cyan); }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--yellow);
+      color: var(--yellow);
+      border-radius: 4px;
+      padding: 0.15rem 0.55rem;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    .theme-btn {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 20;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    .theme-btn::after { content: "light"; }
+    :root[data-theme="light"] .theme-btn::after { content: "dark"; }
+
+    .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1.25rem; overflow-x: auto; }
+    .diagram pre.mermaid { background: none; border: 0; padding: 0; margin: 0; color: var(--muted); font-size: 0.75rem; white-space: pre; }
+    .diagram svg { display: block; margin: 0 auto; }
+
+    @media (max-width: 640px) {
+      nav { display: none; }
+      main { padding: 2rem 1.25rem 4rem; }
+      table { display: block; overflow-x: auto; } /* wide tables scroll inside their own box */
+    }
+    /* Readability: paragraphs in a text font, body text at ~8.5:1 contrast in both themes
+       (was 4.2:1 dark / 4.5:1 light), monospace kept for code, commands and headings. */
+    p, li, td, .lead, .callout { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    p, li { color: var(--text2); font-size: 0.875rem; }
+    td { font-size: 0.82rem; }
+    p strong, li strong { color: var(--white); }
+    code, pre, kbd, samp { font-family: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, monospace; }
+      .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 0.2rem 0.5rem; border-radius: 3px; font-family: inherit; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; }
+    .copy-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); }
+    pre { position: relative; padding-right: 4.5rem; }
+    .steps { display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 1.5rem; }
+    .step { display: flex; gap: 1rem; align-items: flex-start; }
+    .step[hidden] { display: none; }
+    .step-num { background: var(--cyan-dim); color: var(--bg); width: 1.5rem; height: 1.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; margin-top: 0.1rem; }
+    .step-content { flex: 1; min-width: 0; }
+    .step-title { color: var(--white); font-size: 0.82rem; margin-bottom: 0.35rem; }
+    .step-desc { color: var(--text2); font-size: 0.85rem; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .step-desc code { font-size: 0.8rem; }
+    .step-desc strong { color: var(--white); }
+    .step-who { color: var(--cyan); font-size: 0.72rem; margin-left: 0.5rem; }
+    .step-content pre { margin: 0.5rem 0 0.75rem; }
+    .role-picker { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1.75rem; }
+    .role-picker button { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 0.4rem 0.8rem; border-radius: 999px; font-family: inherit; font-size: 0.75rem; cursor: pointer; }
+    .role-picker button.active { border-color: var(--cyan); color: var(--cyan); }
+    .tag { font-size: 0.65rem; padding: 0.05rem 0.4rem; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+    .tag.new { color: var(--green); border-color: var(--green); }
+    .tag.chg { color: var(--yellow); border-color: var(--yellow); }
+</style>
+</head>
+
+<body>
+
+  <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode"></button>
+
+  <nav>
+    <div class="nav-logo">NEXUS</div>
+    <div class="nav-version">v3.2.1</div>
+
+    <div class="nav-section">v3 vs v4</div>
+    <a href="#glance">At a glance</a>
+    <a href="#commands">Slash commands</a>
+    <a href="#agents">Agents</a>
+    <a href="#cli">CLI commands</a>
+    <a href="#mcp">MCP tools</a>
+    <a href="#files">Project files</a>
+    <a href="#git">Git rules</a>
+    <a href="#both">v3 and v4 on one machine</a>
+
+    <div class="nav-section">Links</div>
+    <a href="/">← Home</a>
+    <a href="/docs">Docs</a>
+    <a href="/docs#v4">nexus v4 (preview)</a>
+    <a href="/training">Team Training</a>
+    <a href="/git-guide">Git guide</a>
+    <a href="/changelog#v4">Changelog</a>
+  </nav>
+
+  <main>
+    <a href="/" class="back">← back to home</a>
+
+    <div class="badge">nexus v4 — preview (pre-release)</div>
+    <h1>nexus v3 vs v4</h1>
+    <p class="lead">What changed, side by side. v3 is 3.2.1, the release on PyPI. v4 is the 4.0.0a1 preview on the
+      <code>v4-preview</code> branch. <span class="tag new">new</span> exists only in v4,
+      <span class="tag chg">changed</span> works differently, <span class="tag">same</span> works the same.</p>
+
+    <h2 id="glance">At a Glance</h2>
+    <table>
+      <thead><tr><th></th><th>v3</th><th>v4</th></tr></thead>
+      <tbody>
+        <tr><td>Version</td><td>3.2.1 — on PyPI, the stable release</td><td>4.0.0a1 — preview only: branch <code>v4-preview</code>, not on PyPI</td></tr>
+        <tr><td>Run it as</td><td><code>nexus</code></td><td><code>nexus4</code> — <code>alias nexus4="uvx --refresh --from 'git+https://github.com/rcdelacruz/nexus-dev-toolkit@v4-preview' nexus"</code></td></tr>
+        <tr><td>Website</td><td>nexus.coderstudio.co</td><td>v4-preview.nexus-coderstudio.pages.dev (this site)</td></tr>
+        <tr><td>Who it's for</td><td>Developers</td><td>Four roles, one per clone: <code>--role developer | product | architect | designer</code></td></tr>
+        <tr><td>Where the work starts</td><td>An architecture doc someone already wrote</td><td>The client's notes: <code>/brd</code> → <code>/prd</code> → <code>/architect</code> (the epics) → <code>/design</code> (optional) → <code>/scaffold</code> → <code>/dev-tasks-planner</code> → developers</td></tr>
+        <tr><td>Git</td><td><code>/commit</code> and <code>/create-pr</code> act when asked</td><td>Nothing is committed, pushed or opened before you've seen it and said yes</td></tr>
+        <tr><td>AI tools</td><td>Claude Code, OpenCode, Codex</td><td>Same three</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="commands">Slash Commands</h2>
+    <p>v3 has 15, v4 has 21. Each role installs only its own (<code>nexus4 init . --role …</code>).</p>
+    <table>
+      <thead><tr><th>Command</th><th></th><th>v3</th><th>v4</th><th>Role in v4</th></tr></thead>
+      <tbody>
+        <tr><td><code>/brd</code></td><td><span class="tag new">new</span></td><td>—</td><td>Writes the Business Requirements Document from the client's files; asks for what the sources don't say (never invents it)</td><td>product</td></tr>
+        <tr><td><code>/prd</code></td><td><span class="tag new">new</span></td><td>—</td><td>Writes the Product Requirements Document from the BRD</td><td>product</td></tr>
+        <tr><td><code>/requirements</code></td><td><span class="tag new">new</span></td><td>—</td><td>Imports or writes requirements into <code>docs/requirements/</code> with stable IDs (<code>US-</code>, <code>FR-</code>, <code>NFR-</code>, <code>AC-</code>)</td><td>product, architect</td></tr>
+        <tr><td><code>/architect</code></td><td><span class="tag new">new</span></td><td>—</td><td>Architecture doc + ADRs, decisions on <strong>Choice</strong> lines, and the product split into epics (one ADR file per epic)</td><td>architect</td></tr>
+        <tr><td><code>/design</code></td><td><span class="tag new">new</span></td><td>—</td><td>Optional. Screens from the designer's design system, or a review of a Claude Design / Figma Make export; writes <code>design.json</code></td><td>designer</td></tr>
+        <tr><td><code>/change-request</code></td><td><span class="tag new">new</span></td><td>—</td><td>Edits requirements → architecture → designs, then records which IDs changed and which dev tasks they affect</td><td>product, architect, designer</td></tr>
+        <tr><td><code>/scaffold</code></td><td><span class="tag chg">changed</span></td><td>Day 0 scaffold from the architecture doc</td><td>Stack from the doc's Choice lines (not from the design export); builds screens from the frames; merges <code>.gitignore</code> / <code>.graphifyignore</code>; adds the stack's lint hooks next to the commit-message check; never commits</td><td>developer (tech lead)</td></tr>
+        <tr><td><code>/dev-tasks-planner</code></td><td><span class="tag chg">changed</span></td><td>Task CSVs from the architecture</td><td>One CSV per epic, task IDs unique across the module (<code>BOOK-004</code>), optional <code>TRACE_IDS</code> column, <code>cr &lt;CR-id&gt;</code> mode re-plans only the affected rows; never commits</td><td>developer (tech lead)</td></tr>
+        <tr><td><code>/evaluate</code></td><td><span class="tag chg">changed</span></td><td>Orients on the task</td><td>Also: warns when your <code>main</code> is behind; reads the task's requirement IDs and screens; <strong>recommends a branch named from the task</strong> (<code>feat/BOOK-004-free-slots</code>) and creates it only on your yes</td><td>developer</td></tr>
+        <tr><td><code>/plan</code></td><td><span class="tag">same</span></td><td>Blueprint, stops for approval</td><td>Same</td><td>developer</td></tr>
+        <tr><td><code>/apply</code></td><td><span class="tag chg">changed</span></td><td>Implements the plan</td><td>Same, and never commits</td><td>developer</td></tr>
+        <tr><td><code>/validate</code></td><td><span class="tag chg">changed</span></td><td>Checks the acceptance criteria</td><td>Same, then <strong>recommends <code>/code-review</code></strong> (doesn't start it)</td><td>developer</td></tr>
+        <tr><td><code>/epav</code></td><td><span class="tag chg">changed</span></td><td>E → P → A → V in one go</td><td>Same, plus the branch recommendation and the <code>/code-review</code> recommendation; never commits</td><td>developer</td></tr>
+        <tr><td><code>/code-review</code></td><td><span class="tag chg">changed</span></td><td>Could start on its own after code changes ("use proactively")</td><td>Only when you ask. Reports only; you pick what to fix. Records a fingerprint of the files it reviewed (in <code>.git/</code>) so <code>/create-pr</code> doesn't review them again</td><td>developer</td></tr>
+        <tr><td><code>/commit</code></td><td><span class="tag chg">changed</span></td><td>Stages and commits when asked</td><td>Makes a branch if you're on <code>main</code>; shows branch, files and message (<strong>READY TO COMMIT</strong>) and commits only after your yes</td><td>every role</td></tr>
+        <tr><td><code>/create-pr</code></td><td><span class="tag chg">changed</span></td><td>Runs <code>/code-review</code>, then pushes and opens the PR</td><td>Commits anything left, skips the review for docs-only branches or when the same files were already reviewed, shows one <strong>READY</strong> block and does it all after one yes; updates an open PR instead of making a second</td><td>every role</td></tr>
+        <tr><td><code>/pr-review</code></td><td><span class="tag">same</span></td><td>Verifies a commit or PR against its claims</td><td>Same</td><td>developer</td></tr>
+        <tr><td><code>/database-review</code>, <code>/deployment-review</code>, <code>/performance-review</code>, <code>/monitoring-review</code></td><td><span class="tag chg">changed</span></td><td>Reviewer skills; could start on their own ("use proactively")</td><td>Only when you ask</td><td>developer</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="agents">Agents</h2>
+    <table>
+      <thead><tr><th>Agent</th><th></th><th>v3</th><th>v4</th></tr></thead>
+      <tbody>
+        <tr><td><code>code-reviewer</code></td><td><span class="tag chg">changed</span></td><td>"MUST BE USED … use proactively"</td><td>Runs when a review is asked for (<code>/code-review</code>, <code>/create-pr</code>), not on its own</td></tr>
+        <tr><td><code>database-reviewer</code>, <code>deployment-reviewer</code>, <code>performance-reviewer</code>, <code>monitoring-reviewer</code></td><td><span class="tag chg">changed</span></td><td>Read-only reviewers; "MUST BE USED … use proactively"</td><td>Read-only reviewers that run when a review is asked for</td></tr>
+        <tr><td><code>pr-verifier</code></td><td><span class="tag">same</span></td><td>Verifies a commit or PR against its claims</td><td>Same</td></tr>
+        <tr><td>Which roles get them</td><td><span class="tag chg">changed</span></td><td>Every project</td><td>Developers only; product, architect and designer clones get no agents</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="cli">CLI Commands</h2>
+    <table>
+      <thead><tr><th>Command</th><th></th><th>v3</th><th>v4</th></tr></thead>
+      <tbody>
+        <tr><td><code>nexus init</code></td><td><span class="tag chg">changed</span></td><td>Skills, agents, MCP config, docs/knowledge folders, graphify hook</td><td>Plus: <code>--role</code>; the three per-project guides; <code>.gitignore</code> / <code>.graphifyignore</code> lines; <code>.pre-commit-config.yaml</code> with the commitizen commit-message check, installed in this clone; <code>.claude/settings.json</code> approves the nexus MCP server and tools; <code>.nexus/manifest.json</code></td></tr>
+        <tr><td><code>nexus sync</code></td><td><span class="tag chg">changed</span></td><td>Replaces built-in skills and agents with the latest</td><td>Same, plus: backs up a built-in you edited (<code>.nexus/backup/</code>); removes files nexus no longer ships only if unedited; follows the clone's role; moves MCP configs to the CLI's channel; sets up the commit check in older clones</td></tr>
+        <tr><td><code>nexus doctor</code></td><td><span class="tag chg">changed</span></td><td>Tools, skills, agents, MCP config, graph</td><td>Plus: the version and role the clone was synced with, the commit check, TypeSafe, whether git steps ask first, and same-named copies in <code>~/.claude/commands/</code> or <code>~/.claude/skills/</code> that would run instead of the project's</td></tr>
+        <tr><td><code>nexus update</code></td><td><span class="tag chg">changed</span></td><td>Newest stable from PyPI</td><td>On a pre-release: the next pre-release, then stable at 4.0.0; on a git install: the newest commit of its branch</td></tr>
+        <tr><td><code>nexus channel</code></td><td><span class="tag new">new</span></td><td>—</td><td><code>show | v4 | stable</code> — switches the CLI and the project together</td></tr>
+        <tr><td><code>nexus skill / rule / agent add | list</code></td><td><span class="tag">same</span></td><td>Custom skills, rules, agents</td><td>Same</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="mcp">MCP Tools</h2>
+    <p>v3 has 4, v4 has 7.</p>
+    <table>
+      <thead><tr><th>MCP tool</th><th></th><th>v3</th><th>v4</th></tr></thead>
+      <tbody>
+        <tr><td><code>ingest_architecture_doc</code></td><td><span class="tag chg">changed</span></td><td>Reads the architecture doc</td><td>Follows the project's guide; stack from Choice lines only; one module at a time; returns the epics</td></tr>
+        <tr><td><code>load_task</code></td><td><span class="tag chg">changed</span></td><td>Loads a task row</td><td>Finds a task by its ID alone; reads any header case; every result has a <code>status</code>; returns <code>trace_ids</code></td></tr>
+        <tr><td><code>resolve_package_versions</code></td><td><span class="tag chg">changed</span></td><td>Current package versions</td><td>Same, in a worker thread so it doesn't block the other tools</td></tr>
+        <tr><td><code>generate_project_rules</code></td><td><span class="tag">same</span></td><td>Project rules</td><td>Same</td></tr>
+        <tr><td><code>ingest_design_export</code></td><td><span class="tag new">new</span></td><td>—</td><td>Reads HTML frames, tokens and code exports (folder or zip); keeps screen IDs (<code>DES-001</code>) stable</td></tr>
+        <tr><td><code>record_change_request</code></td><td><span class="tag new">new</span></td><td>—</td><td>From the git diff of <code>docs/</code>: which requirement, ADR and screen IDs changed, and the task rows they affect</td></tr>
+        <tr><td><code>trace_tasks</code></td><td><span class="tag new">new</span></td><td>—</td><td>Fills the <code>TRACE_IDS</code> column; lists the rows a change request affects</td></tr>
+        <tr><td>TypeSafe judgments</td><td><span class="tag new">new</span></td><td>—</td><td>With <code>TYPESAFE_API_KEY</code> set, asks TypeSafe where nexus would otherwise guess from keywords; without it, nothing is sent</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="files">Project Files</h2>
+    <table>
+      <thead><tr><th>In the project</th><th></th><th>v3</th><th>v4</th></tr></thead>
+      <tbody>
+        <tr><td><code>docs/requirements/</code></td><td><span class="tag new">new</span></td><td>—</td><td>BRD, PRD, requirements, templates, <code>REQUIREMENTS-GUIDE.md</code></td></tr>
+        <tr><td><code>docs/arch-docs/&lt;app&gt;/</code></td><td><span class="tag chg">changed</span></td><td>The architecture doc</td><td>Plus ADRs, one per epic, and <code>ARCHITECTURE-GUIDE.md</code></td></tr>
+        <tr><td><code>docs/designs/&lt;app&gt;/</code></td><td><span class="tag new">new</span></td><td>—</td><td>Frames, tokens, exports, <code>design.json</code>, <code>DESIGN-GUIDE.md</code></td></tr>
+        <tr><td><code>docs/dev-tasks/&lt;app&gt;/</code></td><td><span class="tag chg">changed</span></td><td>Task CSVs</td><td>One CSV per epic, optional <code>TRACE_IDS</code></td></tr>
+        <tr><td><code>docs/change-requests/</code></td><td><span class="tag new">new</span></td><td>—</td><td><code>CR-xxx.json</code> records</td></tr>
+        <tr><td><code>.pre-commit-config.yaml</code></td><td><span class="tag new">new</span></td><td>—</td><td>Commitizen commit-message check from the first commit; <code>/scaffold</code> adds the stack's hooks</td></tr>
+        <tr><td><code>.claude/settings.json</code></td><td><span class="tag chg">changed</span></td><td>graphify hook</td><td>Plus the nexus MCP approvals, and <code>ask</code> rules: Claude Code itself asks before <code>git commit</code>, <code>git push</code> and <code>gh pr create</code>, even in auto mode (Claude Code only — not OpenCode or Codex)</td></tr>
+        <tr><td><code>.nexus/</code></td><td><span class="tag new">new</span></td><td>—</td><td>Per clone, git-ignored: manifest (version, role, file hashes) and backups</td></tr>
+        <tr><td><code>.git/nexus-code-review</code></td><td><span class="tag new">new</span></td><td>—</td><td>The last <code>/code-review</code>'s fingerprint, so <code>/create-pr</code> can reuse it</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="git">Git Rules</h2>
+    <table>
+      <thead><tr><th></th><th>v3</th><th>v4</th></tr></thead>
+      <tbody>
+        <tr><td>Who commits</td><td><code>/commit</code>, when asked</td><td><code>/commit</code> or <code>/create-pr</code>, only after your yes to the exact files and message — and Claude Code asks once more before each <code>git commit</code>, <code>git push</code> and <code>gh pr create</code>. Every other command writes, checks and stops with a suggested message</td></tr>
+        <tr><td>Branches</td><td>Up to you</td><td><code>/evaluate</code> recommends one per task; <code>/commit</code> makes one if you're on <code>main</code></td></tr>
+        <tr><td>Code review</td><td>Inside <code>/create-pr</code>; reviewers could also start on their own</td><td>Recommended after <code>/validate</code>, started by you; <code>/create-pr</code> reuses it or runs it; no reviewer starts on its own</td></tr>
+        <tr><td>Commit messages</td><td>Checked only after <code>/scaffold</code> (commitlint or a pre-commit hook), and only in the clone that ran it</td><td>Conventional Commits, checked by commitizen from the first commit, in every clone (<code>nexus init</code> installs it)</td></tr>
+        <tr><td>Up to date?</td><td>Not checked</td><td>Every command warns when your <code>main</code> is behind the team's</td></tr>
+        <tr><td>Pull requests</td><td>Opened by <code>/create-pr</code></td><td>Same, after your yes; the team's review on GitHub decides the merge</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="both">v3 and v4 on One Machine</h2>
+    <ul>
+      <li><code>nexus</code> stays v3 and <code>nexus4</code> runs the preview; installing one doesn't touch the other.</li>
+      <li>A project uses the version that last ran <code>init</code> or <code>sync</code> in it — <code>nexus4 doctor</code> shows it ("Project synced by").</li>
+      <li><strong>Copies in <code>~/.claude/commands/</code> run instead of the project's.</strong> Measured on 2026-11-24:
+        with a v3 <code>commit.md</code> there, <code>/commit</code> in a v4 project ran the v3 one. While you work on v4,
+        move those copies aside (for example to <code>~/.claude/commands-v3/</code>) and back when you return to v3. <code>nexus4 doctor</code> lists them ("Global command copies"), and <code>nexus4 init</code> warns about them.</li>
+    </ul>
+
+    <div style="margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.7rem;">
+      built by <a href="https://coderstudio.co" target="_blank" style="color:var(--cyan-dim);text-decoration:none;">CoderStudio Labs</a>
+    </div>
+  </main>
+
+  <script>
+    function toggleTheme() {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      if (next === 'light') { root.setAttribute('data-theme', 'light'); }
+      else { root.removeAttribute('data-theme'); }
+      localStorage.setItem('nexus-theme', next);
+      if (window.renderDiagrams) window.renderDiagrams();
+    }
+  </script>
+  <script>
+    // Copy buttons on every command block: copies the commands themselves (no prompts, no comments).
+    (function () {
+      function clean(code) {
+        var c = code.cloneNode(true);
+        c.querySelectorAll('.prompt, .comment').forEach(function (n) { n.remove(); });
+        return c.textContent.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).join('\n');
+      }
+      document.querySelectorAll('pre > code').forEach(function (code) {
+        var pre = code.parentNode;
+        if (pre.querySelector('.copy-btn')) return;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'copy-btn'; b.textContent = 'copy';
+        b.addEventListener('click', function () {
+          var done = function () { b.textContent = 'copied!'; b.classList.add('copied');
+            setTimeout(function () { b.textContent = 'copy'; b.classList.remove('copied'); }, 2000); };
+          if (navigator.clipboard) navigator.clipboard.writeText(clean(code)).then(done, function () { b.textContent = 'select and copy'; });
+        });
+        pre.appendChild(b);
+      });
+    })();
+    // Role picker (training page): show only the steps for the chosen role; the init command follows it.
+    (function () {
+      var bar = document.querySelector('.role-picker');
+      if (!bar) return;
+      function pick(role) {
+        bar.querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b.dataset.role === role); });
+        var n = 0;
+        document.querySelectorAll('.step[data-roles]').forEach(function (s) {
+          var show = role === 'all' || s.dataset.roles.split(' ').indexOf(role) >= 0 || s.dataset.roles === 'everyone';
+          s.hidden = !show;
+          if (show) s.querySelector('.step-num').textContent = ++n;
+        });
+        var arg = { all: 'product', product: 'product', architect: 'architect', designer: 'designer', lead: 'developer', developer: 'developer', facilitator: 'developer' }[role];
+        document.querySelectorAll('.role-arg').forEach(function (s) { s.textContent = arg; });
+        try { localStorage.setItem('nexus-training-role', role); } catch (e) {}
+      }
+      bar.addEventListener('click', function (e) { if (e.target.dataset.role) pick(e.target.dataset.role); });
+      var saved = 'all';
+      try { saved = localStorage.getItem('nexus-training-role') || 'all'; } catch (e) {}
+      pick(bar.querySelector('[data-role="' + saved + '"]') ? saved : 'all');
+    })();
+  </script>
+</body>
+</html>

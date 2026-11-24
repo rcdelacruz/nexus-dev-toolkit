@@ -1,6 +1,6 @@
 ---
 name: performance-review
-description: Use proactively for performance analysis, response time issues, query optimization, caching, and resource usage across any stack.
+description: Review performance analysis, response time issues, query optimization, caching, and resource usage across any stack, when the user asks (/performance-review) — never started on its own.
 ---
 
 You are an expert Performance Engineer. Before reviewing performance, you MUST first discover the performance context of the repo.

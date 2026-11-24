@@ -279,6 +279,7 @@
     <a href="/">← Home</a>
     <a href="/docs">Docs</a>
     <a href="/docs#v4">nexus v4 (preview)</a>
+    <a href="/v3-vs-v4">v3 vs v4</a>
     <a href="/product-guide">Product guide</a>
     <a href="/architect-guide">Architect guide</a>
     <a href="/designer-guide">Designer guide</a>
@@ -324,8 +325,8 @@
         <tr><td>Get the latest docs</td><td><code>git switch main &amp;&amp; git pull</code></td><td>You</td></tr>
         <tr><td>Do the work</td><td><code>/requirements</code>, <code>/architect</code>, <code>/design</code>, <code>/change-request</code></td><td>You, in Claude Code</td></tr>
         <tr><td>Look at what changed</td><td><code>git diff</code></td><td>You</td></tr>
-        <tr><td>Branch and commit</td><td><code>/commit</code></td><td>You, when the changes look right — no command commits by itself</td></tr>
-        <tr><td>Open the pull request</td><td><code>/create-pr</code></td><td>You</td></tr>
+        <tr><td>Branch and commit</td><td><code>/commit</code></td><td>You — it shows the files and message and commits only after your yes</td></tr>
+        <tr><td>Open the pull request</td><td><code>/create-pr</code></td><td>You — it commits anything left, reuses an earlier <code>/code-review</code> of the same files, and pushes only after your yes</td></tr>
         <tr><td>Answer review comments</td><td>Run the command again with the feedback, then <code>/commit</code> and <code>/create-pr</code> (it updates the open pull request)</td><td>You</td></tr>
         <tr><td>Merge</td><td>The green button on the pull request</td><td>A reviewer (CODEOWNERS)</td></tr>
       </tbody>

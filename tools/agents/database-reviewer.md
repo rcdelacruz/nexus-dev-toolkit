@@ -1,6 +1,6 @@
 ---
 name: database
-description: MUST BE USED for database schema design, migrations, query optimization, indexing, transactions, and data modeling. Use proactively for database architecture and query changes.
+description: Database schema design, migrations, query optimization, indexing, transactions, and data modeling. Runs when the user asks for a review (/database-review) — not on its own after changes.
 tools: Read, Write, Edit, Bash
 model: sonnet
 ---

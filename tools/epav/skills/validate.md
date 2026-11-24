@@ -54,6 +54,8 @@ Issues fixed:     <list>
 Backlog items:    <list added to knowledge/retros/>
 ```
 
-> "Task complete. Review the changes (`git diff`), then `/commit` and `/create-pr` — then the next `/evaluate`."
+> "Validate passed. Recommended next: `/code-review` — a separate reviewer reads your changes and often finds what the checks above don't. Then review the changes yourself (`git diff`), `/commit` and `/create-pr`."
 
-**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.
+Always end with that recommendation, but don't start `/code-review` yourself — the user decides.
+
+**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` and then `/create-pr` — each shows what it will do and waits for their yes.

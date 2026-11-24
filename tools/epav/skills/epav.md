@@ -16,7 +16,7 @@ EVALUATE → PLAN → [approval gate] → APPLY → VALIDATE
 
 ### Step 1 — EVALUATE
 
-Follow the `/evaluate` skill exactly. Output the EVALUATE SUMMARY.
+Follow the `/evaluate` skill exactly. Output the EVALUATE SUMMARY, including its branch recommendation (a new branch named from the task when the user is on `main`). Don't create the branch on your own.
 
 ### Step 2 — PLAN
 
@@ -26,6 +26,8 @@ Follow the `/plan` skill exactly. Output the blueprint with blast radius.
 
 Say:
 > "Plan ready. Reply **go** or `/apply` to implement, or give feedback to revise."
+
+Still on `main`? Add: "Recommended first: the branch `<name>` for this task — say yes and I'll create it before APPLY." Create it (`git switch -c <name>`) only on that yes.
 
 ### Step 3 — APPLY (only after approval)
 
@@ -37,9 +39,11 @@ The active knowledge graph backend (graphify or codegraph) stays current automat
 
 Follow the `/validate` skill exactly. Check all acceptance criteria, fix all BLOCKERs and FIX NOWs, contribute patterns back to knowledge/.
 
+Then recommend `/code-review` — a separate reviewer reads the changes and often finds what VALIDATE doesn't. Don't start it yourself; the user decides.
+
 ## Git
 
-**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` (it makes a branch when they're on `main`) and then `/create-pr`.
+**Never commit, push or open a pull request.** When done, stop: the user reviews the changes (`git diff`) and runs `/commit` and then `/create-pr` — each shows what it will do and waits for their yes.
 
 ## Abort at any step
 

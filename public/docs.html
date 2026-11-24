@@ -541,7 +541,7 @@
 
     <div class="callout">
       <code>/code-review</code> isn't one of the four EPAV phases — it's a separate reviewer skill — but it's the
-      recommended last step before calling a task done. 4 more reviewer skills (database, deployment, performance,
+      recommended step after <code>/validate</code>, before <code>/commit</code>. <code>/validate</code> suggests it; nothing starts it for you. 4 more reviewer skills (database, deployment, performance,
       monitoring) are also available any time — see <a href="#skills">built-in skills</a>.<br><br>
       <strong>Autonomous loop (proposal, not shipped yet)</strong> — a design for apply ↔ validate to retry itself
       without a human cranking every turn. See the <a href="/loop-guide">loop guide</a>.
@@ -1328,7 +1328,8 @@ docs/                        <span class="comment">← arch-docs/, dev-tasks/, d
     <h3 id="code-review-after-validate">/code-review</h3>
 
     <p>Run once VALIDATE passes, before calling the task done. Not one of the four EPAV phases — a separate
-      reviewer skill — but the recommended last step on every task. See <a href="#skills">built-in skills</a> for
+      reviewer skill — but the recommended step on every task — <code>/validate</code> suggests it and you start it. It reports, you choose
+      which findings to fix, then <code>/validate</code> and <code>/code-review</code> run again. Then <code>/commit</code>. See <a href="#skills">built-in skills</a> for
       the full reviewer list (database, deployment, performance, monitoring).</p>
 
     <div class="callout milestone">

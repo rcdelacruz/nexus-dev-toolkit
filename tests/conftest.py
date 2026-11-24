@@ -20,3 +20,10 @@ def _never_install_commit_hooks(monkeypatch):
         return None
     monkeypatch.setattr(nexus_cli, "_install_commit_hook", fake)
     return calls
+
+
+@pytest.fixture(autouse=True)
+def _no_global_claude_commands(monkeypatch, tmp_path_factory):
+    """The owner's own ~/.claude/commands (nexus 3 copies) must not change test results: point nexus at an empty one."""
+    import nexus_cli
+    monkeypatch.setattr(nexus_cli, "_GLOBAL_CLAUDE_DIR", tmp_path_factory.mktemp("home-claude"))

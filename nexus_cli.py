@@ -494,6 +494,33 @@ def _create_scaffold_dirs(project_dir: Path) -> list[str]:
 # keys answer both once the folder is trusted (Claude Code ignores them in an untrusted folder — a
 # repository can't approve itself — so the folder-trust question is the one prompt left).
 _MCP_APPROVAL = {"enabledMcpjsonServers": ["nexus"], "permissions": {"allow": ["mcp__nexus__*"]}}
+# Nothing goes into git before a person has reviewed it: Claude Code itself asks before these run, even in
+# auto mode ("ask" beats "allow"). /commit and /create-pr also show what they'll do and wait for a yes.
+_GIT_ASK_RULES = ["Bash(git commit *)", "Bash(git push *)", "Bash(gh pr create *)"]
+# Claude Code's personal command/skill folders: a same-named copy there can run instead of the project's.
+_GLOBAL_CLAUDE_DIR = Path.home() / ".claude"
+
+
+def _global_shadows(skill_files) -> list[str]:
+    """Role commands that also exist in ~/.claude/commands/ or ~/.claude/skills/ (e.g. nexus 3 copies).
+    Measured 2026-11-24: with a v3 ~/.claude/commands/commit.md, /commit in a v4 project ran the v3 one."""
+    found = []
+    for f in skill_files:
+        stem = Path(f).stem
+        for cand in (_GLOBAL_CLAUDE_DIR / "commands" / f"{stem}.md", _GLOBAL_CLAUDE_DIR / "skills" / stem / "SKILL.md"):
+            if cand.is_file():
+                found.append(str(cand).replace(str(Path.home()), "~", 1))
+    return found
+
+
+def _shadow_summary(paths: list[str]) -> str:
+    """'~/.claude/commands/: commit, create-pr, evaluate (3)' — one group per folder."""
+    groups: dict[str, list[str]] = {}
+    for p in paths:
+        folder, _, name = p.rpartition("/commands/") if "/commands/" in p else p.rpartition("/skills/")
+        kind = "commands" if "/commands/" in p else "skills"
+        groups.setdefault(f"{folder}/{kind}/", []).append(Path(name).stem if kind == "commands" else name.split("/")[0])
+    return "; ".join(f"{k}: {', '.join(v)} ({len(v)})" for k, v in groups.items())
 
 
 def _write_claude_settings(project_dir: Path, graphify_hook: bool) -> bool:
@@ -510,6 +537,8 @@ def _write_claude_settings(project_dir: Path, graphify_hook: bool) -> bool:
     allow = data.setdefault("permissions", {}).setdefault("allow", [])
     if not any(a in ("mcp__nexus", "mcp__nexus__*") for a in allow):
         allow.append("mcp__nexus__*")
+    ask = data["permissions"].setdefault("ask", [])
+    ask.extend(r for r in _GIT_ASK_RULES if r not in ask)
     if graphify_hook and "graphify update" not in json.dumps(data.get("hooks", {})):
         data.setdefault("hooks", {}).setdefault("PostToolUse", []).extend(_CLAUDE_SETTINGS["hooks"]["PostToolUse"])
     if json.dumps(data, sort_keys=True) == before:
@@ -948,6 +977,9 @@ def init(
         created += _write_ignores(root, _TOOL_DIRS["claude"], graph=backend == "graphify" and role == "developer")
         made, notes = _setup_commit_check(root)
         created += made
+        shadows = _global_shadows(_role_skills(role))
+        if shadows:
+            notes.append(f"{_shadow_summary(shadows)} — same names as this project's commands, and they can run instead of them; move them aside")
         _record_manifest(root, role)
         for f in created:
             console.print(f"  [green]✓[/green]  {f}")
@@ -1317,7 +1349,7 @@ def _sync_project(root: Path) -> Table | None:
         _sync_file(table, root / rel, text, rel, root, old, stamp)
 
     if has_claude and _write_claude_settings(root, graphify_hook=False):
-        table.add_row(".claude/settings.json", "[cyan]updated[/cyan] (nexus MCP server and tools approved)")
+        table.add_row(".claude/settings.json", "[cyan]updated[/cyan] (nexus MCP server and tools approved; git commit, push and gh pr create ask first)")
 
     if has_codex and (root / ".codex" / "hooks.json").exists():
         # Only re-add the graphify hook where the project already opted into one.
@@ -1538,6 +1570,19 @@ def doctor(
             table.add_row("Built-in skills (Claude)", ok(f"all {len(role_skills)} present"))
         else:
             table.add_row("Built-in skills (Claude)", warn(f"{missing} missing — run nexus sync"))
+
+        shadows = _global_shadows(role_skills)
+        table.add_row("Global command copies", ok("none — the project's commands run") if not shadows else warn(
+            f"{_shadow_summary(shadows)} — can run instead of this project's commands; move them aside"))
+
+        settings_path = root / ".claude" / "settings.json"
+        try:
+            ask_rules = json.loads(settings_path.read_text()).get("permissions", {}).get("ask", []) if settings_path.is_file() else []
+        except Exception:
+            ask_rules = []
+        missing_ask = [r for r in _GIT_ASK_RULES if r not in ask_rules]
+        table.add_row("Git steps ask first", ok("on — Claude Code asks before git commit, git push, gh pr create")
+                      if not missing_ask else warn("off — run nexus sync"))
 
         ag_dir = root / ".claude" / "agents"
         present_ag = [f for f in role_agents if (ag_dir / f).exists()]

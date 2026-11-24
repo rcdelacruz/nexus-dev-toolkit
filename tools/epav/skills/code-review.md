@@ -1,13 +1,13 @@
 ---
 name: code-review
-description: Use proactively after code changes to review code quality, catch bugs, enforce best practices, and improve maintainability.
+description: Review the current code changes for quality, bugs and best practices when the user asks (/code-review) — recommended after /validate, never started on its own.
 ---
 
 **code-review** — run a read-only review of the current code changes and report findings.
 
 ## When to use
 
-Invoke after making code changes, or whenever the user asks for a code review (`/code-review`). Also trigger proactively right after a non-trivial edit/implementation, without waiting to be asked.
+Invoke when the user asks for a code review (`/code-review`, "review my changes"). Don't start it on your own: `/validate` and `/epav` recommend it, and the user decides.
 
 ## Steps
 
@@ -22,3 +22,26 @@ Launch the `code-reviewer` agent (Agent tool, `subagent_type: "code-reviewer"`) 
 ### 3 — Output
 
 Relay the agent's `## Repo Context` block and its reported findings to the user. Do not add findings of your own that the agent didn't verify, and do not silently drop findings it reported.
+
+### 4 — Fixes wait for the user
+
+The review only reports. Fix nothing until the user says which findings to fix. After a fix, run `/validate` and `/code-review` again. In the developer loop it's recommended after `/validate` and before `/commit`; it never commits or pushes.
+
+### 5 — Record the review
+
+So `/create-pr` doesn't review the same changes again (in this session or a later one), write down what was reviewed. Take a fingerprint of the files as they are now — this uses a throw-away index, so nothing is staged or changed:
+
+```bash
+t=$(mktemp -u); cp "$(git rev-parse --git-path index)" "$t" 2>/dev/null; GIT_INDEX_FILE="$t" git add -A && GIT_INDEX_FILE="$t" git write-tree; rm -f "$t"
+```
+
+Write `$(git rev-parse --git-path nexus-code-review)` (inside `.git/`, never committed) with four lines:
+
+```
+tree <the fingerprint>
+critical <number of critical findings>
+high <number of high findings>
+date <YYYY-MM-DD HH:MM>
+```
+
+After a fix, the files change, so the next review writes a new record.

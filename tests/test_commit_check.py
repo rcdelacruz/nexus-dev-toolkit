@@ -119,4 +119,106 @@ def test_no_command_commits_by_itself():
         if f.name in ("commit.md", "create-pr.md"):
             continue
         text = f.read_text()
-        assert not re.search(r"git commit\b|git push\b|gh pr create|git add\b|git switch -c", text), f.name
+        text = text.replace('GIT_INDEX_FILE="$t" git add -A', "")   # /code-review's fingerprint: a throw-away index
+        assert not re.search(r"git commit\b|git push\b|gh pr create|git add\b", text), f.name
+        if f.name not in ("evaluate.md", "epav.md"):              # they create a task branch, on a yes
+            assert "git switch -c" not in text, f.name
+
+
+def test_commit_and_pr_wait_for_a_human_yes():
+    """Owner's rule: commit, push and PR happen only after a person has reviewed them."""
+    skills = ROOT / "tools" / "epav" / "skills"
+    for name, gate, act in (("commit.md", "READY TO COMMIT", "git commit -m"),
+                            ("create-pr.md", "READY — nothing is committed or pushed yet", "git push -u")):
+        text = (skills / name).read_text()
+        assert gate in text and "explicit yes" in text, name
+        assert text.index(gate) < text.index(act), f"{name}: the yes must come before the git step"
+
+
+def test_code_review_is_recommended_after_validate_never_started():
+    """Owner's rule: after /validate, recommend /code-review; don't start it automatically."""
+    skills = ROOT / "tools" / "epav" / "skills"
+    v = (skills / "validate.md").read_text()
+    assert "Recommended next: `/code-review`" in v and "don't start `/code-review` yourself" in v
+    assert "Don't start it yourself" in (skills / "epav.md").read_text()
+    for f in (skills / "code-review.md", ROOT / "tools" / "agents" / "code-reviewer.md"):
+        assert "proactively" not in f.read_text().lower(), f.name
+    training = (ROOT / "public" / "training.html").read_text()
+    step = training[training.index("Build one task"):]
+    step = step[:step.index("</div>\n      </div>")]
+    assert step.index('skill">/code-review') < step.index("/commit")
+
+
+def test_evaluate_recommends_a_task_branch_and_waits():
+    """/evaluate and /epav recommend a branch named from the task; it is created only on a yes."""
+    skills = ROOT / "tools" / "epav" / "skills"
+    for name in ("evaluate.md", "epav.md"):
+        text = (skills / name).read_text()
+        assert "feat/BOOK-004" in text or "branch recommendation" in text, name
+        assert "only" in text[text.index("git switch -c") - 200:text.index("git switch -c") + 80], name
+    assert "<type>/<TASK-ID>-<short-slug>" in (skills / "evaluate.md").read_text()
+
+
+def _fingerprint_cmd(skill):
+    text = (ROOT / "tools" / "epav" / "skills" / skill).read_text()
+    return next(l.strip() for l in text.splitlines() if l.strip().startswith("t=$(mktemp -u)"))
+
+
+def test_create_pr_reuses_an_earlier_review_of_the_same_files():
+    skills = ROOT / "tools" / "epav" / "skills"
+    assert _fingerprint_cmd("code-review.md") == _fingerprint_cmd("create-pr.md")
+    cr = (skills / "code-review.md").read_text()
+    assert "nexus-code-review" in cr and "tree <the fingerprint>" in cr
+    pr = (skills / "create-pr.md").read_text()
+    assert "Same fingerprint as the record" in pr and "don't review again" in pr
+    assert pr.index("### 3 — Code review") < pr.index("### 4 — Show it all") < pr.index("git commit -m")
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
+def test_the_fingerprint_matches_the_commit_and_stages_nothing(tmp_path):
+    """Measured on a real repo: the fingerprint taken before /commit equals the commit's tree."""
+    cmd = _fingerprint_cmd("code-review.md")
+    run = lambda *a: subprocess.run(a, cwd=tmp_path, capture_output=True, text=True, check=True).stdout.strip()
+    run("git", "init", "-q"); run("git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "chore: start")
+    (tmp_path / ".gitignore").write_text("*.log\n"); (tmp_path / "x.log").write_text("noise")
+    (tmp_path / "a.py").write_text("a = 1\n"); run("git", "add", ".gitignore")
+    staged = run("git", "diff", "--cached", "--name-only")
+    fp = run("bash", "-c", cmd)
+    assert run("git", "diff", "--cached", "--name-only") == staged            # nothing staged by it
+    run("git", "add", "-A"); run("git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "feat: a")
+    assert fp == run("git", "rev-parse", "HEAD^{tree}")
+    (tmp_path / "a.py").write_text("a = 2\n")
+    assert run("bash", "-c", cmd) != fp                                        # an edit means a new review
+    empty = tmp_path / "fresh"; empty.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=empty, check=True); (empty / "b.txt").write_text("b")
+    assert subprocess.run(["bash", "-c", cmd], cwd=empty, capture_output=True, text=True).stdout.strip()   # works before the first commit
+
+
+def test_claude_code_asks_before_git_steps(tmp_path):
+    """Claude Code itself prompts before git commit / push / gh pr create (ask beats allow, even in auto mode)."""
+    import json
+    assert runner.invoke(app, ["init", str(tmp_path), "--graph-backend", "none"]).exit_code == 0
+    s = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    assert s["permissions"]["ask"] == nexus_cli._GIT_ASK_RULES
+    assert "Git steps ask first" in runner.invoke(app, ["doctor", str(tmp_path)]).output
+
+
+def test_ask_rules_merge_into_existing_settings(tmp_path):
+    import json
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(json.dumps({"permissions": {"ask": ["Bash(rm *)", "Bash(git push *)"]}}))
+    nexus_cli._write_claude_settings(tmp_path, graphify_hook=False)
+    ask = json.loads((tmp_path / ".claude" / "settings.json").read_text())["permissions"]["ask"]
+    assert ask == ["Bash(rm *)", "Bash(git push *)", "Bash(git commit *)", "Bash(gh pr create *)"]
+
+
+def test_global_copies_are_reported(tmp_path, monkeypatch):
+    home = tmp_path / "home-claude"; (home / "commands").mkdir(parents=True)
+    (home / "commands" / "commit.md").write_text("# v3 /commit")
+    monkeypatch.setattr(nexus_cli, "_GLOBAL_CLAUDE_DIR", home)
+    proj = tmp_path / "p"; proj.mkdir()
+    r = runner.invoke(app, ["init", str(proj), "--graph-backend", "none"])
+    flat = " ".join(r.output.split())                           # rich wraps long lines
+    assert "commands/: commit (1) — same names as this project's commands" in flat, r.output
+    d = runner.invoke(app, ["doctor", str(proj)], env={"COLUMNS": "400"}).output
+    assert "Global command copies" in d and "commands/: commit (1)" in d
