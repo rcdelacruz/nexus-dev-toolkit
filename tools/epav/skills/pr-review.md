@@ -3,33 +3,40 @@ name: pr-review
 description: Rigorously verify a specific commit or PR against its own claims — read every changed line, cross-reference project specs, and actually build/test the code in an isolated worktree instead of trusting the commit message or a green CI badge.
 ---
 
-**pr-review** — deep-verify a specific commit/PR by SHA or GitHub URL, and report a narrative review with a clear verdict.
+**pr-review** — deep-verify a pull request (every commit in it) or one commit, by number, URL or SHA, and report a narrative review with a clear verdict. Posting it to GitHub happens only after the user's yes.
 
 ## When to use
 
-Invoke when the user asks to review a specific commit, PR, or "the dev's latest work" and gives a SHA or a GitHub commit/PR URL (`/pr-review <sha-or-url>`). This is not the same as `/code-review` — that reviews the *current* branch's uncommitted/ahead-of-base changes; this reviews one specific, already-made commit, often not on the branch currently checked out, and holds it to a higher bar: every claim in the commit message gets checked against the actual diff, and the build/tests actually get run, not assumed from a green CI badge.
+Invoke when the user asks to review a specific commit, PR, or "the dev's latest work" and gives a PR number or URL, or a commit SHA (`/pr-review 12`, `/pr-review <url>`, `/pr-review <sha>`). This is not the same as `/code-review` — that reviews the *current* branch's uncommitted/ahead-of-base changes; this reviews an already-made pull request or commit, often not on the branch currently checked out, and holds it to a higher bar: every claim in the commit message gets checked against the actual diff, and the build/tests actually get run, not assumed from a green CI badge.
 
 ## Steps
 
-### 1 — Resolve the target
+### 1 — Resolve what to review
 
-Extract the SHA from the user's input (a GitHub commit/PR URL ends in the SHA — a PR URL may need `gh pr view <n> --json commits` or the PR's own "Files changed" page to find the head SHA if the user only gave a PR number/URL). Confirm it exists locally (`git cat-file -e <sha>`); if not, `git fetch origin` and retry.
+- **A pull request** (number or URL): `gh pr view <n> --json number,title,body,url,baseRefName,headRefName,headRefOid,commits,author`. Fetch it without switching branches: `git fetch origin pull/<n>/head` (and the base branch). The range is **every commit in the PR**: base = `git merge-base origin/<baseRefName> <headRefOid>`, head = `<headRefOid>`. The PR's title and description are claims to check, like a commit message.
+- **One commit** (SHA or commit URL): base = `<sha>^`, head = `<sha>`.
+- Confirm both exist locally (`git cat-file -e <sha>`); if not, `git fetch origin` and retry. No `gh` (or not signed in) and only a PR number → say so and ask for the head SHA.
 
-### 2 — Delegate to the pr-verifier agent
+### 2 — Gather the project's context
 
-Launch the `pr-verifier` agent (Agent tool, `subagent_type: "pr-verifier"`) with the resolved SHA and any context the user gave about what this commit is supposed to fix or do (a prior gap, a ticket, a specific goal they stated). Let the agent discover repo-specific context (specs, ADRs, related docs, prior related commits) itself — do not pre-summarize it, and do not do the review yourself in the main thread.
+As `/code-review` step 2 does: the task the branch is for (`load_task` — acceptance criteria, `trace_ids`), the requirement files with those IDs, the epic's ADRs, the design files for UI changes, `AGENTS.md` and `knowledge/rules/`, and — if `graphify-out/graph.json` exists — tell the agent to use `graphify query` / `path` / `explain` (the graph holds the docs as well as the code). Pass paths and IDs, not file contents.
 
-### 3 — Output
+### 3 — Delegate to the pr-verifier agent
 
-Load the `artifact-design` skill, then build the review as a Claude Artifact and publish it — this is the primary deliverable, not an optional extra. Treat it as a utilitarian report (per artifact-design's calibration guidance): real typographic hierarchy, a considered palette, generous structure — but no flashy hero or landing-page treatment.
+Launch the `pr-verifier` agent (Agent tool, `subagent_type: "pr-verifier"`) with: the range (base SHA, head SHA, the list of commits), the PR's title and description (or the commit message) as the claims, the context from step 2, and anything the user said the change should do. Don't do the review yourself in the main thread.
 
-Structure it around what the agent actually verified, not just its prose:
+### 4 — Output
 
-- A masthead naming the repo and the compare range/PR, with the verdict as a plain, unambiguous badge (approve / send back / needs a human decision) — never buried.
-- If this same commit/PR/branch has been reviewed before in this session, show the commit history and a findings ledger tracking each finding's status across rounds (open → resolved, still open, or newly found in this round). This is real, meaningful structure whenever there's more than one round — not decoration.
-- The full narrative from the agent's report — what's done well, gaps ranked by severity with concrete failure scenarios, minor items, verdict. Condense formatting, not substance: every concrete claim, file path, number, and quote the agent actually verified should survive into the artifact.
-- A verification-method section naming what was actually run: build/test commands, the worktree, real test counts, and any adversarial check performed against real infrastructure rather than mocks.
+Lead in chat with the verdict — **approve / send back / needs a human decision** — and, if it's "send back" or there's a high-severity finding, say so first. Then:
 
-Give the artifact a specific title naming the actual package/feature under review (never a generic "PR Review Report"), and a favicon/icon fitting the subject.
+- **With the Artifact tool** (Claude Code with Artifacts): load the `artifact-design` skill and publish the review as an artifact — a masthead naming the repo, the PR and the range, the verdict as a plain badge; the agent's full narrative (what's done well, gaps by severity with failure scenarios, minor items); a findings ledger across rounds if this PR was reviewed before in this session; and a verification-method section (commands run, the worktree, real test counts). A specific title naming the feature, never "PR Review Report". Give the link in chat; don't re-paste the narrative.
+- **Without it** (OpenCode, Codex, or no Artifact tool): print the same review as Markdown in chat, and save it to `.nexus/reviews/pr-<n>-<head-short-sha>.md` (`.nexus/` is git-ignored — nothing to commit). Say where it is.
 
-In chat: lead with the verdict plainly — if it's "send back" or flags a high-severity finding, say so before anything else — give a short summary of the highest-severity finding(s), and hand over the artifact link. Don't also re-paste the agent's full narrative verbatim in chat once it's published as an artifact; that duplicates the deliverable instead of pointing to it.
+### 5 — Post it to GitHub — only after a yes
+
+Offer it; never post on your own. Show exactly what would be posted — the verdict and a summary of the findings (file:line, what, why), under 60 lines — and the command:
+- approve → `gh pr review <n> --approve --body-file <file>`
+- send back → `gh pr review <n> --request-changes --body-file <file>`
+- needs a human decision → `gh pr review <n> --comment --body-file <file>`
+
+Post only after an explicit yes to that text. GitHub refuses approving or requesting changes on your own pull request — then use `--comment`. Report the URL `gh` prints. One commit (no PR) → nothing to post; say so.

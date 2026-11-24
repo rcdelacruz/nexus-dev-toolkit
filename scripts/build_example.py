@@ -191,7 +191,8 @@ def pack_zip_bytes(pack: Path) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(p for p in pack.rglob("*") if p.is_file() and p.name != ".DS_Store"
-                        and "later" not in p.relative_to(pack).parts):     # the CR email arrives later
+                        and "later" not in p.relative_to(pack).parts      # the CR email arrives later
+                        and not {"graphify-out", "__pycache__"} & set(p.relative_to(pack).parts)):   # local tool output
             info = zipfile.ZipInfo(_pack_target(f.relative_to(pack)), date_time=(2026, 11, 23, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16

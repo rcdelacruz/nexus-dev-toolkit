@@ -111,3 +111,86 @@ def write_tasks(path: Path, rows: list[dict[str, str]], extra_columns: list[str]
 
 __all__ = ["COLUMNS", "REQUIRED", "FORMAT_VERSION", "TaskFile", "normalize_header", "read_tasks",
            "write_tasks", "empty_required"]
+
+
+STATUSES = ["To Do", "In Progress", "Blocked", "Done"]     # the values /dev-tasks-planner writes
+
+
+def set_cells(path: Path, task_id: str, values: dict[str, str]) -> dict[str, str] | None:
+    """Change cells of one row (canonical field → new value) and nothing else in the file: only that
+    row's own lines are rewritten, every other byte — other rows' quoting, the header, a BOM, CRLF line
+    ends — stays as it was, so the git diff is exactly the change. Returns the row's old values for the
+    fields changed, or None when the task isn't in the file. Raises ValueError for a field the file has
+    no column for."""
+    raw = Path(path).read_bytes()
+    bom = raw.startswith(b"\xef\xbb\xbf")
+    text = raw.decode("utf-8-sig")
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = text.splitlines(keepends=True)
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return None
+    col = {}
+    for i, h in enumerate(header):
+        canon = _canonical(h)
+        if canon and canon not in col:
+            col[canon] = i
+    missing = [f for f in values if f not in col]
+    if missing:
+        raise ValueError(f"{path} has no column for: {', '.join(missing)}")
+    want = task_id.strip().lower()
+    start = reader.line_num
+    for row in reader:
+        end = reader.line_num
+        if "task_id" in col and len(row) > col["task_id"] and row[col["task_id"]].strip().lower() == want:
+            old = {f: (row[col[f]] if col[f] < len(row) else "") for f in values}
+            row += [""] * (len(header) - len(row))
+            for f, v in values.items():
+                row[col[f]] = v
+            out = io.StringIO()
+            csv.writer(out, lineterminator=newline).writerow(row)
+            trailing = lines[end - 1][len(lines[end - 1].rstrip("\r\n")):]   # keep a missing final newline missing
+            new_line = out.getvalue() if trailing else out.getvalue().rstrip("\r\n")
+            new_text = "".join(lines[:start]) + new_line + "".join(lines[end:])
+            tmp = Path(path).with_suffix(Path(path).suffix + ".tmp")
+            tmp.write_bytes((b"\xef\xbb\xbf" if bom else b"") + new_text.encode("utf-8"))
+            tmp.replace(path)   # all-or-nothing
+            return old
+        start = end
+    return None
+
+
+def _csv_cell(value: str) -> str:
+    out = io.StringIO()
+    csv.writer(out, lineterminator="").writerow([value])
+    return out.getvalue()
+
+
+def add_column(path: Path, header: str, values: dict[str, str]) -> None:
+    """Append a column (header + one value per row, by task ID; blank for others) without touching
+    anything else: each row's existing text stays byte-for-byte, the cell goes on its last line."""
+    raw = Path(path).read_bytes()
+    bom = raw.startswith(b"\xef\xbb\xbf")
+    text = raw.decode("utf-8-sig")
+    lines = text.splitlines(keepends=True)
+    reader = csv.reader(io.StringIO(text))
+    hdr = next(reader, None)
+    if hdr is None:
+        return
+    id_col = next((i for i, h in enumerate(hdr) if _canonical(h) == "task_id"), None)
+    want = {k.strip().lower(): v for k, v in values.items()}
+    ends = {reader.line_num - 1: header}           # 0-based index of the last physical line → cell to add
+    for row in reader:
+        tid = row[id_col].strip().lower() if id_col is not None and len(row) > id_col else ""
+        ends[reader.line_num - 1] = want.get(tid, "")
+    out = []
+    for i, line in enumerate(lines):
+        if i in ends:
+            body = line.rstrip("\r\n")
+            out.append(body + "," + _csv_cell(ends[i]) + line[len(body):])
+        else:
+            out.append(line)
+    tmp = Path(path).with_suffix(Path(path).suffix + ".tmp")
+    tmp.write_bytes((b"\xef\xbb\xbf" if bom else b"") + "".join(out).encode("utf-8"))
+    tmp.replace(path)

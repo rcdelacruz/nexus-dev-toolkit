@@ -8,6 +8,7 @@ added or removed, writes the CR record (formats.cr), and lists exactly which dev
 to those IDs — so re-planning touches those rows and nothing else.
 """
 
+import difflib
 import json
 import logging
 import re
@@ -88,6 +89,27 @@ def _file_at(base: str, path: str) -> str:
         return ""
 
 
+def _version_pairs(base: str, dirs: list[str]) -> dict[str, str]:
+    """New files that are a newer version of a file at `base` (ARCH-X-v2.0.md replacing
+    ARCH-X-v1.0.md) → that older file. Without this, every ID in a v2 file counts as changed."""
+    from tools.epav.arch_ingest import _version, version_key
+    try:
+        at_base = _git(["ls-tree", "-r", "--name-only", base, "--", *dirs]).split("\n")
+        new = [l[2:] for l in _git(["diff", "--name-status", "--no-renames", base, "--", *dirs]).splitlines() if l.startswith("A\t")]
+        new += _git(["ls-files", "--others", "--exclude-standard", "--", *dirs]).splitlines()
+    except GitError:
+        return {}
+    pairs = {}
+    for f in new:
+        if not f.lower().endswith(".md"):
+            continue
+        older = [b for b in at_base if b and b != f and version_key(Path(b)) == version_key(Path(f))
+                 and _version(Path(b).name) < _version(Path(f).name)]
+        if older:
+            pairs[f] = max(older, key=lambda b: _version(Path(b).name))
+    return pairs
+
+
 def diff_ids(base: str, patterns: dict | None = None, include_untracked: bool = True) -> dict:
     """Requirement IDs changed in docs/ since `base` (working tree included).
 
@@ -102,7 +124,14 @@ def diff_ids(base: str, patterns: dict | None = None, include_untracked: bool = 
     dirs = [d for d in DOC_DIRS if Path(d).exists()]
     if not dirs:
         return {"files": [], "changed": [], "added": [], "removed": [], "other": []}
-    diff = _git(["diff", "-U0", "--no-color", base, "--", *dirs])
+    # A new version of a doc is compared with the version it replaces, not with nothing.
+    pairs = _version_pairs(base, dirs)
+    excluded = [f":(exclude){n}" for n in pairs] + [f":(exclude){o}" for o in pairs.values() if not Path(o).exists()]
+    diff = _git(["diff", "-U0", "--no-color", base, "--", *dirs, *excluded])
+    for new_path, old_path in pairs.items():
+        old_lines = _file_at(base, old_path).splitlines()
+        new_lines = Path(new_path).read_text(encoding="utf-8", errors="replace").splitlines()
+        diff += "\n" + "\n".join(difflib.unified_diff(old_lines, new_lines, f"a/{old_path}", f"b/{new_path}", n=0, lineterm="")) + "\n"
     plus_ids, minus_ids, parents, files, other = set(), set(), set(), [], set()
     cur_new = cur_old = None
     new_heads = old_heads = []
@@ -140,6 +169,8 @@ def diff_ids(base: str, patterns: dict | None = None, include_untracked: bool = 
             old_no += 1
     if include_untracked:
         for f in _git(["ls-files", "--others", "--exclude-standard", "--", *dirs]).split():
+            if f in pairs:
+                continue                                   # a new version: already diffed against the old one
             p = Path(f)
             if p.suffix.lower() in (".md", ".txt", ".html", ".csv") and p.stat().st_size < 5_000_000:
                 files.append(f)
@@ -283,8 +314,11 @@ def register_change_request_tools(mcp: FastMCP) -> None:
             write: write the record (do it after the user approves).
 
         Returns:
-            JSON with "status": ok | no_changes | invalid | git_error | error, the record, the
-            affected task rows (file, task_id, summary, status, ids), files written.
+            JSON with "status": ok | no_changes | no_new_changes | invalid | git_error | error, the
+            record, the affected task rows (file, task_id, summary, status, ids), files written.
+            When docs/change-requests/<cr_id>.json already exists (a later part of the same change —
+            typically the designer's screens): the new IDs are added to it as an `updates` entry,
+            and `new_ids` / `newly_affected_tasks` say what this part adds.
         """
         try:
             if not _CR_ID.match(cr_id):
@@ -296,17 +330,38 @@ def register_change_request_tools(mcp: FastMCP) -> None:
                 d["changed"] = d["other"]
             record = cr_format.ChangeRequest(cr_id, title, date.today().isoformat(), changed_ids=d["changed"],
                                              added_ids=d["added"], removed_ids=d["removed"], files=d["files"], reason=reason)
+            path = CR_DIR / f"{cr_id}.json"
+            update = None
+            if path.is_file():
+                # A later part of the same change request (e.g. the designer's screens after the
+                # requirements were merged): add to the record, keep what it already holds.
+                old = cr_format.read_cr(path)
+                new_ids = [i for i in record.touched_ids if i not in old.touched_ids]
+                merge = lambda a, b: a + [x for x in b if x not in a]   # noqa: E731
+                update = {"date": record.date, "ids": new_ids, "files": [f for f in record.files if f not in old.files]}
+                record = cr_format.ChangeRequest(
+                    old.id, old.title, old.date, changed_ids=merge(old.changed_ids, record.changed_ids),
+                    added_ids=merge(old.added_ids, record.added_ids), removed_ids=merge(old.removed_ids, record.removed_ids),
+                    files=merge(old.files, record.files), reason=old.reason or reason,
+                    updates=old.updates + ([update] if new_ids else []))
             rows = affected(record, patterns)
             status = "ok" if record.touched_ids else "no_changes"
+            if update is not None and not update["ids"]:
+                status = "no_new_changes"
             written = []
             if write and status == "ok":
-                path = CR_DIR / f"{cr_id}.json"
                 cr_format.write_cr(path, record)
                 written.append(str(path))
-            return json.dumps({"status": status, "record": json.loads(record.to_json()),
+            extra = {}
+            if update is not None:
+                newly = cr_format.ChangeRequest(cr_id, title, record.date, changed_ids=update["ids"])
+                extra = {"updating_existing_record": True, "new_ids": update["ids"],
+                         "newly_affected_tasks": affected(newly, patterns)}
+            return json.dumps({"status": status, "record": json.loads(record.to_json()), **extra,
                                "other_ids_touched": d["other"], "affected_tasks": rows,
                                "files_written": written,
-                               **({"hint": f"No requirement, ADR, epic or screen IDs changed in docs/ since {base}."} if status == "no_changes" else {})},
+                               **({"hint": f"No requirement, ADR, epic or screen IDs changed in docs/ since {base}."} if status == "no_changes" else {}),
+                               **({"hint": f"{cr_id} already records every ID changed since {base}."} if status == "no_new_changes" else {})},
                               indent=2)
         except GitError as e:
             return json.dumps({"status": "git_error", "error": str(e)})
@@ -344,10 +399,16 @@ def register_change_request_tools(mcp: FastMCP) -> None:
             proposal = propose_trace_ids(Path(csv_path), patterns)
             written = []
             if write:
-                by_id = {p["task_id"]: p["proposed"] for p in proposal}
-                for r in tf.rows:
-                    r["trace_ids"] = format_id_list(by_id.get(r.get("task_id", ""), []))
-                tasks.write_tasks(Path(csv_path), tf.rows, tf.extra_columns)
+                # Only the TRACE_IDS cells change (the column is added when the file has none);
+                # headers, other columns, quoting and line ends stay exactly as they were.
+                by_id = {p["task_id"]: format_id_list(p["proposed"]) for p in proposal}
+                if "trace_ids" in tf.header_map:
+                    for r in tf.rows:
+                        tid = r.get("task_id", "")
+                        if tid and by_id.get(tid, "") != r.get("trace_ids", ""):
+                            tasks.set_cells(Path(csv_path), tid, {"trace_ids": by_id.get(tid, "")})
+                else:
+                    tasks.add_column(Path(csv_path), "TRACE_IDS", by_id)
                 written.append(csv_path)
             return json.dumps({"status": "ok", "rows": proposal,
                                "rows_with_ids": sum(1 for p in proposal if p["proposed"]),

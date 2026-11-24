@@ -109,3 +109,18 @@ def test_epics_come_from_the_adr_files(tmp_path, monkeypatch):
     assert epics["E001"]["covers"] == ["US-001", "US-002", "FR-PAY-001"]       # the Covers: line, not US-009
     assert epics["E002"]["file"].endswith("-v2.0.md")                           # the newest version wins
     assert epics["E002"]["covers_source"] == "cited" and "US-004" in epics["E002"]["covers"]
+
+
+def test_only_the_newest_version_of_a_doc_is_read(tmp_path, monkeypatch):
+    """v1 and v2 of the same ARCH doc used to be merged: the stack held both React (v1) and Vue (v2)."""
+    d = tmp_path / "docs" / "arch-docs" / "shop"
+    d.mkdir(parents=True)
+    (d / "ARCH-SHOP-v1.0.md").write_text("# Architecture\n## Tech Stack\n- **Choice**: React\n")
+    (d / "ARCH-SHOP-v2.0.md").write_text("# Architecture\n## Tech Stack\n- **Choice**: Vue\n")
+    (d / "ARCH-SHOP-v1.10.md").write_text("# Architecture\n## Tech Stack\n- **Choice**: Svelte\n")   # 1.10 < 2.0
+    monkeypatch.chdir(tmp_path)
+    r = _ingest(module="shop", save_summary=False)
+    assert [Path(f).name for f in r["files_read"]] == ["ARCH-SHOP-v2.0.md"], r
+    stack = " ".join(r["stack"]).lower()
+    assert "vue" in stack and "react" not in stack and "svelte" not in stack
+    assert sorted(Path(s["file"]).name for s in r["files_skipped"] if "older version" in s["reason"]) == ["ARCH-SHOP-v1.0.md", "ARCH-SHOP-v1.10.md"]

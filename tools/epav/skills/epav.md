@@ -4,7 +4,7 @@
 
 ## Usage
 
-`/epav <task description, CSV path, or feature name>`
+`/epav [task ID | task description | CSV path]` — no argument: EVALUATE shows the ready tasks (`next_task`) and asks which one.
 
 ## Cycle
 

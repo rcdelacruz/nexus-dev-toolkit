@@ -3,89 +3,36 @@ name: database-review
 description: Review database schema changes, migrations, query optimization, and data modeling to catch data integrity risks early, when the user asks (/database-review) — never started on its own.
 ---
 
-You are an expert Database Architect. Before reviewing or designing anything, you MUST first discover the database context of the repo.
+**database-review** — a read-only review of database changes (schema, migrations, queries, data model), by the `database-reviewer` agent.
 
-## Required Output Format (follow this every run)
+## When to use
 
-**Part 1 — Repo Context (markdown, always first):**
+When the user asks (`/database-review`). Don't start it on your own.
 
-```
-## Repo Context
-- **Database engine:** <PostgreSQL / MySQL / SQLite / MongoDB / etc>
-- **ORM / migration tool:** <Prisma / Drizzle / SQLAlchemy / Alembic / Flyway / raw SQL / etc>
-- **Schema conventions:** <naming style, soft deletes, timestamps>
-- **Query patterns:** <repository pattern, active record, raw queries>
-```
+## Steps
 
-**Part 2 — Findings (JSON code block, immediately after the repo context):**
+### 1 — Scope the review
 
-```json
-{
-  "blocked": false,
-  "overall_severity": "critical|high|medium|low|info|none",
-  "summary": "2-3 sentence overview of the database review",
-  "findings": [
-    {
-      "id": "DB-001",
-      "severity": "critical|high|medium|low|info",
-      "category": "destructive-migration|missing-index|n-plus-one|unsafe-query|schema-issue|transaction-safety|migration-order|data-loss",
-      "file": "path/to/migration",
-      "line": 42,
-      "title": "Short title",
-      "description": "What the problem is and its risk to data integrity",
-      "suggestion": "How to fix it safely"
-    }
-  ]
-}
-```
+Default scope is "what changed": uncommitted/staged changes plus any commits ahead of the base branch. If the user names files, paths, or asks for the whole codebase, use that instead.
 
-Rules:
-- `blocked`: `true` if any finding has severity `critical` (data loss risk, unsafe destructive migration)
-- `overall_severity`: highest severity across all findings; `none` if no findings
-- `file` and `line`: use `null` if not applicable
-- No prose after the JSON block
+### 2 — Gather the project's context
 
-If a `## Repo Context` block is already present in your input, copy it verbatim as your first section and skip Step 1 entirely.
+The reviewer checks the change against what the project decided, not only against general good practice. Collect, and pass in the agent's prompt (paths and IDs, not whole files — it reads them itself):
+- **The task** — the branch name or the conversation gives the task ID (`feat/BOOK-004-…`) → `load_task`: acceptance criteria, `trace_ids`, dependencies. No task → say so.
+- **Requirements** — the files in `docs/requirements/` that hold those trace IDs (`grep -rl "US-003" docs/requirements`).
+- **Architecture** — the epic's ADR file(s) and the ARCH doc in `docs/arch-docs/<module>/` (`ingest_architecture_doc` with `module=` lists them); the decisions are the `**Choice**` lines.
+- **Design** — for UI changes: `docs/designs/<module>/design.json` (screens by DES ID, tokens) or the exported frames and the token file the scaffold uses.
+- **Rules** — `AGENTS.md` (Commands, Coding standards, Design system) and `knowledge/rules/`.
+- **The knowledge graph** — if `graphify-out/graph.json` exists, tell the agent to use it: graphify indexes the docs as well as the code, so `graphify query "<task / changed module>"` finds the requirements, ADRs and code that belong to the change, and `graphify path "<changed file>" "<other>"` / `graphify explain "<symbol>"` show what calls the changed code. (`.codegraph/` instead → `codegraph explore` / `codegraph impact`.)
 
-## Step 1: Discover Repo Database Context (MANDATORY — do this before anything else)
+### 3 — Delegate to the database-reviewer agent
 
-1. **Identify the database layer** — look for schema files, ORM config, migration directories.
-2. **Identify the engine** — check manifests and connection strings in `.env.example`.
-3. **Check migration setup** — find existing migrations and understand what's already applied.
-4. **Sample schema/models** — read 2–3 schema or model files to understand conventions.
-5. **Check query patterns** — read a few service/repository files to understand how queries are built.
+Launch the `database-reviewer` agent (Agent tool, `subagent_type: "database-reviewer"`) with the scope, the context from step 2, and any focus the user named. The agent holds the full checklist and the output format (a `## Repo Context` block, then the findings JSON); it reviews read-only. On a tool without subagents, read `.claude/agents/database-reviewer.md` (or your tool's copy) and follow it yourself.
 
-Adapt all feedback to the actual database stack found.
+### 4 — Output
 
-## Review Checklist
+Relay the agent's `## Repo Context` block and its findings. Don't add findings it didn't verify, and don't drop any.
 
-### Migrations
-- Destructive operations without safety net (DROP COLUMN, TRUNCATE on populated tables)
-- Missing rollback plan for irreversible changes
-- Adding NOT NULL column without default on existing table
-- Migration order dependencies — will this break if applied out of order?
-- Schema drift — does the ORM model match the actual migration?
+### 5 — Fixes wait for the user
 
-### Schema Design
-- Missing indexes on foreign keys and frequently filtered columns
-- Composite indexes — are they in the right column order for actual queries?
-- Unbounded text fields where length should be constrained
-- Missing timestamps (created_at, updated_at) on mutable tables
-- Soft delete fields — is deleted_at indexed?
-
-### Queries
-- N+1 patterns — loading relations in a loop
-- SELECT * where only specific fields are needed
-- Missing pagination on potentially large result sets
-- Unparameterized queries (SQL injection risk)
-- Queries inside transactions that don't need to be there
-
-### Transactions
-- Related writes not wrapped in a transaction (partial write risk)
-- Long-running transactions holding locks
-- Missing error handling and rollback on failure
-
-### Performance
-- Missing indexes on JOIN and WHERE columns
-- Full table scans on large tables
-- Missing connection pool configuration in production
+The review only reports. Fix nothing until the user says which findings to fix; it never commits or pushes.

@@ -168,6 +168,26 @@ def _version(name: str) -> tuple[int, ...]:
     return tuple(int(x) for x in m.group(1).split(".")) if m else (0,)
 
 
+_VERSION_SUFFIX = re.compile(r"-v\d+(?:\.\d+)*(?=\.md$)", re.I)
+
+
+def version_key(path: Path) -> str:
+    """The same document across versions: ARCH-CARESLOT-v1.0.md and ARCH-CARESLOT-v2.0.md → one key."""
+    return str(path.parent / _VERSION_SUFFIX.sub("", path.name)).lower()
+
+
+def newest_versions(files: list[Path]) -> tuple[list[Path], list[Path]]:
+    """(the newest version of each document, the older versions it supersedes). Files without a
+    -vN suffix are their own document."""
+    best: dict[str, Path] = {}
+    for f in files:
+        k = version_key(f)
+        if k not in best or _version(f.name) > _version(best[k].name):
+            best[k] = f
+    keep = set(best.values())
+    return [f for f in files if f in keep], [f for f in files if f not in keep]
+
+
 def classify(path: Path) -> str:
     """'architecture' | 'requirements' | 'guide' | 'other' — by file name."""
     name = path.name
@@ -220,7 +240,13 @@ def _collect(source: Path) -> tuple[list[Path], list[dict]]:
         else:
             files.append(f)
     named = [f for f in files if classify(f) == "architecture"]
-    return (named or files), skipped
+    # v1 and v2 of the same doc are one document: read only the newest, or their Choice lines
+    # (the stack) and IDs would be merged.
+    current, older = newest_versions(named or files)
+    for f in older:
+        newer = next(n for n in current if version_key(n) == version_key(f))
+        skipped.append({"file": str(f), "reason": f"older version — {newer.name} replaces it"})
+    return current, skipped
 
 
 def register_arch_ingest_tool(mcp: FastMCP) -> None:

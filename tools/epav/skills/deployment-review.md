@@ -3,92 +3,36 @@ name: deployment-review
 description: Review CI/CD pipelines, Docker, Kubernetes, and infrastructure configuration to catch deployment risks before they reach production, when the user asks (/deployment-review) — never started on its own.
 ---
 
-You are an expert DevOps Engineer. Before reviewing deployment configuration, you MUST first discover the deployment context of the repo.
+**deployment-review** — a read-only review of deployment and infrastructure changes (CI/CD, Docker, Kubernetes, environment config), by the `deployment-reviewer` agent.
 
-## Required Output Format (follow this every run)
+## When to use
 
-**Part 1 — Repo Context (markdown, always first):**
+When the user asks (`/deployment-review`). Don't start it on your own.
 
-```
-## Repo Context
-- **Runtime:** <Node.js / Python / Go / JVM / etc>
-- **Framework:** <framework and version>
-- **CI/CD platform:** <GitHub Actions / GitLab CI / Jenkins / CircleCI / etc>
-- **Deployment target:** <cloud provider, platform, or infra>
-- **Environment setup:** <env vars, secrets management, staging/prod targets>
-```
+## Steps
 
-**Part 2 — Findings (JSON code block, immediately after the repo context):**
+### 1 — Scope the review
 
-```json
-{
-  "blocked": false,
-  "overall_severity": "critical|high|medium|low|info|none",
-  "summary": "2-3 sentence overview of the deployment review",
-  "findings": [
-    {
-      "id": "DEP-001",
-      "severity": "critical|high|medium|low|info",
-      "category": "secret-exposure|env-config|resource-limit|health-check|rollback-risk|dependency-version|infra-drift|missing-pipeline-step",
-      "file": "path/to/workflow.yml",
-      "line": 42,
-      "title": "Short title",
-      "description": "What the problem is and its deployment risk",
-      "suggestion": "How to fix it"
-    }
-  ]
-}
-```
+Default scope is "what changed": uncommitted/staged changes plus any commits ahead of the base branch. If the user names files, paths, or asks for the whole codebase, use that instead.
 
-Rules:
-- `blocked`: `true` if any finding has severity `critical` (secret exposure, broken deploy pipeline)
-- `overall_severity`: highest severity across all findings; `none` if no findings
-- `file` and `line`: use `null` if not applicable
-- No prose after the JSON block
+### 2 — Gather the project's context
 
-If a `## Repo Context` block is already present in your input, copy it verbatim as your first section and skip Step 1 entirely.
+The reviewer checks the change against what the project decided, not only against general good practice. Collect, and pass in the agent's prompt (paths and IDs, not whole files — it reads them itself):
+- **The task** — the branch name or the conversation gives the task ID (`feat/BOOK-004-…`) → `load_task`: acceptance criteria, `trace_ids`, dependencies. No task → say so.
+- **Requirements** — the files in `docs/requirements/` that hold those trace IDs (`grep -rl "US-003" docs/requirements`).
+- **Architecture** — the epic's ADR file(s) and the ARCH doc in `docs/arch-docs/<module>/` (`ingest_architecture_doc` with `module=` lists them); the decisions are the `**Choice**` lines.
+- **Design** — for UI changes: `docs/designs/<module>/design.json` (screens by DES ID, tokens) or the exported frames and the token file the scaffold uses.
+- **Rules** — `AGENTS.md` (Commands, Coding standards, Design system) and `knowledge/rules/`.
+- **The knowledge graph** — if `graphify-out/graph.json` exists, tell the agent to use it: graphify indexes the docs as well as the code, so `graphify query "<task / changed module>"` finds the requirements, ADRs and code that belong to the change, and `graphify path "<changed file>" "<other>"` / `graphify explain "<symbol>"` show what calls the changed code. (`.codegraph/` instead → `codegraph explore` / `codegraph impact`.)
 
-## Step 1: Discover Repo Deployment Context (MANDATORY — do this before anything else)
+### 3 — Delegate to the deployment-reviewer agent
 
-1. **Identify the runtime and framework** — read the relevant manifest.
-2. **Find existing CI/CD config** — look for `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`, `.circleci/`.
-3. **Find existing deployment config** — look for `Dockerfile`, `docker-compose.yml`, `kubernetes/`, `helm/`, `terraform/`, platform-specific config files.
-4. **Check environment setup** — read `.env.example` and workflow files for env vars and secrets.
-5. **Understand the build process** — check build scripts, Makefile, Dockerfile build stages.
+Launch the `deployment-reviewer` agent (Agent tool, `subagent_type: "deployment-reviewer"`) with the scope, the context from step 2, and any focus the user named. The agent holds the full checklist and the output format (a `## Repo Context` block, then the findings JSON); it reviews read-only. On a tool without subagents, read `.claude/agents/deployment-reviewer.md` (or your tool's copy) and follow it yourself.
 
-Adapt all recommendations to the actual deployment target and CI/CD platform found.
+### 4 — Output
 
-## Review Checklist
+Relay the agent's `## Repo Context` block and its findings. Don't add findings it didn't verify, and don't drop any.
 
-### Secrets & Configuration
-- Secrets hardcoded in workflow files, Dockerfiles, or config files
-- Secrets logged or printed during build/deploy steps
-- `.env` files committed to the repo
-- Missing required environment variables
-- Overly broad IAM permissions / service account scopes
+### 5 — Fixes wait for the user
 
-### CI/CD Pipeline
-- Missing test step before deploy
-- Deploy to production without staging gate
-- No build artifact caching
-- Pinned action/image versions vs floating tags (supply chain risk)
-- Missing failure notifications
-
-### Container & Infrastructure
-- Running containers as root
-- No resource limits (CPU/memory) set
-- No health check endpoint configured
-- Base image not pinned to a specific digest
-- Sensitive files copied into image layers
-
-### Deployment Safety
-- No rollback strategy defined
-- Database migrations run in wrong order relative to code deploy
-- No graceful shutdown handling
-- No readiness probe — traffic sent to unready instances
-- Single replica with no redundancy in production
-
-### Environment Parity
-- Dev/staging/prod configs diverging in undocumented ways
-- Different dependency versions across environments
-- Missing staging environment
+The review only reports. Fix nothing until the user says which findings to fix; it never commits or pushes.

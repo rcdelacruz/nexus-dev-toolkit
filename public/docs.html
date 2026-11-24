@@ -1786,8 +1786,8 @@ flowchart TB
       <thead><tr><th>Role</th><th><code>nexus init . --role …</code> installs</th><th>Guide</th></tr></thead>
       <tbody>
         <tr><td>developer (default) — incl. the tech lead</td><td>everything in 3.x + all the commands below. The tech lead runs <code>/scaffold</code> once (Day 0) from the approved architecture and the designs in <code>docs/designs/&lt;app&gt;/</code> (<code>design.json</code> not required), then plans the dev tasks against that code with <code>/dev-tasks-planner</code> — one CSV per epic; developers build each task with <code>/evaluate</code>, <code>/plan</code>, <code>/apply</code>, <code>/validate</code> (Day 1)</td><td><a href="#day0">Day 0</a></td></tr>
-        <tr><td>product</td><td><code>/brd</code>, <code>/prd</code>, <code>/requirements</code>, <code>/change-request</code> — no code tooling</td><td><a href="/product-guide">Product guide</a></td></tr>
-        <tr><td>architect</td><td><code>/requirements</code>, <code>/architect</code>, <code>/change-request</code> — no code tooling</td><td><a href="/architect-guide">Architect guide</a></td></tr>
+        <tr><td>product</td><td><code>/brd</code>, <code>/prd</code>, <code>/requirements</code>, <code>/change-request</code>, <code>/commit</code>, <code>/create-pr</code> — no code tooling</td><td><a href="/product-guide">Product guide</a></td></tr>
+        <tr><td>architect</td><td><code>/architect</code>, <code>/change-request</code> — no code tooling (requirements are the product owner's)</td><td><a href="/architect-guide">Architect guide</a></td></tr>
         <tr><td>designer</td><td><code>/design</code> (optional: create screens from your design system, or review an export — or just copy a Claude Design / Figma Make export into <code>docs/designs/&lt;app&gt;/</code>), <code>/change-request</code> — no code tooling</td><td><a href="/designer-guide">Designer guide</a></td></tr>
       </tbody>
     </table>

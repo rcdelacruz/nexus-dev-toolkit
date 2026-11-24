@@ -4,7 +4,9 @@
 
 ## Arguments
 
-`/evaluate <task description, CSV path, or feature name>`
+`/evaluate [task ID | task description | CSV path]`
+
+No argument → pick the task from the board: run the `next_task` MCP tool (with `module=<module>` when there's more than one), show the **ready** tasks (STATUS To Do, every dependency Done) in its order — task ID, priority, summary — plus who has what **in progress**, and ask which one to start. Never pick for the user.
 
 ## Steps
 
@@ -34,6 +36,11 @@ Note which communities/symbols and high-degree nodes are in the blast radius.
 
 If `load_task` returns a status other than `found` (`empty_fields`, `ambiguous`, `not_found`, `invalid_file`), report it and ask — never fill a blank field or pick a file yourself.
 
+**Can this task start?** Run `next_task` with `task_id=<id>` and check its `task`:
+- `ready: false` → name each dependency that isn't Done and its status ("BOOK-004 waits on BOOK-003 — To Do"), and ask whether to start anyway or pick a ready task.
+- STATUS `In Progress` with someone else's ASSIGNEE, or `Done` → say so and ask before going on.
+- STATUS `Blocked` → show the row's **Fallback** and ask.
+
 ### 3 — Output this summary, nothing else
 
 ```
@@ -44,6 +51,7 @@ Touches:     <files / modules / graph communities or symbols>
 Depends on:  <what must already exist>
 Constraints: <from AGENTS.md, arch doc, acceptance criteria>
 Risk:        <god nodes or high-degree nodes in blast radius>
+Ready:       <yes / waits on: BOOK-003 (To Do)>
 Branch:      <current branch> — <"this task's branch" / "recommended: a new branch, see below">
 ```
 

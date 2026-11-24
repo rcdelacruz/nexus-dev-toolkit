@@ -39,8 +39,8 @@ Otherwise check whether these exact files were already reviewed. Read `$(git rev
 - step 2 leaves some files out → there's no matching fingerprint; review.
 
 Then:
-- **Same fingerprint as the record** → don't review again. Use the record: "Review: done earlier (`/code-review`, <date>), nothing changed since." If the record has `critical` or `high` above 0, say so and ask whether they were fixed or accepted before going on.
-- **No record, or a different fingerprint** → run `/code-review` (it delegates to the `code-reviewer` agent and writes a new record). If it reports a `critical` (`blocked: true`) or any `high` finding, stop and show them — ask whether to fix them now or go on anyway. Never open the PR while a critical finding stands unless the user explicitly says to go on.
+- **Same fingerprint as the record** → don't review again. Use the record: "Review: done earlier (`/code-review`, <date>), nothing changed since." If the record's `blocking` is above 0, say so and ask whether those findings were fixed or accepted before going on.
+- **No record, or a different fingerprint** → run `/code-review` (it delegates to the `code-reviewer` agent and writes a new record). If it reports a blocking finding — severity `important`, or `critical` / `high` in a numbered list — stop and show them; ask whether to fix them now or go on anyway. Never open the PR while a blocking finding stands unless the user explicitly says to go on.
 
 ### 4 — Show it all and wait for one yes
 
@@ -54,7 +54,7 @@ Commit:  feat/BOOK-004-free-slots (new, from main)    ← only when step 2 has a
 Review:  done earlier (/code-review, 2026-11-24 09:12), nothing changed since
          ← or: passed / skipped (docs only) / the findings you showed
 PR:      feat/BOOK-004-free-slots → main   (2 commits)
-Title:   Show free slots for a day
+Title:   feat(booking): show free slots for a day
 <the full description>
 
 Commit, push and open this pull request? Reply yes, or tell me what to change.
@@ -96,7 +96,7 @@ Link tickets/issues if referenced in commits or branch name (e.g. `Closes #123`)
 ```
 
 Omit sections that don't apply. Rules:
-- Title: imperative mood, under 70 characters (e.g. "Add retry logic to webhook delivery", not "Added" or "Adds").
+- Title: a Conventional Commits line, like the commit messages — `<type>(<scope>): <imperative summary>`, under 70 characters (e.g. `feat(booking): show free slots for a day`, `docs: BRD v2`). A squash merge makes the title the commit on `main`, so it must pass the same check: run `uvx --from commitizen==4.20.0 cz check --message "<title>"` before showing it (exit 0 = fine). If it fails, fix the title.
 - Body focuses on *why*, not a restatement of the diff.
 - Do not fabricate a test plan — only list verification that was actually described or run in this conversation; otherwise leave the checklist unchecked with concrete steps the reviewer should take.
 - Never commit files that look like secrets (`.env`, credentials, keys).

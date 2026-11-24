@@ -28,6 +28,22 @@ _AGENTS_MD_TEMPLATE = """\
 **Stack:** {stack}
 **Repo:** {repo}
 
+## Commands
+
+_/scaffold fills these in with the exact commands that pass in this repo; /validate runs them._
+
+- Install: 
+- Dev server: 
+- Lint: 
+- Format check: 
+- Type check: 
+- Tests: 
+- Build: 
+
+## Structure
+
+_Where each epic's code lives and where tests go._
+
 ## Coding Standards
 
 See `knowledge/rules/coding-standards.md` for the full ruleset.
@@ -36,11 +52,15 @@ See `knowledge/rules/coding-standards.md` for the full ruleset.
 
 {rules}
 
+## Design System
+
+_Tokens only: where they live; no raw colours, sizes or fonts outside them. Accessibility: labels, keyboard, visible focus, WCAG AA contrast._
+
 ## Git Conventions
 
-- Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`
-- One logical change per commit
-- Branch naming: `feat/`, `fix/`, `chore/`
+- Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:` — checked by commitizen
+- One logical change per commit; one branch per task: `feat/<TASK-ID>-<slug>`, `fix/…`, `chore/…`
+- Nothing goes into git before a person has reviewed it: `/commit` and `/create-pr` show what they'll do and wait for a yes
 
 ## Quality Gates
 
@@ -50,7 +70,7 @@ See `knowledge/rules/coding-standards.md` for the full ruleset.
 
 ## E→P→A→V Cycle
 
-Every dev task follows: `/evaluate` → `/plan` → `/apply` → `/validate`
+Every dev task follows: `/evaluate` → `/plan` → `/apply` → `/validate`, then `/code-review` (recommended)
 The task CSV provides the prompt — do not write prompts from scratch.
 """
 

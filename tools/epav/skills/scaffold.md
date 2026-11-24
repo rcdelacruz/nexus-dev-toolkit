@@ -69,6 +69,9 @@ Before running /scaffold:
    `docs/designs/<app>/design.json` if `/design` already wrote it. If its `status` is `blocked`,
    stop and send the findings back to the designer. `needs_fixes` (e.g. off-token colours): list
    them for the designer and go on — the scaffold uses the tokens, never the stray colours.
+   No `design.json` yet → run it once more with `write=true`: that fixes each screen's DES ID, so the
+   IDs the scaffold and the dev tasks use don't shift when the designer adds a frame later. Say so —
+   `design.json` goes into the scaffold's pull request for the designer to review.
 
 ---
 
@@ -231,7 +234,12 @@ NEVER write patch versions from AI memory — training data is always stale.
   - **Other hook tools** (lefthook, overcommit, GrumPHP, Husky.Net, cargo-husky, git_hooks): if the tool writes its own git hooks, give it a `commit-msg` hook running the same `cz check` command above
   - **Ruby:** lefthook (`lefthook.yml`) or overcommit · **PHP:** GrumPHP · **.NET:** Husky.Net
 - README with local setup instructions
-- CI pipeline config (GitHub Actions or equivalent: lint, typecheck, test, db push)
+- **Docker** (server and web apps; skip for mobile/desktop-only apps and say so):
+  - `Dockerfile` — multi-stage, the production build, runs as a non-root user, a `HEALTHCHECK` on the health-check endpoint. Base image tags looked up on the registry (Docker Hub / the vendor's), never from memory; pin the exact tag.
+  - `docker-compose.yml` — local development: the app plus every backing service the architecture doc names (database, cache, queue, worker…), each with a healthcheck; configuration from `.env` (documented in `.env.example`), no real secrets.
+  - `.dockerignore` — dependencies, build output, `.env*` (keep `!.env.example`), `.git`, the tool folders, `graphify-out/`.
+- CI pipeline config (GitHub Actions or equivalent) — the same commands as `AGENTS.md` → `## Commands`: install, lint, format check, type check, tests, build, and `docker build` when there's a Dockerfile.
+  - **No secrets and no live systems:** CI never deploys, never runs migrations or `db push` against a real database, and needs no credentials. Tests that need a database use a CI service container (e.g. `services: postgres:` with a throw-away password) or the stack's in-memory/SQLite test setting.
 
 **2. UI shell (matching the HTML frames exactly):**
 - Design system config — tokens from the design export, in the stack's native format (web: tailwind.config.ts + globals.css)
@@ -257,6 +265,12 @@ NEVER write patch versions from AI memory — training data is always stale.
 - Prop interfaces defined so Day 1 can wire real data without changing the component
 
 **3. AGENTS.md at project root**
+
+Start from the `generate_project_rules` MCP tool (`overwrite=false` — it never replaces an AGENTS.md that's already there): it writes the AGENTS.md skeleton with the stack from the Choice lines, `knowledge/rules/coding-standards.md` and `knowledge/patterns/`. Then fill it in. What every later command reads first — keep it short and exact:
+- `## Commands` — the exact commands that work in this repo, one per line: install, dev server, lint, format check, type check, tests, build, and `docker compose up` when there's Docker. `/validate` runs these; each must pass on the scaffold as committed.
+- `## Structure` — where each epic's code lives (folders), where tests go.
+- `## Coding standards` — from the architecture doc (patterns, naming, error format, logging).
+- `## Design system` — tokens only: where they live, "no raw colours, sizes or fonts outside the tokens", and the accessibility bar (labels, keyboard, focus, WCAG AA contrast).
 
 **4. knowledge/ directory with initial content**
 
@@ -346,12 +360,17 @@ Review everything against the architecture doc AND the design frames.
     preflight makes `<svg>` block-level and text-align won't center it.
 
 **AGENTS.md + knowledge directory:**
-17. Coding standards match the architecture?
-18. Design system spec saved to knowledge/?
+19. Coding standards match the architecture?
+20. Design system spec saved to knowledge/?
+21. `AGENTS.md` → `## Commands`: run every command listed — each exits 0 (dev server: starts and the health check answers).
+
+**Docker + CI:**
+22. `docker compose config -q` passes and `docker build .` succeeds — or, if Docker isn't installed here, say "not run (no Docker)", never "passed".
+23. The CI config runs the same commands as `## Commands`, and has no deploy step, no migration or `db push` against a real database, and no secret it needs to pass.
 
 **Git hygiene:**
-19. Pre-commit hooks configured and working? (the stack's Pre-commit hooks column — e.g. husky executable + lint-staged for npm, `pre-commit install` done for the pre-commit framework) — and commit messages still checked, without committing anything: write `bad message` to a temp file and `git hook run commit-msg -- <file>` must fail; the same with `chore: check commit messages` must pass
-20. Ignore files — no line that was in `.gitignore` before scaffold is gone: `git diff main -- .gitignore | grep '^-[^-]'` prints nothing. One path per check (`git check-ignore -q` takes a single path): `for p in .env graphify-out .claude; do git check-ignore -q "$p" || echo "NOT ignored: $p"; done` prints nothing (use your tool's folder instead of `.claude`), `git check-ignore -q .env.example` fails (it must stay committed), and `.graphifyignore` exists with nexus's lines plus the stack's vendored/generated paths?
+24. Pre-commit hooks configured and working? (the stack's Pre-commit hooks column — e.g. husky executable + lint-staged for npm, `pre-commit install` done for the pre-commit framework) — and commit messages still checked, without committing anything: write `bad message` to a temp file and `git hook run commit-msg -- <file>` must fail; the same with `chore: check commit messages` must pass
+25. Ignore files — no line that was in `.gitignore` before scaffold is gone: `git diff main -- .gitignore | grep '^-[^-]'` prints nothing. One path per check (`git check-ignore -q` takes a single path): `for p in .env graphify-out .claude; do git check-ignore -q "$p" || echo "NOT ignored: $p"; done` prints nothing (use your tool's folder instead of `.claude`), `git check-ignore -q .env.example` fails (it must stay committed), and `.graphifyignore` exists with nexus's lines plus the stack's vendored/generated paths?
 
 Classify every issue: [BLOCKER] / [FIX NOW] / [BACKLOG]
 Fix every [BLOCKER] and [FIX NOW] before calling Day 0 complete.

@@ -800,10 +800,16 @@ def test_opencode_agents_have_closed_frontmatter_and_subagent_mode(tmp_project):
         assert body.strip(), f"{agent} lost its prompt body"
 
 
-def test_strip_claude_frontmatter_is_idempotent_and_keeps_existing_mode():
+def test_strip_claude_frontmatter_is_idempotent_and_keeps_existing_mode(monkeypatch):
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 2)
     src = "---\nname: x\ndescription: d\ntools: Read\nmodel: sonnet\n---\n\nBody\n"
     once = _strip_claude_frontmatter(src)
-    assert once == "---\nname: x\nmode: subagent\ndescription: d\n---\n\nBody\n"
+    # tools: Read (no Write/Edit) → read-only on OpenCode too
+    assert once == ('---\nname: x\nmode: subagent\ndescription: d\npermissions:\n  - action: edit\n'
+                    '    resource: "*"\n    effect: deny\n---\n\nBody\n')
+    assert "permissions:" not in _strip_claude_frontmatter("---\nname: x\ntools: Read, Write, Edit\n---\n\nBody\n")
+    monkeypatch.setattr("nexus_cli._opencode_major", lambda: 1)
+    assert "  write: false\n  edit: false" in _strip_claude_frontmatter(src)
     assert _strip_claude_frontmatter(once) == once
     assert "mode: primary" in _strip_claude_frontmatter("---\nname: x\nmode: primary\n---\n\nBody\n")
     assert _strip_claude_frontmatter("no frontmatter here") == "no frontmatter here"
@@ -1163,7 +1169,7 @@ def test_architect_role_gets_only_its_commands(tmp_project):
     r = runner.invoke(app, ["init", str(tmp_project), "--role", "architect"])
     assert r.exit_code == 0, r.output
     cmds = sorted(f.name for f in (tmp_project / ".claude" / "commands").iterdir())
-    assert cmds == ["architect.md", "change-request.md", "commit.md", "create-pr.md", "requirements.md"]
+    assert cmds == ["architect.md", "change-request.md", "commit.md", "create-pr.md"]   # docs/requirements/ is the product owner's
     assert not (tmp_project / ".claude" / "agents").exists() or not any((tmp_project / ".claude" / "agents").iterdir())
     assert "graphify" not in (tmp_project / ".claude" / "settings.json").read_text()   # no graphify hook — no code
     assert (tmp_project / ".mcp.json").exists()                              # role commands use the MCP tools
@@ -1223,7 +1229,22 @@ def test_sync_adds_missing_guides_to_an_existing_project(tmp_project):
     runner.invoke(app, ["init", str(tmp_project)])
     (tmp_project / "docs" / "designs" / "DESIGN-GUIDE.md").unlink()
     out = _flat(runner.invoke(app, ["sync", str(tmp_project)]).output)
+    # plain sync lists what's missing and adds nothing — sync also runs in repos that aren't product projects
+    assert not (tmp_project / "docs" / "designs" / "DESIGN-GUIDE.md").exists()
+    assert "docs/designs/DESIGN-GUIDE.md" in out and "--add-missing" in out
+    out = _flat(runner.invoke(app, ["sync", str(tmp_project), "--add-missing"]).output)
     assert (tmp_project / "docs" / "designs" / "DESIGN-GUIDE.md").exists() and "never overwritten" in out
+
+
+def test_sync_adds_nothing_to_a_repo_that_isnt_a_product_project(tmp_project):
+    """Measured 2026-11-24: nexus4 sync in the toolkit's own repo added docs guides, BRD/PRD templates,
+    a CODEOWNERS template and .pre-commit-config.yaml. Plain sync must add none of them."""
+    (tmp_project / ".claude" / "commands").mkdir(parents=True)
+    before = {p for p in tmp_project.rglob("*") if p.is_file()}
+    out = _flat(runner.invoke(app, ["sync", str(tmp_project)]).output)
+    new = {str(p.relative_to(tmp_project)) for p in tmp_project.rglob("*") if p.is_file()} - {str(p.relative_to(tmp_project)) for p in before}
+    assert not any(n.startswith(("docs/", ".github/")) or n == ".pre-commit-config.yaml" for n in new), new
+    assert "project files missing" in out
 
 
 def test_channel_stable_removes_the_real_v4_commands_on_every_tool(monkeypatch, tmp_project):
@@ -1430,3 +1451,17 @@ def test_sync_brings_an_older_project_up_to_date(tmp_project):
     runner.invoke(app, ["sync", str(tmp_project)])
     assert ".claude/" in _lines(tmp_project / ".gitignore")
     assert _lines(tmp_project / ".graphifyignore")[0] == "vendor/" and ".nexus/" in _lines(tmp_project / ".graphifyignore")
+
+
+def test_sync_recreates_a_missing_mcp_json(tmp_project):
+    runner.invoke(app, ["init", str(tmp_project)])
+    (tmp_project / ".mcp.json").unlink()
+    out = _flat(runner.invoke(app, ["sync", str(tmp_project)]).output)
+    assert "nexus" in json.loads((tmp_project / ".mcp.json").read_text())["mcpServers"] and "it was missing" in out
+
+
+def test_codex_agents_say_read_only():
+    from nexus_cli import _to_codex_agent
+    toml = _to_codex_agent("code-reviewer.md", "---\nname: code-reviewer\ndescription: d\ntools: Read, Bash\n---\n\nBody\n")
+    assert "Read-only: never create, edit" in toml
+    assert "Read-only" not in _to_codex_agent("x.md", "---\nname: x\ndescription: d\ntools: Read, Write\n---\n\nBody\n")

@@ -20,5 +20,6 @@
     "docs/designs/careslot/design.json",
     "docs/requirements/PRD.md"
   ],
-  "reason": "Clinic manager: 24-hour reminders were forgotten by the next day; no-show reasons are needed for the monthly report."
+  "reason": "Clinic manager: 24-hour reminders were forgotten by the next day; no-show reasons are needed for the monthly report.",
+  "updates": []
 }

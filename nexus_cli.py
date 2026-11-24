@@ -129,7 +129,7 @@ _BUILTIN_AGENTS = [
 _ROLES = ("developer", "product", "architect", "designer")
 _ROLE_SKILLS = {
     "product": ["brd.md", "prd.md", "requirements.md", "change-request.md", "commit.md", "create-pr.md"],
-    "architect": ["requirements.md", "architect.md", "change-request.md", "commit.md", "create-pr.md"],
+    "architect": ["architect.md", "change-request.md", "commit.md", "create-pr.md"],
     "designer": ["design.md", "change-request.md", "commit.md", "create-pr.md"],
 }   # no command commits by itself: every role commits with /commit and opens the PR with /create-pr
 
@@ -155,15 +155,25 @@ _GUIDES = {
 }
 
 
+def _missing_guides(project_dir: Path) -> list[str]:
+    """Project files nexus init writes that this project doesn't have (guides, BRD/PRD templates,
+    the CODEOWNERS template)."""
+    out = []
+    for rel, name in _GUIDES.items():
+        if rel.endswith("nexus-template") and (project_dir / ".github" / "CODEOWNERS").exists():
+            continue
+        if (_TEMPLATES_SRC / name).is_file() and not (project_dir / rel).exists():
+            out.append(rel)
+    return out
+
+
 def _write_guides(project_dir: Path) -> list[str]:
     """Copy the guide templates into docs/ (and the CODEOWNERS template) — only where missing.
     They belong to the team from then on: never overwritten, never in the manifest."""
     created = []
-    for rel, name in _GUIDES.items():
-        dst, src = project_dir / rel, _TEMPLATES_SRC / name
-        if rel.endswith("nexus-template") and (project_dir / ".github" / "CODEOWNERS").exists():
-            continue
-        if src.is_file() and not dst.exists():
+    for rel in _missing_guides(project_dir):
+        dst, src = project_dir / rel, _TEMPLATES_SRC / _GUIDES[rel]
+        if True:
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
             created.append(rel)
@@ -252,12 +262,14 @@ def _commit_hook_installed(root: Path) -> bool:
     return True
 
 
-def _setup_commit_check(root: Path) -> tuple[list[str], list[str]]:
+def _setup_commit_check(root: Path, create: bool = True) -> tuple[list[str], list[str]]:
     """Write .pre-commit-config.yaml with the commitizen commit-msg check (only if the file is
     missing — an existing one is the team's and is never edited) and install the hook in this
     clone. Returns (what was set up, notes on what wasn't)."""
     out = []
     cfg = root / _PRE_COMMIT_CONFIG
+    if not cfg.exists() and not create:
+        return [], []                      # sync without --add-missing: reported with the other missing project files
     if not cfg.exists():
         cfg.write_text((_TEMPLATES_SRC / "pre-commit-config.yaml").read_text(encoding="utf-8"), encoding="utf-8")
         out.append(f"{_PRE_COMMIT_CONFIG} (commit messages checked by commitizen)")
@@ -496,7 +508,83 @@ def _create_scaffold_dirs(project_dir: Path) -> list[str]:
 _MCP_APPROVAL = {"enabledMcpjsonServers": ["nexus"], "permissions": {"allow": ["mcp__nexus__*"]}}
 # Nothing goes into git before a person has reviewed it: Claude Code itself asks before these run, even in
 # auto mode ("ask" beats "allow"). /commit and /create-pr also show what they'll do and wait for a yes.
-_GIT_ASK_RULES = ["Bash(git commit *)", "Bash(git push *)", "Bash(gh pr create *)"]
+_GIT_ASK_RULES = ["Bash(git commit *)", "Bash(git push *)", "Bash(gh pr create *)", "Bash(gh pr review *)", "Bash(gh pr comment *)"]
+_GIT_ASK_COMMANDS = ["git commit *", "git push *", "gh pr create *", "gh pr review *", "gh pr comment *"]
+# Codex: execpolicy rules (Starlark), loaded from <repo>/.codex/rules/ once the project is trusted.
+# "prompt" asks before the command runs; with several matches Codex applies the most restrictive.
+_CODEX_GIT_RULES = """# nexus: nothing goes into git before a person has reviewed it — Codex asks before these run.
+# Written by nexus init / nexus sync (replaced on sync; a copy you edited is backed up first).
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "prompt",
+    justification = "Commit only after the user has reviewed the changes",
+)
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Push only after the user has reviewed the commits",
+)
+prefix_rule(
+    pattern = ["gh", "pr", "create"],
+    decision = "prompt",
+    justification = "Open a pull request only after the user has reviewed it",
+)
+prefix_rule(
+    pattern = ["gh", "pr", "review"],
+    decision = "prompt",
+    justification = "Post a review only after the user has read it",
+)
+prefix_rule(
+    pattern = ["gh", "pr", "comment"],
+    decision = "prompt",
+    justification = "Post a comment only after the user has read it",
+)
+"""
+_CODEX_RULES_REL = ".codex/rules/nexus-git.rules"
+
+
+def _add_opencode_ask_rules(cfg: dict) -> bool:
+    """Make OpenCode ask before git commit / push / gh pr create. v2 (`permissions` list, last match
+    wins → appended at the end); v1 (`permission.bash` map). A file with neither gets the shape of
+    the installed OpenCode (v2 when unknown). True if anything was added."""
+    v1 = isinstance(cfg.get("permission"), dict) or ("permissions" not in cfg and (_opencode_major() or 2) < 2)
+    if v1:
+        perm = cfg.setdefault("permission", {})
+        bash = perm.get("bash")
+        if not isinstance(bash, dict):
+            bash = {"*": bash} if isinstance(bash, str) else {}
+        added = [c for c in _GIT_ASK_COMMANDS if bash.get(c) != "ask"]
+        for c in added:
+            bash[c] = "ask"
+        perm["bash"] = bash
+        return bool(added)
+    rules = cfg.setdefault("permissions", [])
+    have = {(r.get("action"), r.get("resource"), r.get("effect")) for r in rules if isinstance(r, dict)}
+    added = [c for c in _GIT_ASK_COMMANDS if ("shell", c, "ask") not in have]
+    rules.extend({"action": "shell", "resource": c, "effect": "ask"} for c in added)
+    return bool(added)
+
+
+def _opencode_asks_first(cfg: dict) -> bool:
+    bash = cfg.get("permission", {}).get("bash") if isinstance(cfg.get("permission"), dict) else None
+    if isinstance(bash, dict) and all(bash.get(c) == "ask" for c in _GIT_ASK_COMMANDS):
+        return True
+    have = {(r.get("action"), r.get("resource"), r.get("effect")) for r in cfg.get("permissions", []) if isinstance(r, dict)}
+    return all(("shell", c, "ask") in have for c in _GIT_ASK_COMMANDS)
+
+
+def _write_opencode_ask_rules(project_dir: Path) -> bool:
+    path = project_dir / "opencode.json"
+    try:
+        cfg = json.loads(path.read_text()) if path.is_file() else None
+    except Exception:
+        return False                                       # unreadable: leave the user's file alone
+    if cfg is None or not _add_opencode_ask_rules(cfg):
+        return False
+    path.write_text(json.dumps(cfg, indent=2))
+    return True
+
+
 # Claude Code's personal command/skill folders: a same-named copy there can run instead of the project's.
 _GLOBAL_CLAUDE_DIR = Path.home() / ".claude"
 
@@ -601,10 +689,17 @@ def _strip_claude_frontmatter(content: str) -> str:
     match = _FRONTMATTER_RE.match(content)
     if not match:
         return content
+    tools = next((line.split(":", 1)[1] for line in match.group(1).splitlines() if line.startswith("tools:")), "")
     lines = [line for line in match.group(1).splitlines() if not line.startswith(("tools:", "model:"))]
     if not any(line.startswith("mode:") for line in lines):
         at = next((i + 1 for i, line in enumerate(lines) if line.startswith("name:")), 0)
         lines.insert(at, "mode: subagent")
+    if tools and not re.search(r"\b(Write|Edit)\b", tools) and not any(line.startswith(("permissions:", "permission:")) for line in lines):
+        # A read-only Claude agent (no Write/Edit) stays read-only: OpenCode v2 `permissions`, v1 `tools` map.
+        if (_opencode_major() or 2) >= 2:
+            lines += ["permissions:", "  - action: edit", '    resource: "*"', "    effect: deny"]
+        else:
+            lines += ["tools:", "  write: false", "  edit: false"]
     return "---\n" + "\n".join(lines) + "\n---\n" + content[match.end():]
 
 
@@ -684,6 +779,7 @@ def _init_opencode(project_dir: Path, backend: str = "graphify", role: str = "de
     already_has_mcp = "nexus-mcp" in target
     existing.setdefault("$schema", "https://opencode.ai/config.json")
     target.update(_opencode_mcp_block())
+    _add_opencode_ask_rules(existing)                     # OpenCode asks before git commit / push / gh pr create
     opencode_json.write_text(json.dumps(existing, indent=2))
     if not already_has_mcp:
         created.append("opencode.json")
@@ -735,6 +831,10 @@ def _to_codex_agent(agent_name: str, content: str) -> str:
     fields (tools, model) are dropped — the agent inherits the parent session's model."""
     fields, body = _split_frontmatter(content)
     name = fields.get("name") or Path(agent_name).stem
+    if fields.get("tools") and not re.search(r"\b(Write|Edit)\b", fields["tools"]):
+        # Codex has no per-agent read-only sandbox (agents inherit the session's), so say it plainly.
+        body = ("Read-only: never create, edit, move or delete files, and never run commands that change them "
+                "(no formatters with --write, no git commit). Report only.\n\n" + body)
     # Multi-line literal string keeps the prompt readable; fall back to an escaped basic string
     # in the unlikely case the body itself contains '''.
     instructions = json.dumps(body, ensure_ascii=False) if "'''" in body else f"'''\n{body}'''"
@@ -816,6 +916,13 @@ def _init_codex(project_dir: Path, backend: str = "graphify", role: str = "devel
 
     if _write_codex_mcp_config(project_dir):
         created.append(".codex/config.toml")
+
+    # .codex/rules/nexus-git.rules — Codex asks before git commit / push / gh pr create
+    rules = project_dir / _CODEX_RULES_REL
+    if not rules.exists():
+        rules.parent.mkdir(parents=True, exist_ok=True)
+        rules.write_text(_CODEX_GIT_RULES, encoding="utf-8")
+        created.append(_CODEX_RULES_REL)
 
     # .codex/hooks.json — graphify hook (codegraph syncs itself, no hook needed)
     if backend == "graphify" and role == "developer" and _write_codex_hooks(project_dir):
@@ -1259,6 +1366,7 @@ def _builtin_files(root: Path, role: str | None = None) -> dict[str, str]:
             src = _AGENTS_SRC / fname
             if src.exists():
                 files[f".codex/agents/{Path(fname).stem}.toml"] = _to_codex_agent(fname, src.read_text(encoding="utf-8"))
+        files[_CODEX_RULES_REL] = _CODEX_GIT_RULES
     return files
 
 
@@ -1321,7 +1429,7 @@ def _refresh_mcp_configs(root: Path, table: Table, want: str | None = None) -> N
                 table.add_row(".codex/config.toml", f"[cyan]updated[/cyan] (MCP server: {escape(want)})")
 
 
-def _sync_project(root: Path) -> Table | None:
+def _sync_project(root: Path, add_missing: bool = False) -> Table | None:
     """Sync built-in skills/agents into root. None if root isn't a nexus project (none of
     .claude/, .opencode/ or .codex/ present) — callers decide how to handle that case.
 
@@ -1348,8 +1456,18 @@ def _sync_project(root: Path) -> Table | None:
     for rel, text in files.items():
         _sync_file(table, root / rel, text, rel, root, old, stamp)
 
+    # A deleted MCP config is put back — without it the nexus tools are gone from the AI tool.
+    if has_claude and not (root / ".mcp.json").exists():
+        _write_mcp_config(root)
+        table.add_row(".mcp.json", "[cyan]created[/cyan] (it was missing — nexus MCP server)")
+    if has_codex and _write_codex_mcp_config(root):
+        table.add_row(".codex/config.toml", "[cyan]updated[/cyan] (nexus MCP server was missing)")
+
     if has_claude and _write_claude_settings(root, graphify_hook=False):
-        table.add_row(".claude/settings.json", "[cyan]updated[/cyan] (nexus MCP server and tools approved; git commit, push and gh pr create ask first)")
+        table.add_row(".claude/settings.json", "[cyan]updated[/cyan] (nexus MCP server and tools approved; git commit, push, gh pr create/review/comment ask first)")
+
+    if has_opencode and _write_opencode_ask_rules(root):
+        table.add_row("opencode.json", "[cyan]updated[/cyan] (git commit, push, gh pr create/review/comment ask first)")
 
     if has_codex and (root / ".codex" / "hooks.json").exists():
         # Only re-add the graphify hook where the project already opted into one.
@@ -1362,14 +1480,22 @@ def _sync_project(root: Path) -> Table | None:
     for rel in kept:
         table.add_row(rel, "[yellow]kept — no longer shipped, but you edited it; delete it yourself if unused[/yellow]")
 
-    for rel in _write_guides(root):
-        table.add_row(rel, "[cyan]created[/cyan] (yours to edit — never overwritten)")
+    # New project files (guides, templates, CODEOWNERS template, the commit-check config) only on
+    # request: sync also runs in repos that aren't product projects, where they don't belong.
+    if add_missing:
+        for rel in _write_guides(root):
+            table.add_row(rel, "[cyan]created[/cyan] (yours to edit — never overwritten)")
+    else:
+        missing = _missing_guides(root) + ([_PRE_COMMIT_CONFIG] if not (root / _PRE_COMMIT_CONFIG).exists() else [])
+        if missing:
+            table.add_row(f"{len(missing)} project files missing: {', '.join(missing)}",
+                          "[yellow]not added[/yellow] — nexus sync --add-missing adds them (nexus init does too)")
     tool_dirs = [d for t, present in (("claude", has_claude), ("opencode", has_opencode), ("codex", has_codex))
                  if present for d in _TOOL_DIRS[t]]
     graph = (root / ".graphifyignore").exists() or (root / "graphify-out").is_dir()
     for line in _write_ignores(root, tool_dirs, graph):
         table.add_row(line, "[cyan]updated[/cyan] (only missing lines added)")
-    made, notes = _setup_commit_check(root)
+    made, notes = _setup_commit_check(root, create=add_missing)
     for line in made:
         table.add_row(line, "[cyan]set up[/cyan]")
     for line in notes:
@@ -1382,10 +1508,13 @@ def _sync_project(root: Path) -> Table | None:
 @app.command()
 def sync(
     project_dir: str = typer.Argument(".", help="Project directory to sync"),
+    add_missing: bool = typer.Option(False, "--add-missing", help="Also add the project files nexus init writes and this "
+                                     "project lacks: docs guides, BRD/PRD templates, the CODEOWNERS template, "
+                                     ".pre-commit-config.yaml. Without it, sync only lists them."),
 ) -> None:
     """Sync built-in skills and agents to their latest versions (custom files untouched)."""
     root = Path(project_dir).resolve()
-    table = _sync_project(root)
+    table = _sync_project(root, add_missing=add_missing)
     if table is None:
         console.print("  [red]✗[/red]  Not a nexus project. Run [cyan]nexus init[/cyan] first.\n")
         raise typer.Exit(1)
@@ -1513,6 +1642,8 @@ def doctor(
                     table.add_row("opencode.json", ok("nexus entry present"))
                 else:
                     table.add_row("opencode.json", warn("exists but no nexus-mcp entry"))
+                table.add_row("Git steps ask first (OpenCode)", ok("on — OpenCode asks before git commit, git push, gh pr create/review/comment")
+                              if _opencode_asks_first(oc_data) else warn("off — run nexus sync"))
             except Exception:
                 table.add_row("opencode.json", warn("invalid JSON"))
 
@@ -1543,6 +1674,8 @@ def doctor(
             table.add_row(".codex/config.toml", ok("nexus entry present"))
         else:
             table.add_row(".codex/config.toml", warn("exists but no [mcp_servers.nexus] entry"))
+        table.add_row("Git steps ask first (Codex)", ok(f"on — {_CODEX_RULES_REL} (Codex loads it once you trust the project; restart Codex after a change)")
+                      if (root / _CODEX_RULES_REL).is_file() else warn("off — run nexus sync"))
 
     # ── Commit check (commitizen) ────────────────────────────────────────────
     cfg = root / _PRE_COMMIT_CONFIG
@@ -1581,7 +1714,7 @@ def doctor(
         except Exception:
             ask_rules = []
         missing_ask = [r for r in _GIT_ASK_RULES if r not in ask_rules]
-        table.add_row("Git steps ask first", ok("on — Claude Code asks before git commit, git push, gh pr create")
+        table.add_row("Git steps ask first", ok("on — Claude Code asks before git commit, git push, gh pr create/review/comment")
                       if not missing_ask else warn("off — run nexus sync"))
 
         ag_dir = root / ".claude" / "agents"

@@ -61,6 +61,8 @@ def test_sync_sets_it_up_in_an_older_project(tmp_path, _never_install_commit_hoo
     (tmp_path / CFG).unlink()
     _never_install_commit_hooks.clear()
     r = runner.invoke(app, ["sync", str(tmp_path)])
+    assert not (tmp_path / CFG).exists() and _never_install_commit_hooks == [], r.output     # only listed
+    r = runner.invoke(app, ["sync", str(tmp_path), "--add-missing"])
     assert (tmp_path / CFG).is_file() and _never_install_commit_hooks == [tmp_path], r.output
 
 
@@ -209,7 +211,7 @@ def test_ask_rules_merge_into_existing_settings(tmp_path):
     (tmp_path / ".claude" / "settings.json").write_text(json.dumps({"permissions": {"ask": ["Bash(rm *)", "Bash(git push *)"]}}))
     nexus_cli._write_claude_settings(tmp_path, graphify_hook=False)
     ask = json.loads((tmp_path / ".claude" / "settings.json").read_text())["permissions"]["ask"]
-    assert ask == ["Bash(rm *)", "Bash(git push *)", "Bash(git commit *)", "Bash(gh pr create *)"]
+    assert ask == ["Bash(rm *)", "Bash(git push *)", "Bash(git commit *)", "Bash(gh pr create *)", "Bash(gh pr review *)", "Bash(gh pr comment *)"]
 
 
 def test_global_copies_are_reported(tmp_path, monkeypatch):
@@ -222,3 +224,47 @@ def test_global_copies_are_reported(tmp_path, monkeypatch):
     assert "commands/: commit (1) — same names as this project's commands" in flat, r.output
     d = runner.invoke(app, ["doctor", str(proj)], env={"COLUMNS": "400"}).output
     assert "Global command copies" in d and "commands/: commit (1)" in d
+
+
+def test_opencode_asks_before_git_steps_v2(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(nexus_cli, "_opencode_major", lambda: 2)
+    assert runner.invoke(app, ["init", str(tmp_path), "--tool", "opencode", "--graph-backend", "none"]).exit_code == 0
+    cfg = json.loads((tmp_path / "opencode.json").read_text())
+    assert cfg["permissions"] == [{"action": "shell", "resource": c, "effect": "ask"} for c in nexus_cli._GIT_ASK_COMMANDS]
+    assert not nexus_cli._write_opencode_ask_rules(tmp_path)              # second run adds nothing
+    d = runner.invoke(app, ["doctor", str(tmp_path)], env={"COLUMNS": "300"}).output
+    assert "Git steps ask first (OpenCode)" in d and "on — OpenCode asks" in d
+
+
+def test_opencode_v1_file_keeps_its_shape(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(nexus_cli, "_opencode_major", lambda: 1)
+    (tmp_path / "opencode.json").write_text(json.dumps({"permission": {"bash": "allow", "edit": "ask"}}))
+    assert nexus_cli._write_opencode_ask_rules(tmp_path)
+    cfg = json.loads((tmp_path / "opencode.json").read_text())
+    assert cfg["permission"]["edit"] == "ask" and "permissions" not in cfg
+    assert cfg["permission"]["bash"] == {"*": "allow", **{c: "ask" for c in nexus_cli._GIT_ASK_COMMANDS}}
+    assert nexus_cli._opencode_asks_first(cfg)
+
+
+def test_codex_asks_before_git_steps(tmp_path):
+    assert runner.invoke(app, ["init", str(tmp_path), "--tool", "codex", "--graph-backend", "none"]).exit_code == 0
+    rules = (tmp_path / nexus_cli._CODEX_RULES_REL).read_text()
+    for pattern in ('["git", "commit"]', '["git", "push"]', '["gh", "pr", "create"]', '["gh", "pr", "review"]', '["gh", "pr", "comment"]'):
+        assert f"pattern = {pattern}" in rules
+    assert rules.count('decision = "prompt"') == 5
+    d = runner.invoke(app, ["doctor", str(tmp_path)], env={"COLUMNS": "300"}).output
+    assert "Git steps ask first (Codex)" in d and "on —" in d
+    (tmp_path / nexus_cli._CODEX_RULES_REL).unlink()
+    runner.invoke(app, ["sync", str(tmp_path)])
+    assert (tmp_path / nexus_cli._CODEX_RULES_REL).read_text() == rules     # sync puts it back
+
+
+def test_pr_review_covers_every_commit_and_posts_only_after_a_yes():
+    s = (ROOT / "tools" / "epav" / "skills" / "pr-review.md").read_text()
+    assert "every commit in the PR" in s and "git merge-base" in s
+    assert "Without it" in s and ".nexus/reviews/" in s                      # no Artifact tool → Markdown
+    assert "only after a yes" in s and "never post on your own" in s
+    assert s.index("Post only after an explicit yes") > s.index("gh pr review <n> --approve")
+    assert "every commit in the range" in (ROOT / "tools" / "agents" / "pr-verifier.md").read_text()

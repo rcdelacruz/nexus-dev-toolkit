@@ -16,6 +16,8 @@ Put each app's designs in `docs/designs/<app>/` (a folder or a .zip — both wor
 system, when there is one, lives in `docs/designs/design-system/`. Screens follow the architecture's epics.
 
 - **HTML frames** — one file per screen, named `Frame - <Screen>.dc.html` (or `<Screen>.html`).
+  Once a screen has an ID (`DES-004`), keep it in the file name (`DES-004-book.html`) or the `<title>`:
+  then the ID stays the same when frames are added or renamed, with or without `design.json`.
   These are the visual source of truth for every stack, React or not.
 - **Tokens** — one CSS file defining the design's colour roles as variables (`--background`,
   `--foreground`, `--primary`, `--muted`, `--destructive`, `--border`, `--radius`, …), light and

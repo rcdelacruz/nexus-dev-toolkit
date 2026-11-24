@@ -271,7 +271,6 @@
     <a href="#who">Who this is for</a>
     <a href="#setup">Set up once</a>
     <a href="#flow">Where you fit</a>
-    <a href="#requirements" class="sub">/requirements</a>
     <a href="#architect" class="sub">/architect</a>
     <a href="#change-request" class="sub">/change-request</a>
     <a href="#guide">Your guide</a>
@@ -313,12 +312,13 @@
 <span class="comment"># 2. in your copy of the project repository</span>
 <span class="prompt">$</span> <span class="cmd">nexus4 init</span> . --role architect
 
-<span class="comment"># 3. open Claude Code there and type /requirements or /architect</span></code></pre>
+<span class="comment"># 3. open Claude Code there and type /architect</span></code></pre>
     <p><code>nexus4</code> is the preview under its own name: your <code>nexus</code> (nexus 3) and your other projects stay as they are, and every run picks up the newest preview by itself. To keep <code>nexus4</code> in new terminals, add the <code>alias</code> line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>).</p>
     <pre><code><span class="prompt">$</span> <span class="cmd">export</span> TYPESAFE_API_KEY=&lt;your key&gt;   <span class="comment"># optional: TypeSafe judgments</span></code></pre>
     <p><strong>Optional — TypeSafe.</strong> With a key, nexus asks <a href="https://typesafe.ai" target="_blank" rel="noopener" style="color:var(--cyan)">TypeSafe</a> where it would otherwise guess from keywords: the sections of a doc that doesn't follow the guide, design tokens its rules can't place, and which technologies a doc really uses. Without a key, nexus uses its built-in rules and nothing is sent. Add the line to <code>~/.zshrc</code> (or <code>~/.bashrc</code>) and start Claude Code from that terminal. Never put the key in <code>.mcp.json</code>: it's shared in git.</p>
-    <p><code>--role architect</code> installs only <code>/requirements</code>, <code>/architect</code> and
-      <code>/change-request</code> — no developer tools. It also adds the guides to <code>docs/</code> if they
+    <p><code>--role architect</code> installs only <code>/architect</code>, <code>/change-request</code>,
+      <code>/commit</code> and <code>/create-pr</code> — no developer tools. Requirements in <code>docs/requirements/</code>
+      are the product owner's (<code>/brd</code>, <code>/prd</code>, <code>/requirements</code>); you read them and ask for changes. It also adds the guides to <code>docs/</code> if they
       aren't there yet. Check the setup any time with <code>nexus4 doctor</code>.</p>
 
     <h2 id="flow">Where You Fit</h2>
@@ -342,13 +342,6 @@ flowchart TB
     <p>Every command runs the same four steps developers use: it looks first, shows you a plan,
       <strong>stops for your approval</strong>, writes, then checks its own work against your guide. Nothing is
       written before you say go, and nothing is committed until you type <code>/commit</code>.</p>
-
-    <h2 id="requirements">/requirements [source]</h2>
-    <p>Imports a BRD, PRD or brief (Markdown, Word or PDF) into <code>docs/requirements/</code> — one set for the
-      whole product — or writes it with you. Every requirement gets an ID in <strong>your project's scheme</strong> — e.g.
-      <code>US-014</code>, <code>FR-AUTH-003</code>, <code>NFR-SEC-004</code>, <code>AC-184</code>. Existing IDs are
-      never renumbered. Anything missing from the source (acceptance criteria, a number for "fast") comes back as a
-      question, never invented. Requirement files sitting in <code>docs/arch-docs/</code> are moved out.</p>
 
     <h2 id="architect">/architect &lt;app&gt;</h2>
     <p>Reads the product's BRD and PRD and writes or updates <code>docs/arch-docs/&lt;app&gt;/ARCH-…-vN.md</code>

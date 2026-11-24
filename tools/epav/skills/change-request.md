@@ -64,4 +64,6 @@ Affected dev tasks: <file — task ids>   (only these get re-planned)
 Next:      review the changes (`git diff`), then `/commit` and `/create-pr`
 ```
 
+**A later part of the same change request** — typically the designer's screens, in their own branch after the requirements were merged: the designer runs `/change-request <CR-id>` again. `record_change_request` sees the record exists and adds the new IDs to it as an `updates` entry (`new_ids`, `newly_affected_tasks`) instead of writing a second record. Show what this part adds; `no_new_changes` means the record already holds every ID changed since `main`.
+
 Next, for the tech lead, once the change request's pull request is merged and they've pulled `main`: `/dev-tasks-planner cr <CR-id>` re-plans only the affected rows; developers then build them with `/evaluate`, `/plan`, `/apply`, `/validate`. (The Day 0 scaffold isn't re-run for a change request.)

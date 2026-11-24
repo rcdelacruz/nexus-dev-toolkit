@@ -23,6 +23,9 @@ class ChangeRequest:
     removed_ids: list[str] = field(default_factory=list)
     files: list[str] = field(default_factory=list)     # docs/ files the CR edited
     reason: str = ""
+    # Later parts of the same change request (e.g. the designer's screens, merged after the
+    # requirements): one entry per update — date, the IDs it added to the record, its files.
+    updates: list[dict] = field(default_factory=list)
 
     @property
     def touched_ids(self) -> list[str]:

@@ -240,3 +240,35 @@ def test_a_note_that_a_state_does_not_apply_is_not_the_state(tmp_path, monkeypat
     monkeypatch.chdir(tmp_path)
     screen = _ingest(module="app")["manifest"]["screens"][0]
     assert screen["states"] == ["loading", "error"]
+
+
+def _frames(root, names):
+    root.mkdir(parents=True, exist_ok=True)
+    for n, title in names:
+        (root / n).write_text(f"<html><head><title>{title}</title></head><body><h1>{title}</h1></body></html>")
+
+
+def test_a_frame_can_declare_its_screen_id(tmp_path):
+    """Without design.json, IDs came from frame order — a new frame shifted them. A frame that names
+    its ID (file name or <title>) keeps it."""
+    from tools.epav.design_ingest import build_manifest
+    src = tmp_path / "export"
+    _frames(src, [("DES-007-book.html", "Book"), ("cancel.html", "DES-003 Cancel"), ("about.html", "About")])
+    ids = {s.frame: s.id for s in build_manifest(src, "app")[0].screens}
+    assert ids["DES-007-book.html"] == "DES-007" and ids["cancel.html"] == "DES-003"
+    assert ids["about.html"] == "DES-008"                           # new screens continue after the highest
+    _frames(src, [("a-first.html", "Alpha")])                        # a new frame sorts first
+    again = {s.frame: s.id for s in build_manifest(src, "app")[0].screens}
+    assert again["DES-007-book.html"] == "DES-007" and again["cancel.html"] == "DES-003"
+
+
+def test_removed_requirement_ids_drop_off_screens(tmp_path):
+    from tools.epav.design_ingest import build_manifest
+    src = tmp_path / "export"
+    _frames(src, [("book.html", "Book")])
+    first, _ = build_manifest(src, "app")
+    first.screens[0].trace_ids = ["US-003", "US-009"]               # traced earlier (e.g. by /design)
+    second, _ = build_manifest(src, "app", previous=first, known_ids={"US-003", "US-004"})
+    assert second.screens[0].trace_ids == ["US-003"]                # US-009 is gone from the requirements
+    third, _ = build_manifest(src, "app", previous=first)            # no requirements to check against: keep
+    assert third.screens[0].trace_ids == ["US-003", "US-009"]

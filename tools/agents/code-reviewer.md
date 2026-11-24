@@ -35,9 +35,26 @@ Report this as markdown, before anything else:
 - **Linting:** <config found or none>
 ```
 
+## Step 2b: Load the project's decisions
+
+Your prompt names the task, its acceptance criteria and trace IDs, the ADR and requirement files, the design files and the rules. Read them before reviewing. If `graphify-out/graph.json` exists, use the graph (Bash): it holds the docs as well as the code —
+- `graphify query "<task or changed module>"` — the requirements, ADRs, screens and code that belong to this change;
+- `graphify path "<changed file>" "<other file>"` and `graphify explain "<changed symbol>"` — who calls the changed code, so you check the callers too.
+(`.codegraph/codegraph.db` instead → `codegraph explore` / `codegraph impact <symbol>`.) No graph → `grep` for the changed symbols' callers.
+
 ## Step 3: Review
 
 Adapt all feedback to the actual stack found. Work through the checklist below only against the code in scope from Step 1.
+
+### Against the project's decisions
+- **Acceptance criteria** — each one is implemented, and a test exercises it. A criterion with no code or no test is a finding.
+- **Trace IDs** — the change does what the requirements it traces to say (business rules, limits, messages), not a near version.
+- **Architecture** — nothing contradicts a `**Choice**` line or an ADR of the epic (stack, patterns, boundaries, data ownership).
+- **Rules** — `AGENTS.md` coding standards and `knowledge/rules/`.
+
+### UI changes (templates, components, styles)
+- **Design tokens** — colours, spacing, radii and fonts come from the tokens; a raw value (`#1a73e8`, `13px`, an inline style) outside the token files is a finding. Each screen matches its frame (DES ID) and has its states (empty, loading, error, disabled).
+- **Accessibility** — every input has a label; images have `alt`; it works with the keyboard (focus visible, no trap, logical order); semantic elements (`button`, `nav`, headings in order) and ARIA only where HTML can't; text contrast at least WCAG AA through the tokens; errors announced next to their field.
 
 ### Correctness
 - Logic errors, off-by-one errors, incorrect conditionals
@@ -75,12 +92,12 @@ Adapt all feedback to the actual stack found. Work through the checklist below o
 For every candidate finding, before keeping it:
 - Re-read the actual lines involved — don't flag from a pattern-match guess.
 - Require a concrete failure scenario (specific input/state → specific wrong output or crash). If you can't state one, drop the finding.
-- Set severity conservatively: `critical`/`high` only for real correctness or security defects, not style preferences.
+- Set severity conservatively. With `ReportFindings`: `important` only for a real correctness, security, requirement or accessibility defect this change adds — **an `important` finding blocks the pull request**; `pre_existing` for a defect that was already there; `nit` for minor issues. In a numbered list (no `ReportFindings`): `critical` / `high` / `medium` / `low`, where `critical` and `high` block.
 - Set `verdict: "CONFIRMED"` on findings that survive this check.
 
 ## Step 5: Report
 
 Print the `## Repo Context` block as your only text output, then call `ReportFindings` with the verified findings (most severe first; empty array if none survived). Do not also print findings as text, and do not add prose after the tool call. If the `ReportFindings` tool isn't available, print the verified findings as a numbered list instead (most severe first, each with file:line, summary and failure scenario).
 
-- `category`: one of `bug`, `error-handling`, `complexity`, `naming`, `duplication`, `type-safety`, `performance`, `maintainability`, `security`
+- `category`: one of `bug`, `error-handling`, `complexity`, `naming`, `duplication`, `type-safety`, `performance`, `maintainability`, `security`, `requirements`, `architecture`, `design-tokens`, `accessibility`
 - `file`/`line`: omit if not applicable

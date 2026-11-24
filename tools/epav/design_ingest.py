@@ -374,8 +374,22 @@ def _screen_name(frame: Path) -> str:
     return re.sub(r"(?i)^frame\s*-\s*", "", stem).strip()
 
 
+def _declared_id(frame: Path, text: str, id_patterns: dict | None) -> str | None:
+    """A screen ID the frame gives itself — in its file name (DES-004-book.html) or its <title>.
+    IDs elsewhere in a frame are links to other screens, not its own."""
+    title = re.search(r"(?is)<title[^>]*>(.*?)</title>", text)
+    for source in (frame.stem, title.group(1) if title else ""):
+        ids = [i for i in extract_ids(source, id_patterns) if kind_of(i, id_patterns) == "design"]
+        if ids:
+            return ids[0]
+    return None
+
+
 def build_manifest(src_root: Path, module: str, previous: design_format.DesignManifest | None = None,
-                   id_patterns: dict | None = None, sources: list[str] | None = None) -> tuple[design_format.DesignManifest, dict]:
+                   id_patterns: dict | None = None, sources: list[str] | None = None,
+                   known_ids: set[str] | None = None) -> tuple[design_format.DesignManifest, dict]:
+    """known_ids: the requirement IDs that exist in docs/requirements/ now — a trace ID carried over
+    from the previous design.json is dropped once its requirement is gone."""
     files, skipped_dirs = _walk(src_root)
     roots = _export_roots(files, src_root)
     m = design_format.DesignManifest(module=module, sources=sources or [str(src_root)])
@@ -446,7 +460,14 @@ def build_manifest(src_root: Path, module: str, previous: design_format.DesignMa
 
     # screens from frames (reference frames like "Design System" are not screens)
     old_ids = {s.name: s.id for s in (previous.screens if previous else [])}
-    next_no = max([int(i.split("-")[1]) for i in old_ids.values() if re.fullmatch(r"DES-\d+", i)] + [0]) + 1
+    # IDs frames declare themselves keep a screen's ID stable even without a design.json.
+    declared = {}
+    for fr in frames:
+        did = _declared_id(fr, _read(fr), id_patterns)
+        if did and did not in old_ids.values() and did not in declared.values():
+            declared[fr] = did
+    taken = list(old_ids.values()) + list(declared.values())
+    next_no = max([int(i.split("-")[1]) for i in taken if re.fullmatch(r"DES-\d+", i)] + [0]) + 1
     comp_index = {}
     for c in components:
         stem = c.parent.name if c.stem in ("page", "index", "+page") else c.stem
@@ -460,7 +481,7 @@ def build_manifest(src_root: Path, module: str, previous: design_format.DesignMa
             reference_frames.append(str(fr.relative_to(src_root)))
             continue
         text = _read(fr)
-        sid = old_ids.get(name)
+        sid = old_ids.get(name) or declared.get(fr)
         if not sid:
             sid = f"DES-{next_no:03d}"
             next_no += 1
@@ -471,7 +492,8 @@ def build_manifest(src_root: Path, module: str, previous: design_format.DesignMa
         trace = [i for i in extract_ids(text, id_patterns) if kind_of(i, id_patterns) not in ("adr", "design", "change", "epic")]
         if previous:
             prev = next((s for s in previous.screens if s.name == name), None)
-            trace = list(dict.fromkeys((prev.trace_ids if prev else []) + trace))
+            carried = [i for i in (prev.trace_ids if prev else []) if not known_ids or i in known_ids]   # removed IDs drop off
+            trace = list(dict.fromkeys(carried + trace))
         m.screens.append(design_format.Screen(
             id=sid, name=name, frame=str(fr.relative_to(src_root)),
             component=str(match[0].relative_to(src_root)) if match else "",
@@ -613,7 +635,12 @@ def register_design_ingest_tool(mcp: FastMCP) -> None:
                     previous = design_format.read_manifest(out_path)
                 except Exception as e:
                     logger.warning("previous design.json unreadable: %s", e)
-            manifest, info = build_manifest(root, module, previous, guide.id_patterns, [str(src)])
+            known = set()
+            req_dir = Path("docs/requirements")
+            if req_dir.is_dir():
+                for f in req_dir.rglob("*.md"):
+                    known |= set(extract_ids(f.read_text(encoding="utf-8", errors="replace"), guide.id_patterns))
+            manifest, info = build_manifest(root, module, previous, guide.id_patterns, [str(src)], known or None)
             info["token_roles"], roles_from = await judge_unplaced_tokens(info["token_roles"], manifest.tokens.get("light", {}))
             findings = check(manifest, guide, info, requirement_ids)
             written = []

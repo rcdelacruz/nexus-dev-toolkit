@@ -8,6 +8,10 @@ A plan must be approved. If `/plan` has not run and been approved, stop and ask.
 
 ## Steps
 
+### 0 — Mark the task In Progress
+
+Before the first file, run the `set_task_status` MCP tool: `task_id=<id>`, `status="In Progress"`, and `assignee=` the developer's `git config user.name` when the row's ASSIGNEE is blank. It changes only that row of the task file; the change rides in this task's branch and reaches `main` with the pull request. No task ID (a free-form task) → skip.
+
 ### 1 — Implement exactly what the plan says
 
 - Follow the numbered steps from PLAN in order.

@@ -104,6 +104,24 @@ def test_trace_tasks_fills_the_column_from_existing_text(repo):
     assert back["TASK-002"] == "US-002"
 
 
+def test_trace_tasks_write_keeps_the_file_as_it_was(repo):
+    """Before: write=True rewrote the whole file in nexus's layout (headers upper-cased, columns
+    reordered). Now only the trace cells change — an added column goes at the end."""
+    f = repo / "docs/dev-tasks/core/login-tasks.csv"
+    lines = ["Task ID,Summary,User Story,Description,Acceptance Criteria,My Notes",
+             'TASK-001,Login,"As a user, I sign in (US-001)","Uses FR-AUTH-002",AC-1,keep me',
+             "TASK-002,Logout,As a user (US-002),d,AC-2,"]
+    f.write_bytes(("\r\n".join(lines) + "\r\n").encode())
+    _tool("trace_tasks", csv_path=str(f.relative_to(repo)), write=True)
+    out = f.read_bytes().decode().split("\r\n")             # CRLF line ends kept
+    assert out[0] == lines[0] + ",TRACE_IDS"
+    assert out[1].startswith(lines[1] + ",") and "US-001" in out[1].split(lines[1] + ",")[1]
+    assert out[2] == lines[2] + ',"US-002, AC-2"'
+    before = f.read_bytes()
+    _tool("trace_tasks", csv_path=str(f.relative_to(repo)), write=True)          # second run: nothing to change
+    assert f.read_bytes() == before
+
+
 PRD_SECTIONS_V1 = """# PRD
 ## 3. User Stories
 ### US-005 — Cancel
@@ -213,3 +231,38 @@ def test_a_reexported_frame_counts_as_its_screen(tmp_path, monkeypatch):
     screen = next(s["id"] for s in json.loads((frame.parent / "design.json").read_text())["screens"]
                   if s.get("frame") == frame.name)
     assert crm.diff_ids("HEAD")["other"] == [screen]
+
+
+@pytest.mark.parametrize("keep_v1", [True, False])
+def test_a_new_version_is_compared_with_the_one_it_replaces(repo, keep_v1):
+    """ARCH v2 next to (or instead of) v1: only what differs counts — before, every ID in v2 was 'changed'."""
+    d = repo / "docs" / "arch-docs" / "core"
+    v1 = "# Architecture\n## ADR-ACME-CORE-001: Sessions\n- **Choice**: JWT, 60 min (NFR-SEC-003)\n## ADR-ACME-CORE-002: Storage\n- **Choice**: Postgres (FR-AUTH-002)\n"
+    (d / "ARCH-CORE-v1.0.md").write_text(v1)
+    _git(repo, "add", "-A"); _git(repo, "commit", "-q", "-m", "arch v1")
+    (d / "ARCH-CORE-v2.0.md").write_text(v1.replace("JWT, 60 min", "JWT, 15 min"))
+    if not keep_v1:
+        (d / "ARCH-CORE-v1.0.md").unlink()
+    r = crm.diff_ids("HEAD")
+    touched = set(r["changed"]) | set(r["added"]) | set(r["removed"]) | set(r["other"])
+    assert "ADR-ACME-CORE-001" in touched or "NFR-SEC-003" in touched, r
+    assert "FR-AUTH-002" not in touched and "ADR-ACME-CORE-002" not in touched, r    # unchanged decision
+    assert not r["removed"], r
+
+
+def test_a_later_part_of_the_change_is_added_to_the_record(repo):
+    """The designer's screens arrive after the requirements part was recorded: same record, an update entry."""
+    (repo / "docs" / "requirements" / "core" / "PRD.md").write_text(PRD_V2)
+    first = _tool("record_change_request", cr_id="CR-004", title="Sessions", write=True)
+    assert first["status"] == "ok" and "updating_existing_record" not in first
+    _git(repo, "add", "-A"); _git(repo, "commit", "-q", "-m", "CR-004 requirements")
+    again = _tool("record_change_request", cr_id="CR-004", title="Sessions", base="HEAD~1", write=True)
+    assert again["status"] == "no_new_changes" and again["new_ids"] == []
+    rec = json.loads((repo / "docs" / "change-requests" / "CR-004.json").read_text())
+    (repo / "docs" / "requirements" / "core" / "PRD.md").write_text(PRD_V2 + "\n### US-009 — Reminders\n- AC-090 A reminder a day before.\n")
+    later = _tool("record_change_request", cr_id="CR-004", title="ignored", base="HEAD~1", write=True)
+    assert later["status"] == "ok" and later["updating_existing_record"] and "US-009" in later["new_ids"]
+    saved = json.loads((repo / "docs" / "change-requests" / "CR-004.json").read_text())
+    assert saved["title"] == "Sessions" and saved["date"] == rec["date"]
+    assert set(rec["changed_ids"]) <= set(saved["changed_ids"]) and "US-009" in saved["added_ids"]
+    assert saved["updates"][-1]["ids"] == later["new_ids"]
